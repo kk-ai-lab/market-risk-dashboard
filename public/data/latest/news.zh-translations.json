@@ -1,11 +1,151 @@
 {
   "items": [
     {
-      "id": "2c665d94022fa3547840d59ab3f5bbb369ff7541",
-      "title": "CLS, Nov 3: US memory stocks rebound premarket — SanDisk up more than 5 percent, Micron over 4 percent, Western Digital and SK Hynix over 3 percent",
-      "summary": "CLS, Nov 3: US memory names rebounded in premarket trading, with SanDisk extending gains past 5 percent, Micron up more than 4 percent, and Western Digital and SK Hynix up more than 3 percent",
-      "title_zh": "财联社11月3日电，美股存储概念股盘前反弹，闪迪涨幅扩大至逾5%，美光科技涨超4%，西部数据、SK海力士涨超3%。",
-      "summary_zh": "财联社11月3日电，美股存储概念股盘前反弹，闪迪涨幅扩大至逾5%，美光科技涨超4%，西部数据、SK海力士涨超3%"
+      "id": "46e52927603fd5ad6ed14e833743220823d93da5",
+      "title": "AMD has been crushed into earnings. Here’s one way to trade it",
+      "summary": "AMD has been crushed into earnings",
+      "title_zh": "AMD 在财报前已被杀跌。这里有一种交易方式",
+      "summary_zh": "AMD 在财报前已被大幅杀跌"
+    },
+    {
+      "id": "345a6f7ecf15be7caf0eb11ee7a14443ea403ed6",
+      "title": "Livermore China ADR leaders index closes down 0.08 percent",
+      "summary": "[Livermore China ADR leaders index closes down 0.08 percent] CLS, Nov 4: the Livermore China ADR leaders index closed down 0.08 percent",
+      "title_zh": "利弗莫尔中概股龙头指数收跌0.08%",
+      "summary_zh": "【利弗莫尔中概股龙头指数收跌0.08%】财联社11月4日电，利弗莫尔中概股龙头指数收跌0.08%"
+    },
+    {
+      "id": "f276014ff2227c921c896ee94b0deefb27d61f46",
+      "title": "Nasdaq closes up 0.8 percent, Philadelphia semiconductor index up 2.6 percent",
+      "summary": "[Nasdaq closes up 0.8 percent, Philadelphia semiconductor index up 2.6 percent] CLS, Nov 4: the three main US equity indices closed mixed, with the Dow down 0.38 percent, the Nasdaq up 0.83 percent and the S&P 500 up 0.37 percent",
+      "title_zh": "纳指收涨0.8% 费城半导体指数涨2.6%",
+      "summary_zh": "【纳指收涨0.8% 费城半导体指数涨2.6%】财联社11月4日电，美股三大指数收盘涨跌不一，道指跌0.38%，纳指涨0.83%，标普500指数涨0.37%"
+    },
+    {
+      "id": "3f112e8d8c20e2237d7338a0c7b39100fc1dde36",
+      "title": "Spain's transport minister resigns after two major high-speed rail accidents in a year",
+      "summary": "[Spain's transport minister resigns after two major high-speed rail accidents in a year] CLS, Nov 4: Spanish transport minister Oscar Puente announced his resignation",
+      "title_zh": "一年内发生两次重大高铁事故 西班牙交通大臣宣布辞职",
+      "summary_zh": "【一年内发生两次重大高铁事故 西班牙交通大臣宣布辞职】财联社11月4日电，西班牙交通大臣奥斯卡·普恩特宣布辞职"
+    },
+    {
+      "id": "48e9ee879212965a015bf4ad60138017ef944904",
+      "title": "International oil prices edge lower on Nov 3",
+      "summary": "[International oil prices edge lower on Nov 3] CLS, Nov 4: international oil prices edged lower on Nov 3",
+      "title_zh": "国际油价3日微跌",
+      "summary_zh": "【国际油价3日微跌】财联社11月4日电，国际油价3日微跌"
+    },
+    {
+      "id": "4648a60ee5856bb18bb00f9517e108e263d47cb3",
+      "title": "Apple stock sinks as global memory crisis hurts profits, giving Ternus his first big test",
+      "summary": "In John Ternus' first earnings report as CEO, Apple issued a gross margin forecast that disappointed Wall Street.",
+      "title_zh": "全球存储危机侵蚀利润，苹果股价下挫，特努斯迎来首次大考",
+      "summary_zh": "在约翰·特努斯出任首席执行官后的首份财报中，苹果给出的毛利率指引令华尔街失望。"
+    },
+    {
+      "id": "de6684200e38db45ce3f43af3a56cf550c5b8cf9",
+      "title": "Magnitude 4.3 earthquake hits Hutubi county in Xinjiang's Changji prefecture",
+      "summary": "[Magnitude 4.3 earthquake hits Hutubi county in Xinjiang's Changji prefecture] CLS, Nov 4: the China Earthquake Networks Center determined that a magnitude 4.3 earthquake struck Hutubi county in Changji prefecture, Xinjiang (44.38 degrees north, 86.75 degrees east) at 04:19 on Nov 4, at a depth of 20 kilometres",
+      "title_zh": "新疆昌吉州呼图壁县发生4.3级地震",
+      "summary_zh": "【新疆昌吉州呼图壁县发生4.3级地震】财联社11月4日电，中国地震台网正式测定：11月04日04时19分在新疆昌吉州呼图壁县（北纬44.38度，东经86.75度）发生4.3级地震，震源深度20千米"
+    },
+    {
+      "id": "64016df40e5b3ef85e12687588519d9a68a0a9f6",
+      "title": "Dollar index rises on Nov 3",
+      "summary": "[Dollar index rises on Nov 3] CLS, Nov 4: the dollar index measuring the greenback against six major currencies rose 0.15 percent on the day, closing at 101.867 in late forex trading",
+      "title_zh": "美元指数3日上涨",
+      "summary_zh": "【美元指数3日上涨】财联社11月4日电，衡量美元对六种主要货币的美元指数当天上涨0.15%，在汇市尾市收于101.867"
+    },
+    {
+      "id": "bf85752ec814548884056d8071107de5418a5760",
+      "title": "CLS, Nov 4: the US Senate Commerce Committee will hold a confirmation hearing on Nov 10 for FCC commissioner nominee Tuman",
+      "summary": "CLS, Nov 4: the US Senate Commerce Committee will hold a confirmation hearing on Nov 10 for FCC commissioner nominee Tuman",
+      "title_zh": "财联社11月4日电，美国参议院商务委员会将于11月10日就联邦通信委员会（FCC）委员提名人图曼举行确认听证会。",
+      "summary_zh": "财联社11月4日电，美国参议院商务委员会将于11月10日就联邦通信委员会（FCC）委员提名人图曼举行确认听证会"
+    },
+    {
+      "id": "e31f51e46bd28d3168b6db14db6f7f1215b3dce6",
+      "title": "CLS, Nov 4: HSBC cut China Southern Airlines' A-share rating to underweight with a target price of 3.40 yuan",
+      "summary": "CLS, Nov 4: HSBC cut China Southern Airlines' A-share rating to underweight with a target price of 3.40 yuan",
+      "title_zh": "财联社11月4日电，汇丰将南方航空A股评级下调至减持，目标价3.40元。",
+      "summary_zh": "财联社11月4日电，汇丰将南方航空A股评级下调至减持，目标价3.40元"
+    },
+    {
+      "id": "5c06c79036276d01885f6b01860ad16e4b5e5e40",
+      "title": "Greenland's self-government parliament ratifies security agreement with the United States",
+      "summary": "[Greenland's self-government parliament ratifies security agreement with the United States] CLS, Nov 4: Greenland's self-government parliament formally ratified the security agreement signed by the United States, Denmark and Greenland in New York on Sept 22",
+      "title_zh": "格陵兰岛自治政府议会批准与美国达成的安全协议",
+      "summary_zh": "【格陵兰岛自治政府议会批准与美国达成的安全协议】财联社11月4日电，格陵兰岛自治政府议会正式批准了美国、丹麦和格陵兰岛三方于9月22日在纽约签署的安全协议"
+    },
+    {
+      "id": "a061ceb2592506d1ba8599a073d08f0826d4b1e3",
+      "title": "CLS, Nov 4: Anthropic launched FlashProve, a tool that lets developers verify whether a response was generated by a specific AI model",
+      "summary": "CLS, Nov 4: Anthropic launched FlashProve, a tool that lets developers verify whether a response was generated by a specific AI model",
+      "title_zh": "财联社11月4日电，Anthropic宣布推出FlashProve，该工具允许开发者验证某一响应是否由特定AI模型生成。",
+      "summary_zh": "财联社11月4日电，Anthropic宣布推出FlashProve，该工具允许开发者验证某一响应是否由特定AI模型生成"
+    },
+    {
+      "id": "60d0a5ae8a131457c1c916a0e7c2a947196f8ec4",
+      "title": "CLS, Nov 4: eight executives will leave after the Paramount-Warner Bros. Discovery merger, according to a Skydance memo",
+      "summary": "CLS, Nov 4: eight executives will leave after the Paramount-Warner Bros. Discovery merger, according to a Skydance memo",
+      "title_zh": "财联社11月4日电，据Skydance的一份备忘录，在派拉蒙与华纳兄弟探索公司合并后，将有八名高管离职。",
+      "summary_zh": "财联社11月4日电，据Skydance的一份备忘录，在派拉蒙与华纳兄弟探索公司合并后，将有八名高管离职"
+    },
+    {
+      "id": "395085a5bde5b6cabb5eef34a90c2c521fd21adf",
+      "title": "Pakistan successfully test-fires its first domestically built air-to-air missile",
+      "summary": "[Pakistan successfully test-fires its first domestically built air-to-air missile] CLS, Nov 4: Pakistan's Inter-Services Public Relations said on Nov 3 that the country had successfully test-fired its first indigenously developed air-to-air missile, the Fa'az, marking another advance in its aerospace and defence capabilities",
+      "title_zh": "巴基斯坦成功试射首枚国产空对空导弹",
+      "summary_zh": "【巴基斯坦成功试射首枚国产空对空导弹】财联社11月4日电，巴基斯坦三军新闻局11月3日通报，巴基斯坦成功试射首款自主研发的“法阿兹”（Fa'az）空对空导弹，标志着该国航空航天和国防能力发展取得又一重要进展"
+    },
+    {
+      "id": "ee792b9efd96272df563a636609f708c121baf9b",
+      "title": "Arab Air Carriers Organization: member airlines expected to lose about 4.3 billion dollars this year",
+      "summary": "[Arab Air Carriers Organization: member airlines expected to lose about 4.3 billion dollars this year] CLS, Nov 4: the Arab Air Carriers Organization held a working session of its 59th annual general assembly in Doha, Qatar",
+      "title_zh": "阿拉伯航空运输组织：今年成员航司预计约亏损43亿美元",
+      "summary_zh": "【阿拉伯航空运输组织：今年成员航司预计约亏损43亿美元】财联社11月4日电，阿拉伯航空运输组织第59届年度大会在卡塔尔首都多哈举行工作会议"
+    },
+    {
+      "id": "2757bc79129f6f257a535d636aaf09df580f346f",
+      "title": "Italy publishes preliminary findings on cyberattack on supermarket refrigeration equipment",
+      "summary": "[Italy publishes preliminary findings on cyberattack on supermarket refrigeration equipment] CLS, Nov 4: the Italian government convened a meeting at the prime minister's office over the cyberattack on supermarket refrigeration equipment",
+      "title_zh": "意大利公布超市制冷设备遭网络攻击初步调查结果",
+      "summary_zh": "【意大利公布超市制冷设备遭网络攻击初步调查结果】财联社11月4日电，意大利政府针对超市制冷设备遭网络攻击事件在总理府召开会议"
+    },
+    {
+      "id": "ee05fbaa538b714c77f3f816716076bfe963a00e",
+      "title": "CLS, Nov 4: the dollar rose as much as 0.5 percent against the yen to 158.73",
+      "summary": "CLS, Nov 4: the dollar rose as much as 0.5 percent against the yen to 158.73",
+      "title_zh": "财联社11月4日电，美元兑日元涨幅达0.5%，报158.73。",
+      "summary_zh": "财联社11月4日电，美元兑日元涨幅达0.5%，报158.73"
+    },
+    {
+      "id": "e9bcdc92bb131f4dc1d5fa86d7e7797f0e4b822e",
+      "title": "CLS, Nov 4: Hang Seng Index futures closed down 0.46 percent in the overnight session, Hang Seng Tech futures down 0.36 percent",
+      "summary": "CLS, Nov 4: Hang Seng Index futures closed down 0.46 percent in the overnight session, Hang Seng Tech futures down 0.36 percent",
+      "title_zh": "财联社11月4日电，恒生指数主连夜盘收跌0.46%，恒生科技指数主连夜盘收跌0.36%。",
+      "summary_zh": "财联社11月4日电，恒生指数主连夜盘收跌0.46%，恒生科技指数主连夜盘收跌0.36%"
+    },
+    {
+      "id": "c882eee3d6093432bf2f0d3bd4ff0cf44b8bf6c5",
+      "title": "CLS, Nov 4: Apple has opened preview access to Siri AI to all developers",
+      "summary": "CLS, Nov 4: Apple has opened preview access to Siri AI to all developers",
+      "title_zh": "财联社11月4日电，苹果已向所有开发者开放Siri AI的预览测试权限。",
+      "summary_zh": "财联社11月4日电，苹果已向所有开发者开放Siri AI的预览测试权限"
+    },
+    {
+      "id": "3daa24c4aa7ec4fb8893b125d7e2c4970b1d60c3",
+      "title": "CLS, Nov 4: investor orders for Meta's dollar bond sale reached as much as 58 billion dollars, with the deal expected to be at least 15 billion dollars",
+      "summary": "CLS, Nov 4: investor orders for Meta's dollar bond sale reached as much as 58 billion dollars, with the deal expected to be at least 15 billion dollars",
+      "title_zh": "财联社11月4日电，投资者对Meta美元债券发行提交的订单最高达580亿美元，此次发行规模预计至少为150亿美元。",
+      "summary_zh": "财联社11月4日电，投资者对Meta美元债券发行提交的订单最高达580亿美元，此次发行规模预计至少为150亿美元"
+    },
+    {
+      "id": "55110e69d35ea68711c82698b9bb7064c3b034e1",
+      "title": "Latvia's new parliament elects Smiltens as speaker",
+      "summary": "[Latvia's new parliament elects Smiltens as speaker] CLS, Nov 4: Latvia's 15th parliament held its first session on Nov 3 and elected Edvards Smiltens of the United List party alliance as its new speaker",
+      "title_zh": "拉脱维亚新一届议会选举斯米尔滕斯为议长",
+      "summary_zh": "【拉脱维亚新一届议会选举斯米尔滕斯为议长】财联社11月4日电，拉脱维亚第15届议会3日举行首次会议，选举来自政党联盟“联合名单”的爱德华兹·斯米尔滕斯为新一任议长"
     },
     {
       "id": "acc8c2e335dae9d0d246d8a2d14c23e147948930",
@@ -15,11 +155,11 @@
       "summary_zh": "AI交易的风向正在发生变化"
     },
     {
-      "id": "c2f91150a08155ccde0e93e92d707d15757b73f3",
-      "title": "Apple's John Ternus faces early test as global memory crisis hurts profits",
-      "summary": "In John Ternus' first earnings report as CEO, Apple issued a gross margin forecast that disappointed Wall Street.",
-      "title_zh": "苹果的约翰·特努斯面临早期考验：全球存储危机侵蚀利润",
-      "summary_zh": "在特努斯出任首席执行官后的首份财报中，苹果给出的毛利率指引令华尔街失望。"
+      "id": "5142d27225fa8c289502a629a07b3b82e45e8a40",
+      "title": "CLS, Nov 4: BMW expects a full-year automotive EBIT margin of -0.5 percent to 0.5 percent, down from a prior forecast of 1 percent to 3 percent and against a market estimate of 1.94 percent",
+      "summary": "CLS, Nov 4: BMW expects a full-year automotive EBIT margin of -0.5 percent to 0.5 percent, down from a prior forecast of 1 percent to 3 percent and against a market estimate of 1.94 percent",
+      "title_zh": "财联社11月4日电，宝马汽车预计全年汽车业务息税前利润率-0.5％至0.5％，此前预计1%至3%，市场预估1.94％。",
+      "summary_zh": "财联社11月4日电，宝马汽车预计全年汽车业务息税前利润率-0.5％至0.5％，此前预计1%至3%，市场预估1.94％"
     },
     {
       "id": "4c3960194359293a58a307cf07d6201ba3dfbea6",
@@ -36,20 +176,6 @@
       "summary_zh": "近期， 长鑫科技 、 寒武纪 、 中微公司 、 电科蓝天 、 源杰科技 、 中国通号 等科创板龙头企业密集发声，结合自身经营发展、研发进展及后续规划，回应市场对科技板块短期波动的关注"
     },
     {
-      "id": "03e91b20226987f616f6444a3e78aaaf53786e7e",
-      "title": "The real driver of the 17-year US bull market is not technology but the Fed (Hu Jie masterclass 5.1)",
-      "summary": "Preview: two numbers to start with — the Dow compounded at 6.6 percent a year from 1986 to 2009, then 11.7 percent from 2009 to 2026, nearly double",
-      "title_zh": "美股17年长牛的真正推手，不是科技，而是美联储【胡捷大师课5.1】",
-      "summary_zh": "精彩内容预览 &nbsp; 先记住两个数字： 1986到2009年，道琼斯指数年化收益6.6%； 2009年到2026年，11.7%——将近翻倍"
-    },
-    {
-      "id": "2c75f0d72d1cab4b3961997867e162da5f187a83",
-      "title": "Inflation at 9.1 percent: how the biggest blemish of Powell's career came about (Hu Jie masterclass 4.1)",
-      "summary": "Preview: in June 2022 US CPI reached 9.1 percent — above 5 percent is serious inflation, above 10 percent is hyperinflation, and 9.1 percent was already on the cliff edge",
-      "title_zh": "通胀飙到9.1%：鲍威尔一生最大的“污点”是怎么造成的【胡捷大师课4.1】",
-      "summary_zh": "精彩内容预览 &nbsp; 2022年6月，美国CPI冲到9.1%——超过5%是严重通胀，超过10%是恶性通胀，9.1%已经在悬崖边上"
-    },
-    {
       "id": "308b62e5c5c024fcdeeb1cdad231493e6bfd3a83",
       "title": "AMD reports after Tuesday's close on midterm election day — which risks should investors watch?",
       "summary": "US markets are dumping artificial intelligence stocks at scale, piling pressure on the companies about to report",
@@ -57,295 +183,173 @@
       "summary_zh": "美股市场正在大规模抛售 人工智能 相关股票，这让接下来将公布财报的公司压力倍增"
     },
     {
-      "id": "46d1b282eae47f9e91887e9c610324878ef456c5",
-      "title": "CLS, Nov 3: SK Hynix reports a 9.1 percent stake in Penguin Solutions",
-      "summary": "CLS, Nov 3: SK Hynix reports a 9.1 percent stake in Penguin Solutions",
-      "title_zh": "财联社11月3日电，Sk海力士报告称持有Penguin Solutions 9.1%的股份。",
-      "summary_zh": "财联社11月3日电，Sk海力士报告称持有Penguin Solutions 9.1%的股份"
+      "id": "13dc153375e78090e31a09951b3a958deac75a58",
+      "title": "S&P 500 snaps 3-day skid on Election Day as chip stocks rebound: Live updates",
+      "summary": "The Nasdaq Composite rose on Tuesday as investors moved back into key technology stocks after recent pressure and geared up for U.S",
+      "title_zh": "标普500在选举日终结三日连跌，芯片股反弹：实时更新",
+      "summary_zh": "纳斯达克综合指数周二上涨，因投资者在近期承压后重新买入关键科技股，并为美国的"
     },
     {
-      "id": "993cfc000e950748ee1c4496831a953177a9dce5",
-      "title": "CLS, Nov 3: B. Riley cuts Lumentum to neutral from buy and lowers its target price to 770 dollars from 1,142",
-      "summary": "CLS, Nov 3: B. Riley cut Lumentum to neutral from buy and lowered its target price to 770 dollars from 1,142.",
-      "title_zh": "财联社11月3日电，B. RILEY将Lumentum评级从买入下调至中性评级，将目标价从1142美元下调至770美元。",
-      "summary_zh": "财联社11月3日电，B"
+      "id": "3d62492c9b21342954bdef2a73bbc01d35e111fd",
+      "title": "Midterm elections 2026 live updates: Economy, inflation and other voter concerns",
+      "summary": "Follow 2026 midterm elections live updates, including House and Senate races, Texas, Georgia, Ohio and Minnesota, and key results as polls close.",
+      "title_zh": "2026 中期选举实时更新：经济、通胀及其他选民关切",
+      "summary_zh": "追踪 2026 中期选举实时动态，包括众议院与参议院选情、得克萨斯、佐治亚、俄亥俄与明尼苏达，以及投票结束时的关键结果。"
     },
     {
-      "id": "4735f06c08bd2acb941205ee9dc4d8f764c2e96e",
-      "title": "CLS, Nov 3: B. Riley lowers its Marvell Technology target price to 275 dollars from 365",
-      "summary": "CLS, Nov 3: B. Riley lowered its Marvell Technology target price to 275 dollars from 365.",
-      "title_zh": "财联社11月3日电，B. RILEY将迈威尔科技的目标价从365美元下调至275美元。",
-      "summary_zh": "财联社11月3日电，B"
+      "id": "83cff5fba2301038d4a25cec1dc40591594533b6",
+      "title": "How Trump contesting midterm election results might disrupt the market",
+      "summary": "One scenario may not be getting enough attention from investors: a contested election.",
+      "title_zh": "特朗普质疑中期选举结果可能如何扰动市场",
+      "summary_zh": "有一个情形可能没有得到投资者足够重视：选举结果被质疑。"
     },
     {
-      "id": "8d135a90cd5a765edaa4f3fc3335f018d5bdb146",
-      "title": "US premarket briefing: Apple's CEO says rising memory prices are weighing on gross margin; Musk plans to renegotiate with TSMC; Anthropic aims for more than 3.5 gigawatts of compute by year-end",
-      "summary": "CLS, Nov 3: the US market stories investors need to watch — 1) the three main index futures are mixed",
-      "title_zh": "美股盘前要闻一览：苹果CEO称内存涨价正拖累毛利率；马斯克拟与台积电重新谈判；Anthropic力争今年底算力规模超3.5吉瓦",
-      "summary_zh": "【美股盘前要闻一览：苹果CEO称内存涨价正拖累毛利率；马斯克拟与台积电重新谈判；Anthropic力争今年底算力规模超3.5吉瓦】财联社11月3日电，投资者需重点关注的美股市场财经要闻如下： 1、美三大股指期货涨跌不一"
+      "id": "ff5242cdf1e2fc8010b49a4119998b22682d442d",
+      "title": "Texas race results could kick AI trade while it's already down",
+      "summary": "Gov",
+      "title_zh": "得州选情结果可能在 AI 交易已然承压之际再补一脚",
+      "summary_zh": "州长"
     },
     {
-      "id": "128dc20fd960a7d538fddb808d001116e9d61136",
-      "title": "Peskov: Europe cannot take part in the Ukraine talks",
-      "summary": "CLS, Nov 3: Kremlin press secretary Dmitry Peskov said on November 3 that Europe cannot join the Ukraine talks being held in Abu Dhabi",
-      "title_zh": "佩斯科夫：欧洲不能参加乌克兰问题谈判",
-      "summary_zh": "【佩斯科夫：欧洲不能参加乌克兰问题谈判】财联社11月3日电，俄罗斯总统新闻秘书佩斯科夫11月3日表示，欧洲不能参加在阿布扎比举行的乌克兰问题谈判"
+      "id": "e33bd719c5b0e10bccb1c0550bd73b8b0043a790",
+      "title": "Fannie Mae, Freddie Mac rally as Ackman presses for conservatorship exit",
+      "summary": "The midterm elections could be a turning point for the release of Fannie Mae and Freddie Mac from government control, according to Bill Ackman.",
+      "title_zh": "阿克曼施压要求退出托管，房利美与房地美大涨",
+      "summary_zh": "比尔·阿克曼表示，中期选举可能成为房利美与房地美脱离政府控制的转折点。"
     },
     {
-      "id": "875d606e2f875d242b86fc8a8332960d631216b8",
-      "title": "CLS, Nov 3: China's night-session commodity futures opened mostly lower — Shanghai tin down 1.82 percent, Shanghai silver down 1.77 percent, coking coal down 1.7 percent, crude down 1.27 percent, while caustic soda rose 1.55 percent and methanol 0.73 percent",
-      "summary": "CLS, Nov 3: China's commodity futures night session opened mostly lower, with Shanghai tin down 1.82 percent, Shanghai silver down 1.77 percent, coking coal down 1.7 percent and crude down 1.27 percent, while caustic soda gained 1.55 percent and methanol 0.73 percent",
-      "title_zh": "财联社11月3日电，国内商品期货夜盘开盘多数下跌，沪锡跌1.82%，沪银跌1.77%，焦煤跌1.7%，原油跌1.27%，烧碱涨1.55%，甲醇涨0.73%。",
-      "summary_zh": "财联社11月3日电，国内商品期货夜盘开盘多数下跌，沪锡跌1.82%，沪银跌1.77%，焦煤跌1.7%，原油跌1.27%，烧碱涨1.55%，甲醇涨0.73%"
+      "id": "0a81f8f963b060c7d7a76ce7c62b2fad27236a8b",
+      "title": "Options traders are betting heavily on these stocks ahead of election results",
+      "summary": "Solar stocks see heavy call activity as voting gets underway",
+      "title_zh": "选举结果公布前，期权交易员大举押注这些股票",
+      "summary_zh": "投票进行之际，太阳能股出现大量看涨期权成交"
     },
     {
-      "id": "68e22e8b9f299c98cf46c9cfbe2e56491daa9826",
-      "title": "CLS early briefing: ByteDance's Seedance already draws 50 percent of its revenue overseas, analysts say AI applications may enter a faster phase of product innovation and monetisation, and one company keeps pushing AI deeper into foreign-trade scenarios",
-      "title_zh": "【财联社早知道】字节跳动旗下Seedance海外收入占比已达50%，分析师称AI应用有望进入产品创新与商业化加速阶段，这家公司持续推动AI技术与外贸场景深度融合；广..."
+      "id": "9be86c3af9edd6fa66664e1d651dafe9cdd8fed9",
+      "title": "Eaton's strong quarter should mark a bottom for shares of the AI buildout winner",
+      "summary": "The stock has struggled in recent months.",
+      "title_zh": "伊顿强劲季报应能为这家 AI 基建赢家的股价划出底部",
+      "summary_zh": "该股近几个月表现挣扎。"
     },
     {
-      "id": "7759e73e5bff6b1e3e0803c4a728d6791dab7fdc",
-      "title": "CLS, Nov 3: US optical communications names rebounded slightly premarket — Marvell up more than 3 percent after falling nearly 13 percent last session, Lumentum up more than 2 percent after dropping more than 18 percent",
-      "summary": "CLS, Nov 3: the US optical communications sector rebounded modestly premarket, with Marvell Technology up more than 3 percent after a nearly 13 percent drop last session and Lumentum up more than 2 percent after a more than 18 percent slide",
-      "title_zh": "财联社11月3日电，美股光通信板块盘前小幅反弹，迈威尔科技涨超3%，上一交易日跌近13%；Lumentum涨超2%，上一交易日跌超18%。",
-      "summary_zh": "财联社11月3日电，美股光通信板块盘前小幅反弹，迈威尔科技涨超3%，上一交易日跌近13%；Lumentum涨超2%，上一交易日跌超18%"
+      "id": "4fa63394390c9de3266107716b924e4e36bf0506",
+      "title": "The next wave of luxury real estate: marina developments with yacht parking",
+      "summary": "Marinas are becoming the next big draw for luxury real estate, as the global wealthy search for homes to park their ever-larger yachts.",
+      "title_zh": "奢华地产的下一波：带游艇泊位的游艇码头项目",
+      "summary_zh": "随着全球富裕人群寻找能停放日益大型游艇的住宅，游艇码头正成为奢华地产的下一个热点。"
     },
     {
-      "id": "d8ac31c14de6903f50d1271941105a1479d10574",
-      "title": "Sources say the US and Iran are expected to respond to Qatar's new proposal within 36 hours",
-      "summary": "CLS, Nov 3: a official familiar with the talks said Qatari mediators expect feedback from the United States and Iran on a new proposal within the next 36 hours",
-      "title_zh": "知情人士称美伊预计36小时内回应卡塔尔斡旋方新提案",
-      "summary_zh": "【知情人士称美伊预计36小时内回应卡塔尔斡旋方新提案】财联社11月3日电，当地时间11月3日，记者获悉，一名了解谈判情况的官员表示，卡塔尔调解人员预计将在未来36小时内收到美国和伊朗对一项新提案的反馈"
+      "id": "d1f60ec225614e8fa72ae0f265bb3abd3405d47d",
+      "title": "Sullivan: What the 2026 midterms could mean for energy investors",
+      "summary": "A Democratic Congress could be good for offshore wind and solar energy.",
+      "title_zh": "沙利文：2026 中期选举对能源投资者意味着什么",
+      "summary_zh": "民主党掌控国会可能有利于海上风电与太阳能。"
     },
     {
-      "id": "e8e207dd9e802470c61ad68a1c853f4c7e3f5a32",
-      "title": "CLS, Nov 3: New Jersey's governor warns that accepting Russian fuel would break the law",
-      "summary": "CLS, Nov 3: New Jersey's governor warned that accepting Russian fuel would violate the law",
-      "title_zh": "财联社11月3日电，新泽西州州长警告称接收俄罗斯燃料将违反法律。",
-      "summary_zh": "财联社11月3日电，新泽西州州长警告称接收俄罗斯燃料将违反法律"
+      "id": "a006120a214e04fc8d5e6693d811b9a85abfac87",
+      "title": "Innolight responds to rumours: most customers have not cut demand, some see 1.6T demand growth; Nomura says the 330 yuan target price rumour is untrue",
+      "summary": "Innolight issued its latest response as the optical module sector sold off and rumours of cuts to overseas customer demand kept building",
+      "title_zh": "中际旭创回应传言：绝大部分客户未下修需求，部分客户1.6T需求增长，野村：330元目标价传闻不属实",
+      "summary_zh": "光模块板块遭遇调整、海外客户需求下修传闻持续发酵之际，中际旭创给出了最新回应"
     },
     {
-      "id": "7f88b1784173dec486ca0b1b0318cb4932df313a",
-      "title": "Electronic cloth price increases take effect in November as several supply-chain listed companies respond",
-      "summary": "CLS, Nov 3: news that electronic cloth prices rose in November swept financial circles",
-      "title_zh": "电子布11月涨价落地 多家产业链上市公司回应",
-      "summary_zh": "【电子布11月涨价落地 多家产业链上市公司回应】财联社11月3日电，电子布11月涨价落地刷屏财经圈"
+      "id": "b981d763d9a3572fa8a069a918ff2481350e83c2",
+      "title": "Trump DOJ sends target letters to Democrats in Alaska Senate criminal probe: Reports",
+      "summary": "\"There's no doubt that the threats are threats to our democracy,\" said John Cusick, assistant counsel at the Legal Defense Fund.",
+      "title_zh": "报道：特朗普治下司法部在阿拉斯加参议员刑事调查中向民主党人发出目标信函",
+      "summary_zh": "“毫无疑问，这些威胁是对我们民主的威胁，”法律服务基金（Legal Defense Fund）助理顾问约翰·库西克表示。"
     },
     {
-      "id": "3f9761041d7bf15793d770850793c5587322a3c5",
-      "title": "Anthropic to exceed 3.5 gigawatts of compute by the end of 2026, with next year's target doubled",
-      "summary": "CLS, Nov 3: AI company Anthropic is accelerating its compute buildout and has signed dozens of agreements with Amazon, Google, Microsoft, SpaceX and several data centre operators",
-      "title_zh": "Anthropic到2026年底算力规模将超过3.5吉瓦 明年目标翻倍",
-      "summary_zh": "【Anthropic到2026年底算力规模将超过3.5吉瓦 明年目标翻倍】财联社11月3日电，据报道，人工智能公司Anthropic正加速布局算力，已与亚马逊、谷歌、微软、SpaceX及多家数据中心企业签署数十项协议"
+      "id": "4fa59d0b3c675cd17b4d677ca0ed4a2b502bc6b8",
+      "title": "AI-generated 'slopaganda' in political ads puts internet platforms on alert",
+      "summary": "Tuesday's midterm elections follow record spending on AI-generated political ads.",
+      "title_zh": "政治广告中的 AI 生成“垃圾宣传”令互联网平台警惕",
+      "summary_zh": "周二的中期选举之前，AI 生成政治广告的支出创下纪录。"
     },
     {
-      "id": "59f57f5c27b440306f448739054d443ad514d727",
-      "title": "Argus Research raises its Apple target price to 400 dollars from 375",
-      "summary": "CLS, Nov 3: Argus Research lifted its Apple target price to 400 dollars from 375",
-      "title_zh": "Argus Research将苹果目标价从375美元上调至400美元",
-      "summary_zh": "【Argus Research将苹果目标价从375美元上调至400美元】财联社11月3日电，Argus Research上调苹果（AAPL.O）目标价，从375美元升至400美元"
+      "id": "23a04649e020de6bc9ad99d3d9bcd42be7d730f8",
+      "title": "Hacking incident during AI safety test: Israeli firm admits human error",
+      "summary": "The CEO of Israeli cybersecurity firm Irregular Security admitted that a series of recent cyberattacks involving several leading AI model developers stemmed from human error inside the company",
+      "title_zh": "AI安全测试引发黑客事件，以色列公司承认系人为失误所致",
+      "summary_zh": "以色列网络安全公司Irregular Security首席执行官承认，近期涉及多家顶级AI模型开发商的一系列网络攻击事件，根源在于该公司内部的人为失误"
     },
     {
-      "id": "188f8eabf9a5036e55d3f299a6364aa7d75b9199",
-      "title": "CLS, Nov 3: Wedbush initiates coverage of US nuclear power name Oklo at outperform with a 36 dollar target price",
-      "summary": "CLS, Nov 3: Wedbush initiated coverage of US nuclear power stock Oklo with an outperform rating and a 36 dollar target price",
-      "title_zh": "财联社11月3日电，Wedbush首次覆盖美股核电股Oklo，给予“跑赢大盘”评级，目标价36美元。",
-      "summary_zh": "财联社11月3日电，Wedbush首次覆盖美股核电股Oklo，给予“跑赢大盘”评级，目标价36美元"
+      "id": "d7bea5c66e5ba95dddffc6acd7779c268274a833",
+      "title": "CrowdStrike launches AI kill switch that it says can stop internal agents that go rogue",
+      "summary": "CrowdStrike launched an AI kill switch that the company says can stop internal agents, block relaunches and cut enterprise network access.",
+      "title_zh": "CrowdStrike 推出 AI 终止开关，称可阻止内部智能体失控",
+      "summary_zh": "CrowdStrike 推出了一款 AI 终止开关，公司称其可停止内部智能体运行、阻止其重启并切断企业网络访问。"
     },
     {
-      "id": "5e5eeb677b35dd4a6f164858e3e2852b7ed3d3df",
-      "title": "CLS research note: an analyst argues a company has become the industry leader in both capacity and cost, with local government support underpinning prices and two years of profit repair ahead; another company is moving into",
-      "title_zh": "【风口研报·公司】长期逻辑坚实且当地政府托底价格，分析师强call公司已成为业内兼具产能及成本优势的龙头企业，未来两年有望实现盈利的持续修复；另有公司进军..."
+      "id": "be6c8c007301cae5ca3571cedc27be6ec78196d0",
+      "title": "Binance breach puts custody at center of crypto infrastructure trade",
+      "summary": "Lessons from the $6.3 billion Binance hack could help shape the next phase of the crypto infrastructure trade.",
+      "title_zh": "币安被盗事件令托管成为加密基础设施交易的核心",
+      "summary_zh": "币安 63 亿美元被盗事件的教训，可能塑造加密基础设施交易的下一阶段。"
     },
     {
-      "id": "edaa6405584be88af318679bdcf024d4292e109d",
-      "title": "Navigation warning: military missions from the Bohai Sea to the Yellow Sea",
-      "summary": "CLS, Nov 3: according to China's Maritime Safety Administration, the Dalian maritime bureau issued a navigation warning that military missions will be carried out in parts of the Bohai and Yellow Seas from 12:00 on November 4 to 12:00 on November 7, and entry is prohibited",
-      "title_zh": "航行警告 渤海到黄海执行军事任务",
-      "summary_zh": "【航行警告 渤海到黄海执行军事任务】财联社11月3日电，据中国海事局网站消息，大连海事局发布航行警告，11月4日12时至7日12时，渤海到黄海部分海域执行军事任务，禁止驶入"
+      "id": "d7c5087b8f205ea189114530e62656b239f6c150",
+      "title": "Apple warns of risks related to AI agents behaving in 'unintended or unpredictable' ways",
+      "summary": "Apple’s annual filing warns that AI agents could exceed permissions, resist instructions or take actions that are difficult to reverse.",
+      "title_zh": "苹果警示 AI 智能体“非预期或不可预测”行为带来的风险",
+      "summary_zh": "苹果在年报中警示，AI 智能体可能越权、拒不执行指令，或采取难以撤回的行动。"
     },
     {
-      "id": "9465d06a92a6ca6cfb18382319044845547782df",
-      "title": "Brent crude futures turn lower again intraday",
-      "summary": "CLS, Nov 3: international crude futures fell sharply intraday, with Brent turning negative again after both WTI and Brent had earlier risen more than 2 percent",
-      "title_zh": "布伦特原油期货日内再次转跌",
-      "summary_zh": "【布伦特原油期货日内再次转跌】财联社11月3日电，国际原油期货短线快速回落，布油日内再次转跌，此前美油、布油均涨超2%"
+      "id": "fa031b3e614d857012f5c6b2b24ba56974575409",
+      "title": "JetBlue raises bag fees for third time in a year as fuel costs bite",
+      "summary": "JetBlue raised baggage fees for the third time in a year as fuel costs continued to climb.",
+      "title_zh": "燃油成本压力下，捷蓝航空一年内第三次上调行李费",
+      "summary_zh": "随着燃油成本持续攀升，捷蓝航空一年内第三次上调行李费。"
     },
     {
-      "id": "df8ac0539255abb6358712688dc849b1d86208c6",
-      "title": "China's intellectual property administration issues the 15th five-year plan for patent and trademark examination",
-      "summary": "CLS, Nov 3: the National Intellectual Property Administration has issued the 15th five-year plan for patent and trademark examination, setting out the main goals, key tasks and special programmes for the period",
-      "title_zh": "国家知识产权局印发《专利和商标审查“十五五”规划》",
-      "summary_zh": "【国家知识产权局印发《专利和商标审查“十五五”规划》】财联社11月3日电，记者11月3日获悉，国家知识产权局日前印发《专利和商标审查“十五五”规划》，明确了“十五五”时期开展专利和商标审查工作的主要目标、重点任务和专项工程"
+      "id": "7e7e4f5a0bb188101b16881d85308da7c4428de7",
+      "title": "Crude oil prices fall for second day as market hopes for diplomatic resolution to Iran war",
+      "summary": "The rebound in oil prices come a day after the U.S",
+      "title_zh": "市场寄望伊朗战事外交解决，原油价格连续第二日下跌",
+      "summary_zh": "油价反弹发生在美国的"
     },
     {
-      "id": "0ae89b0cebeedeeb047da86616f929dcacc549e4",
-      "title": "Spain's government announces it will optimise high-speed rail operations",
-      "summary": "CLS, Nov 3: Spanish transport minister Puente announced a series of technical and operational measures for the Madrid-Seville high-speed line, including fewer trains until a new safety system enters service",
-      "title_zh": "西班牙政府宣布将对高铁运营进行优化",
-      "summary_zh": "【西班牙政府宣布将对高铁运营进行优化】财联社11月3日电，西班牙交通大臣普恩特当地时间11月3日在新闻发布会上宣布了一系列针对马德里和塞维利亚高速铁路的技术和运营措施，其中包括在新的安全系统投入使用前减少高铁列车班次"
+      "id": "ded11e73562a54caa2f24ed741c74854fb80b9e0",
+      "title": "US stocks mixed as most technology names rebound",
+      "summary": "US stocks were mixed on Tuesday in New York; as of publication the Dow was down 0.44 percent, the S&P 500 up 0.28 percent and the Nasdaq Composite up 1.67 percent",
+      "title_zh": "美股三大指数涨跌不一 科技股多数反弹",
+      "summary_zh": "美东时间周二，美股三大指数涨跌不一，截至发稿，道琼斯指数跌0.44%，标普500指数涨0.28%， 纳斯达克 综合 指数涨1.67%"
     },
     {
-      "id": "4d598bcac28555a5fea5d5db0f9b02e7e76079ae",
-      "title": "Feeling isolated? Half of in-office workers describe their desk jobs as 'remote,' NY Fed survey finds",
-      "summary": "Employees describing jobs as 'remote' are now often in-office, as companies fail to create the collaboration they claim is critical, NY Fed research shows.",
-      "title_zh": "感到孤立？纽约联储调查显示，半数在办公室上班的员工把自己的工作称为“远程”",
-      "summary_zh": "纽约联储的研究显示，如今自称“远程”的员工往往就在办公室上班，因为企业未能营造出它们所称至关重要的协作氛围。"
+      "id": "a0fa10e6423f6fe904f2cfe86765265bd2ff7e0d",
+      "title": "Sen. Chris Murphy still hospitalized after suffering a stroke over the weekend",
+      "summary": "Sen",
+      "title_zh": "参议员克里斯·墨菲周末中风后仍在住院",
+      "summary_zh": "参议员"
     },
     {
-      "id": "acca062da15578872970e422e5684ea029981538",
-      "title": "Meta turns lower premarket after reports it has launched a five-tranche dollar bond sale",
-      "summary": "Meta turned lower in US premarket trading after reports that the company had launched a five-tranche dollar bond offering",
-      "title_zh": "Meta美股盘前转跌，报道称公司启动五档美元债券发行",
-      "summary_zh": "Meta美股盘前转跌，报道称公司启动五档美元债券发行"
+      "id": "a84fbf24b319c4649e2a555a536d19a6127fa020",
+      "title": "Regulatory shift? Crypto stocks pressured in October rebound today, US midterms may rewrite the Trump-era financial market landscape",
+      "summary": "The digital finance regulatory dividend built up under Trump is facing a direct test from the midterm elections",
+      "title_zh": "监管生变？加密股10月承压今日反弹，美国中选或改写特朗普时代金融市场格局",
+      "summary_zh": "特朗普执政以来形成的数字金融监管红利，正面临中期选举的直接冲击"
     },
     {
-      "id": "24bfc4540b2cb92c8da1f078381de0a558f0a89e",
-      "title": "Iran's president says the Supreme Leader has allowed negotiations on issues previously deemed non-negotiable; Brent falls below 105 dollars a barrel to 104.99",
-      "summary": "Reports say Iran's president stated that the Supreme Leader permits negotiations on issues previously treated as non-negotiable",
-      "title_zh": "据报道，伊朗总统表示，最高领袖允许就不可谈判议题展开谈判。布伦特原油跌破105美元/桶，报104.99美元/桶，日内涨幅收窄至0.24%",
-      "summary_zh": "据报道，伊朗总统表示，最高领袖允许就不可谈判议题展开谈判"
-    },
-    {
-      "id": "1d63d91a901e331a53c279640f0926363cd4edc3",
-      "title": "Santoli: AI bull market almost surely needs tech stocks to recover to keep advancing",
-      "summary": "The road to bull-market glory does not run through Walmart and Berkshire Hathaway and Eli Lilly.",
-      "title_zh": "桑托利：AI 牛市几乎肯定需要科技股回升才能延续",
-      "summary_zh": "通往牛市荣耀的道路，并不经过沃尔玛、伯克希尔·哈撒韦和礼来。"
-    },
-    {
-      "id": "bc6896e45703922fe1ddcc6c55a95b384c546e1f",
-      "title": "Ferrari raises 2026 guidance after Q3 earnings beat",
-      "summary": "Ferrari raised its 2026 guidance Tuesday after third-quarter revenue and adjusted earnings per share edged past Wall Street expectations.",
-      "title_zh": "法拉利第三季度业绩超预期后上调 2026 年指引",
-      "summary_zh": "法拉利周二上调 2026 年指引，此前第三季度营收与调整后每股收益均略超华尔街预期。"
-    },
-    {
-      "id": "1102bf51f07307c97c4b7eaa67b79244c5b0cec3",
-      "title": "New national home listing database is taking on Compass in the battle for control of real estate information",
-      "summary": "Heavy hitters in residential real estate joined the fight over who can see residential property listings",
-      "title_zh": "新的全国房源数据库在房地产信息控制权之争中挑战 Compass",
-      "summary_zh": "住宅地产领域的重要参与者加入了这场关于谁能看到房源信息的争夺。"
-    },
-    {
-      "id": "77fdbe2d3026336942445c76b4aeeef4d640bc81",
-      "title": "The storage giants' battle in Australia has moved beyond the battery container",
-      "summary": "In Australia, CATL's customers keep asking who can guarantee grid connection; Xu Jinmei, CTO of CATL's energy storage division and president of its European storage business, explains that a plant delayed by a year or two may already have missed the best window to earn",
-      "title_zh": "储能巨头的澳洲战事，打到了电池箱之外",
-      "summary_zh": "&nbsp; 在澳洲，宁德时代的客户反复追问：“谁能保证并网？” 宁德时代储能事业部CTO、储能欧洲业务部总裁许金梅解释，客户之所以有这个担忧，是因为在澳大利亚，一座电站如果拖上一两年还没并网，可能已经错过了市场上较好的赚钱时机"
-    },
-    {
-      "id": "ab1649b17cbbe1467c75171cc3e203b3169757b9",
-      "title": "The PBOC will raise the FX deposit reserve ratio for financial institutions — what signal does that send?",
-      "summary": "On November 3 the People's Bank of China said that, to strengthen foreign-exchange liquidity management, it will raise the FX deposit reserve ratio for financial institutions by 2 percentage points from November 15, 2026, taking it to 6 percent from the current 4 percent",
-      "title_zh": "央行将上调金融机构外汇存款准备金率，释放什么信号？",
-      "summary_zh": "11月3日，中国人民银行发布消息称，为加强金融机构外汇流动性管理，中国人民银行决定，自2026年11月15日起，上调金融机构外汇存款准备金率2个百分点，即外汇存款准备金率由现行的4%提高到6%"
-    },
-    {
-      "id": "204cfedd6b57f7e8c43ddea5e34f4415218c5668",
-      "title": "Apple shares slide after weak margin outlook; Palantir slumps 6% after earnings",
-      "summary": "The iPhone-maker and software giant fell after earnings failed to impress investors.",
-      "title_zh": "苹果因毛利率指引疲弱股价下滑；Palantir 财报后重挫 6%",
-      "summary_zh": "这家 iPhone 制造商与软件巨头在财报未能打动投资者后走低。"
-    },
-    {
-      "id": "31ff97fd037a016697810e50e7bf994944f742e3",
-      "title": "Stocks making the biggest moves premarket: Pfizer, Apple, Palantir, Zebra Technologies & more",
-      "summary": "These are the stocks posting the largest moves premarket.",
-      "title_zh": "盘前波动最大的个股：辉瑞、苹果、Palantir、斑马技术等",
-      "summary_zh": "以下是盘前涨跌幅最大的个股。"
-    },
-    {
-      "id": "7ae95b11ae33fd50a7da424263b3190943d05419",
-      "title": "Supermarket fridges hit with cyberattacks across Europe — here's what's happening",
-      "summary": "European supermarkets have become the center of another cyberattack, with hackers remotely heating fridges and spoiling food.",
-      "title_zh": "欧洲多地超市冷柜遭网络攻击——发生了什么",
-      "summary_zh": "欧洲超市再次成为网络攻击的中心，黑客远程调高冷柜温度，导致食物腐坏。"
-    },
-    {
-      "id": "e1b201304923f53a85fe693b1ec4f0e948307a85",
-      "title": "Yum Brands earnings beat estimates, but cyclospora outbreak weighs on Taco Bell",
-      "summary": "Taco Bell's same-store sales declined as a Cyclospora outbreak tied to lettuce served at its restaurants weighed on traffic.",
-      "title_zh": "百胜餐饮业绩超预期，但环孢子虫疫情拖累塔可钟",
-      "summary_zh": "塔可钟同店销售下滑，因其门店供应生菜引发的环孢子虫疫情打击了客流。"
-    },
-    {
-      "id": "698d40e299c9d9d35a97a40782d57ee5363f0dd0",
-      "title": "Pfizer hikes full-year outlook, taps company veteran as new CFO",
+      "id": "196dc18395bd82ec75f202acc241108036a926a2",
+      "title": "Pfizer hikes full-year outlook on new product growth, taps company veteran as new CFO",
       "summary": "Pfizer announced that Cecile Guegan, who has held various leadership roles at the company over the last 20 years, stepped in as CFO this month.",
-      "title_zh": "辉瑞上调全年指引，任命公司资深高管为新任首席财务官",
-      "summary_zh": "辉瑞宣布，过去 20 年在公司担任多个领导职务的 Cecile Guegan 本月出任首席财务官。"
+      "title_zh": "辉瑞因新产品增长上调全年指引，并任命公司老将出任新任 CFO",
+      "summary_zh": "辉瑞宣布，过去 20 年间在公司担任多个领导职务的塞西尔·盖冈本月出任首席财务官。"
     },
     {
-      "id": "c1a42005a522134419d50e4007d633e7e2ba709c",
-      "title": "A roundup of positive announcements from listed companies on the evening of November 3 (with names)",
-      "summary": "Several Shanghai and Shenzhen listed companies released material announcements on the evening of November 3; highlights include Yunnan Germanium's controlling subsidiary signing a long-term supply agreement for N-type indium phosphide substrates with Applied Optoelectronics",
-      "title_zh": "11月3日晚间上市公司利好消息一览(附名单)",
-      "summary_zh": "沪深两市多家上市公司11月3日晚间发布重要公告，以下为利好的消息汇总： 云南锗业 ：控股子公司签订N型磷化铟衬底长期供货协议 云南锗业 (002428)11月3日公告，公司控股子公司云南鑫耀 半导体 材料有限公司（下称“云南鑫耀”）与客户Applied Optoelectronics,Inc.（下称“AOI”)签订了《"
+      "id": "bf3e8155e767a3c32fa0441a00e74599213d19db",
+      "title": "Job openings posted big September gain in positive sign for labor market ahead of payrolls report",
+      "summary": "The BLS reported job openings at 7.52 million, up 333,000 from August and well above the Dow Jones consensus outlook for 7.15 million",
+      "title_zh": "职位空缺 9 月大幅增加，为就业报告前的劳动力市场正面信号",
+      "summary_zh": "美国劳工统计局公布职位空缺为 752 万，较 8 月增加 33.3 万，远高于道琼斯共识预期的 715 万"
     },
     {
-      "id": "fb9d55d9f5eb3adb1a447413d9bf929387543aa2",
-      "title": "Fund companies are redeeming their own star products — are mutual fund houses rotating their own capital too?",
-      "summary": "Fund companies buying and selling their own funds with their own money has long drawn market attention",
-      "title_zh": "基金公司赎回自家明星产品 公募自有资金也调仓？",
-      "summary_zh": "基金公司用自家钱买卖自家基金，一向受到市场关注"
-    },
-    {
-      "id": "28c9941cda9297829963a7266ad2a33881ba95b3",
-      "title": "Good news tonight: incremental capital is arriving as several brokerages announce winning bids",
-      "summary": "Incremental capital for A-shares is on the way",
-      "title_zh": "今夜利好！增量资金来了！多家券商官宣中标",
-      "summary_zh": "A股的增量资金，已在路上"
-    },
-    {
-      "id": "1110eba76456afc5c620d21088879ded76eaeca7",
-      "title": "Fire at Fuling Technology's 500,000-tonne lithium iron phosphate base; open flames extinguished after 10 hours",
-      "summary": "The 500,000-tonne high-end energy-storage lithium iron phosphate base under construction by Fuling Technology (300432) caught fire on November 1",
-      "title_zh": "富临精工旗下50万吨磷酸铁锂基地起火 明火10小时扑灭",
-      "summary_zh": "富临精工 （300432）在建的年产50万吨高端储能用磷酸铁 锂 生产基地11月1日发生火灾"
-    },
-    {
-      "id": "7efdd2283e19121f71686ea57a848b1ef863bca1",
-      "title": "US AI names down, the old guard up — Berkshire hits another record high",
-      "summary": "While Wall Street still argues over the returns on AI capital spending, a trillion-dollar company built on insurance, rail, energy and traditional consumer businesses is quietly setting a record high",
-      "title_zh": "美股AI向下，老登向上！伯克希尔又新高了",
-      "summary_zh": "当华尔街还在为AI资本开支的回报前景争论不休时，一家由保险、铁路、能源和传统消费业务构成的万亿级巨头，正在悄然走向历史新高"
-    },
-    {
-      "id": "eb90a4f1af35cfd2f92b6bb8cd2264ab4a4417d7",
-      "title": "Baked by Melissa enters Target with first at-home cupcake mix",
-      "summary": "Baked by Melissa is launching bite-size cupcake kits at Target as the retailer heads into the critical holiday shopping season.",
-      "title_zh": "Baked by Melissa 借首款家庭纸杯蛋糕预拌粉进入 Target",
-      "summary_zh": "随着零售商进入关键的假日购物季，Baked by Melissa 将在 Target 上架一口大小的纸杯蛋糕套装。"
-    },
-    {
-      "id": "0d041c9ab8793cdf29139e71c531640f2de0b9ad",
-      "title": "Versant earnings beat expectations as digital platforms drive growth",
-      "summary": "Versant posted third-quarter earnings that beat Wall Street expectations and reaffirmed its full-year guidance.",
-      "title_zh": "Versant 业绩超预期，数字平台驱动增长",
-      "summary_zh": "Versant 公布的第三季度业绩超出华尔街预期，并重申全年指引。"
-    },
-    {
-      "id": "4544fb6766a3d03519edc65284c03fa4a679db67",
-      "title": "Apple CEO Ternus's first appearance: cautious to a fault, short on conviction, and a missed chance to lift confidence",
-      "summary": "Apple's new chief executive disappointed the market at his first earnings call since taking office",
-      "title_zh": "苹果CEO特努斯首秀：谨慎有余、魄力不足，错失提振市场信心良机",
-      "summary_zh": "苹果公司新任首席执行官特努斯在就任后首次财报电话会议上令市场大失所望"
-    },
-    {
-      "id": "8dc70c40813a7ce1f784790271f94701d54999e1",
-      "title": "Apple is falling on its latest earnings report. Why most analysts still like the stock",
-      "summary": "Apple is trading lower following its fiscal fourth quarter earnings report, but analysts say that there are several reasons to still be bullish on the stock.",
-      "title_zh": "苹果因最新财报下跌，为何多数分析师仍看好该股",
-      "summary_zh": "在公布第四财季财报后苹果股价走低，但分析师表示仍有若干理由继续看多。"
-    },
-    {
-      "id": "b6464b0783f8fe61a7feaebd867b0fe278016939",
-      "title": "Midterm elections could jolt stocks if Democrats sweep Congress",
-      "summary": "Wall Street weighs how the 2026 midterms could affect stocks, Treasury yields, artificial intelligence, energy prices, banks, defense and healthcare.",
-      "title_zh": "若民主党横扫国会，中期选举可能冲击股市",
-      "summary_zh": "华尔街正在评估 2026 年中期选举可能如何影响股市、美国国债收益率、人工智能、能源价格、银行、国防与医疗保健。"
+      "id": "516e9507d04998473f5b204cb97dd42fea8aaf3a",
+      "title": "Binance co-CEO Richard Teng says hackers used fake job interviews, AI tool to steal $6.3 billion in crypto",
+      "summary": "Binance has replenished 98% of $6.34 billion in affected assets, according to a security report the crypto exchange issued Tuesday.",
+      "title_zh": "币安联席 CEO Richard Teng 称黑客利用虚假面试与 AI 工具盗走 63 亿美元加密资产",
+      "summary_zh": "据这家加密交易所周二发布的安全报告，币安已补足 63.4 亿美元受影响资产中的 98%。"
     }
   ],
-  "updated_at": "2026-11-03T13:36:00Z"
+  "updated_at": "2026-11-03T21:40:00Z"
 }
