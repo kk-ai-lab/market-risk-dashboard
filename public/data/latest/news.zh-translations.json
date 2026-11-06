@@ -1,355 +1,353 @@
 {
   "items": [
     {
-      "id": "5394c38c37c097aff5f646f9ceb10e6300def9b0",
-      "title": "Stocks making the biggest moves midday: Micron, Tesla, Tripadvisor, AppLovin, Nvidia & more",
+      "id": "4d16b4b79b3feb9915ed591ad4a019320ece2caa",
+      "title": "Nvidia, AMD and other chip stocks rebound. Is the ‘violent’ AI selloff over?",
+      "title_zh": "英伟达、AMD 等芯片股反弹，这场“剧烈”的 AI 抛售结束了吗？",
+      "summary": "Analysts warn of further volatility ahead, though there are two new factors that work in the AI trade’s favor.",
+      "summary_zh": "分析师警告后续仍有更多波动，但有两个新因素正朝有利于 AI 交易的方向发展。"
+    },
+    {
+      "id": "dceb11cb5830d55014bb63d32f8665575e703485",
+      "title": "Stocks making the biggest moves midday: Nvidia, Moderna, IonQ, Airbnb, Firefly Aerospace & more",
+      "title_zh": "午盘涨跌幅最大的个股：英伟达、Moderna、IonQ、爱彼迎、Firefly Aerospace 等",
       "summary": "Here are some of the companies making headlines in midday trading.",
-      "title_zh": "午盘涨跌幅最大的个股：美光、特斯拉、猫途鹰、AppLovin、英伟达等",
       "summary_zh": "以下是午盘交易中登上头条的部分公司。"
     },
     {
-      "id": "ec4c4b976317c47644aff0083edddbd2099ec89d",
-      "title": "CLS, Nov 6: Nvidia is said to have approached Apollo on data-centre networking. Nvidia is considering reusing old telecom buildings for data centres.",
-      "summary": "CLS, Nov 6: Nvidia is said to have approached Apollo regarding data-centre networking",
-      "title_zh": "财联社11月6日电，英伟达据悉就数据中心网络事宜接触了阿波罗。英伟达考虑将老旧电信建筑用于数据中心。",
-      "summary_zh": "财联社11月6日电，英伟达据悉就数据中心网络事宜接触了阿波罗"
+      "id": "3fd64a3b69c65f345919f6dfcfb367337abde58e",
+      "title_zh": "财联社11月7日电，日本央行行长植田和男表示，基础通胀数十年来首次达到2%。对通胀的普遍看法是，还需付出更多努力。",
+      "title": "CLS, Nov 7: BOJ Governor Kazuo Ueda said core inflation has reached 2 percent for the first time in decades, and that the general view on inflation is that more effort is still needed.",
+      "summary_zh": "财联社11月7日电，日本央行行长植田和男表示，基础通胀数十年来首次达到2%",
+      "summary": "CLS, Nov 7: BOJ Governor Kazuo Ueda said core inflation has reached 2 percent for the first time in decades"
     },
     {
-      "id": "1671913b5cad6bc994b23fafe8c6436a7a54e4fb",
-      "title": "Samsung, SK Hynix, Intel, Qualcomm, Micron and AMD among exhibitors at the China International Import Expo",
-      "summary": "The ninth China International Import Expo opened today, Nov 5, at the National Exhibition and Convention Center in Shanghai",
-      "title_zh": "三星、SK海力士、英特尔、高通、美光科技、AMD等同台亮相进博会",
-      "summary_zh": "今日（11月5日），第九届中国国际进口博览会在国家会展中心（上海）开幕"
+      "id": "3b6ca8688e16266428d276859e0fedfcf4e6e02c",
+      "title_zh": "财联社11月7日电，哥斯达黎加10月CPI同比增长0.55%，环比增长0.39%。",
+      "title": "CLS, Nov 7: Costa Rica's October CPI rose 0.55 percent year on year and 0.39 percent month on month.",
+      "summary_zh": "财联社11月7日电，哥斯达黎加10月CPI同比增长0.55%，环比增长0.39%",
+      "summary": "CLS, Nov 7: Costa Rica's October CPI rose 0.55 percent year on year and 0.39 percent month on month"
     },
     {
-      "id": "bb175935f71e1a2f532b379046d27709ceaee207",
-      "title": "CLS, Nov 6: take-up at the Fed's overnight reverse repo facility was 125 million dollars on Thursday with a single counterparty, versus 225 million dollars the previous session.",
-      "summary": "CLS, Nov 6: take-up at the Fed's overnight reverse repo facility was 125 million dollars on Thursday with a single counterparty, versus 225 million dollars the previous session",
-      "title_zh": "财联社11月6日电，美联储隔夜逆回购协议（RRP）周四使用规模为1.25亿美元（交易对手1家），上个交易日报2.25亿美元。",
-      "summary_zh": "财联社11月6日电，美联储隔夜逆回购协议（RRP）周四使用规模为1.25亿美元（交易对手1家），上个交易日报2.25亿美元"
+      "id": "f845833e7f6d76b66e56a06bc594473f84e5bd2b",
+      "title_zh": "虚拟货币主要发行平台Solana高调“入沪”被紧急叫停 人民银行有关司局回应",
+      "title": "Solana's high-profile Shanghai advertising push is halted; a PBoC department responds",
+      "summary_zh": "【虚拟货币主要发行平台Solana高调“入沪”被紧急叫停 人民银行有关司局回应】财联社11月6日电，虚拟货币主要发行平台Solana近日在上海陆家嘴花旗集团大厦外墙投放广告，在加密货币行业“一石激起千层浪”，引发市场广泛讨论",
+      "summary": "CLS, Nov 6: Solana recently ran advertisements on the exterior of the Citigroup Tower in Shanghai's Lujiazui, stirring wide discussion in the crypto industry. A PBoC department responded after the campaign was halted."
+    },
+    {
+      "id": "2064684fd51f3bf4f30be170fc9581ed961e89cd",
+      "title_zh": "虚拟货币主要发行平台Solana高调“入沪”被紧急叫停！人民银行有关司局回应",
+      "title": "Solana's high-profile Shanghai push halted; a PBoC department responds",
+      "summary_zh": "中国人民银行有关司局负责人介绍，近期监测发现，虚拟货币主要发行平台Solana通过境内相关单位高调投放广告，以推广Solana品牌的方式，进行虚拟货币营销宣传",
+      "summary": "A PBoC department official said monitoring found that Solana had used domestic entities to run high-profile advertising promoting the Solana brand, which constitutes virtual-currency marketing."
+    },
+    {
+      "id": "9fe3ab01058de0933bbf7fcf3f95c97baa8a928c",
+      "title_zh": "美国11月密歇根消费者信心超预期升至三个月高位，独立选民信心提升，通胀预期改善",
+      "title": "US November Michigan consumer sentiment beats expectations at a three-month high; independent voters more confident, inflation expectations improve",
+      "summary_zh": "受美国民众对个人财务及经济前景看法略有改善的提振，美国11月消费者信心指数升至三个月高位",
+      "summary": "US consumer sentiment rose to a three-month high in November, helped by slightly better views on personal finances and the economic outlook."
+    },
+    {
+      "id": "0926cc2d8a672e3fea4cad5348459562a00f6e72",
+      "title_zh": "10月非农重燃12月加息预期！华尔街押注概率超八成，“新美联储通讯社”：AI抛售或成政策变量",
+      "title": "October payrolls revive December rate-hike bets above 80 percent on Wall Street; the 'new Fed whisperer' says the AI selloff may become a policy variable",
+      "summary_zh": "美国10月非农就业数据强于预期，重新点燃华尔街押注美联储12月加息的热情",
+      "summary": "A stronger-than-expected October payrolls report rekindled Wall Street bets that the Fed hikes again in December."
+    },
+    {
+      "id": "e13ab882deabd1be273c5c7eeaea5b41deea9d71",
+      "title": "Tesla to wind down Cybertruck production in Texas next year to ramp Cybercab, Musk says",
+      "title_zh": "马斯克：特斯拉明年将在得州逐步停产 Cybertruck，为 Cybercab 放量腾出产能",
+      "summary": "The Cybertruck and its polarizing design gained a niche following, but it did not achieve mass-market sales and Tesla has issued several voluntary recalls.",
+      "summary_zh": "Cybertruck 及其颇具争议的设计赢得了一批小众拥趸，但未能实现大众市场销量，特斯拉已发起多次自愿召回。"
+    },
+    {
+      "id": "e38c22eff176d56503879e8809363b8e039c8f92",
+      "title": "A long-term Elon Musk backer is cashing out of Tesla — and cutting its SpaceX exposure",
+      "title_zh": "一位长期支持马斯克的投资者正在撤出特斯拉，并削减 SpaceX 敞口",
+      "summary": "Scottish Mortgage Investment Trust has cut its SpaceX holding to 11.1% of assets and sold its remaining Tesla stake.",
+      "summary_zh": "苏格兰抵押投资信托已将 SpaceX 持仓削减至资产的 11.1%，并清空了剩余的特斯拉股份。"
+    },
+    {
+      "id": "2fbf59e8121ce3d6299ede2c329a836fe1bd82ec",
+      "title_zh": "美国10月非农就业人数远超市场预期 交易员加大对美联储12月加息押注",
+      "title": "US October payrolls far exceed expectations; traders add to December Fed hike bets",
+      "summary_zh": "美国10月非农就业人数增加16.5万人，预估为增加6.5万人，前值为增加2.9万人",
+      "summary": "US nonfarm payrolls rose 165,000 in October against an expected 65,000, with the prior reading at 29,000."
+    },
+    {
+      "id": "69ba02b0b04d9bb408b6d3435714508bc890fd6a",
+      "title_zh": "财联社11月7日电，美国国债收益率小幅走低，10年期和30年期国债收益率触及当日低点。",
+      "title": "CLS, Nov 7: US Treasury yields edged lower, with the 10-year and 30-year touching session lows.",
+      "summary_zh": "财联社11月7日电，美国国债收益率小幅走低，10年期和30年期国债收益率触及当日低点",
+      "summary": "CLS, Nov 7: US Treasury yields edged lower, with the 10-year and 30-year touching session lows"
+    },
+    {
+      "id": "3b67879072b15cd271719eed6917707332426a25",
+      "title_zh": "美股芯片股盘前涨势扩大 英伟达涨超5%",
+      "title": "US chip stocks extend premarket gains; Nvidia up more than 5 percent",
+      "summary_zh": "美股芯片股盘前涨势扩大，截至发稿， 英伟达 涨超5%，AMD涨超8%、 闪迪 涨超12%",
+      "summary": "US chip stocks extended premarket gains, with Nvidia up more than 5 percent, AMD more than 8 percent and SanDisk more than 12 percent at the time of writing."
+    },
+    {
+      "id": "48c8a2c8f72d37603c0822114613f25f7eaaf424",
+      "title_zh": "财联社11月7日电，甲骨文股价快速转跌，当前跌幅4%，刷新日低。",
+      "title": "CLS, Nov 7: Oracle shares reversed sharply lower, down 4 percent and at a session low.",
+      "summary_zh": "财联社11月7日电，甲骨文股价快速转跌，当前跌幅4%，刷新日低",
+      "summary": "CLS, Nov 7: Oracle shares reversed sharply lower, down 4 percent and at a session low"
+    },
+    {
+      "id": "a3b91718f689d333bd9c48c3ad7d93a9a6878d98",
+      "title_zh": "财联社11月7日电，微软据悉正在逐步终止与甲骨文之间租用AI云容量的协议。",
+      "title": "CLS, Nov 7: Microsoft is said to be phasing out its agreement to lease AI cloud capacity from Oracle.",
+      "summary_zh": "财联社11月7日电，微软据悉正在逐步终止与甲骨文之间租用AI云容量的协议",
+      "summary": "CLS, Nov 7: Microsoft is said to be phasing out its agreement to lease AI cloud capacity from Oracle"
+    },
+    {
+      "id": "f24382be191c5200f731f396810e0f469ac14bad",
+      "title_zh": "英国海事机构：今年已记录155起与美伊冲突有关的海上安全事件",
+      "title": "UK maritime agency: 155 maritime security incidents linked to the US-Iran conflict recorded this year",
+      "summary_zh": "【英国海事机构：今年已记录155起与美伊冲突有关的海上安全事件】财联社11月7日电，英国海上贸易行动办公室（UKMTO）发布最新一期海上安全周报",
+      "summary": "CLS, Nov 7: the UK Maritime Trade Operations (UKMTO) published its latest weekly maritime security report."
+    },
+    {
+      "id": "eac0f885c6119d163d7a8b914b768347be0b84b1",
+      "title_zh": "财联社11月7日电，普京与俄罗斯安全会议就即将举行的乌克兰会谈进行了讨论。",
+      "title": "CLS, Nov 7: Putin discussed the upcoming Ukraine talks with Russia's Security Council.",
+      "summary_zh": "财联社11月7日电，普京与俄罗斯安全会议就即将举行的乌克兰会谈进行了讨论",
+      "summary": "CLS, Nov 7: Putin discussed the upcoming Ukraine talks with Russia's Security Council"
+    },
+    {
+      "id": "aec040e19a1fac339fe90c7a75867d13e50e8a72",
+      "title_zh": "吉利德：半年给药一次的lenacapavir在HIV预防中的一年持久性接近每日口服F/TDF的两倍",
+      "title": "Gilead: twice-yearly lenacapavir delivers roughly double the one-year persistence of daily oral F/TDF in HIV prevention",
+      "summary_zh": "【吉利德：半年给药一次的lenacapavir在HIV预防中的一年持久性接近每日口服F/TDF的两倍】财联社11月7日电，吉利德披露数据显示，半年给药一次的lenacapavir在HIV预防中的一年持久性接近每日口服F/TDF的两倍",
+      "summary": "CLS, Nov 7: Gilead data showed that twice-yearly lenacapavir achieved one-year persistence in HIV prevention close to double that of daily oral F/TDF."
+    },
+    {
+      "id": "fa6000b52b44a79f37a652a378687f005fabb691",
+      "title_zh": "沪锡夜盘收涨1.02%",
+      "title": "SHFE tin closes the night session up 1.02 percent",
+      "summary_zh": "【沪锡夜盘收涨1.02%】财联社11月7日电，国际铜夜盘收跌0.14%，沪铜收跌0.05%，沪铝收涨0.43%，沪锌收跌1.31%，沪铅收跌0.84%，沪镍收涨0.39%，沪锡收涨1.02%",
+      "summary": "CLS, Nov 7: in night trading, international copper fell 0.14 percent, SHFE copper fell 0.05 percent, aluminium rose 0.43 percent, zinc fell 1.31 percent, lead fell 0.84 percent, nickel rose 0.39 percent and tin rose 1.02 percent."
+    },
+    {
+      "id": "f7704646a7adff13a31bd9725c321a9d85ea5543",
+      "title_zh": "波音10月可能交付约32架737 Max飞机 为近一年来最低水平",
+      "title": "Boeing may have delivered about 32 737 Max jets in October, the lowest in nearly a year",
+      "summary_zh": "【波音10月可能交付约32架737 Max飞机 为近一年来最低水平】财联社11月7日电，波音10月可能交付约32架737 Max飞机，为近一年来最低水平，对其获取现金和改善财务状况的努力构成打击",
+      "summary": "CLS, Nov 7: Boeing likely delivered about 32 737 Max aircraft in October, the lowest in nearly a year, a blow to its cash generation and balance-sheet repair."
+    },
+    {
+      "id": "efb8bc1e120dc1181a02440f50f1a492f1dfb108",
+      "title_zh": "巴拉圭国会拒绝为总统推迟弹劾程序",
+      "title": "Paraguay's Congress refuses to delay the president's impeachment proceedings",
+      "summary_zh": "【巴拉圭国会拒绝为总统推迟弹劾程序】财联社11月7日电，巴拉圭参议院6日拒绝了总统培尼亚要求将其在国会自我辩护的环节推迟72小时的请求，按照此前计划继续推进总统弹劾程序",
+      "summary": "CLS, Nov 7: Paraguay's Senate rejected President Pena's request to postpone his own defence in Congress by 72 hours and will proceed with the impeachment process as planned."
+    },
+    {
+      "id": "aa1fac4ab9220d71d30e93e40d357fdf6dc195f7",
+      "title_zh": "财联社11月7日电，欧洲主要股指收盘集体下跌，英国富时100指数跌1.01%，法国CAC40指数跌0.89%，德国DAX30指数跌2.02%，富时意大利MIB指数跌0.90%。",
+      "title": "CLS, Nov 7: major European indices closed lower, with the FTSE 100 down 1.01 percent, the CAC 40 down 0.89 percent, the DAX 30 down 2.02 percent and the FTSE MIB down 0.90 percent.",
+      "summary_zh": "财联社11月7日电，欧洲主要股指收盘集体下跌，英国富时100指数跌1.01%，法国CAC40指数跌0.89%，德国DAX30指数跌2.02%，富时意大利MIB指数跌0.90%",
+      "summary": "CLS, Nov 7: major European indices closed lower, with the FTSE 100 down 1.01 percent, the CAC 40 down 0.89 percent, the DAX 30 down 2.02 percent and the FTSE MIB down 0.90 percent"
+    },
+    {
+      "id": "c4e8dc50a18990ad6d74e596da45a18dcf9653e5",
+      "title_zh": "以色列反对派领导人称组阁取得“显著进展”",
+      "title": "Israeli opposition leader reports 'significant progress' in forming a government",
+      "summary_zh": "【以色列反对派领导人称组阁取得“显著进展”】财联社11月7日电，以色列国防军前总参谋长、正直党领导人加迪·埃森科特6日说，他在组建政府方面已取得“显著进展”，预计将在下周获得组阁的授权",
+      "summary": "CLS, Nov 7: former IDF chief of staff and Yashar party leader Gadi Eisenkot said on Nov 6 that he had made 'significant progress' toward forming a government and expects to receive the mandate next week."
+    },
+    {
+      "id": "49ac9620f57c35c41e85a195c20a77e3cb62add8",
+      "title_zh": "特斯拉宣布终止Cybertruck生产，马斯克将资源转向机器人与AI赛道",
+      "title": "Tesla ends Cybertruck production as Musk shifts resources to robotics and AI",
+      "summary_zh": "特斯拉决定停产旗下标志性电动皮卡Cybertruck，这款曾被马斯克寄予厚望的产品在销量疲软与多次召回的双重压力下黯然落幕",
+      "summary": "Tesla is halting output of its flagship electric pickup after weak sales and repeated recalls, ending a product Musk had once championed."
+    },
+    {
+      "id": "af3ba4583c550b531132db7fdb30a2ff2bdb50f0",
+      "title_zh": "财联社11月7日电，OpenAI首席财务官表示，无论选举结果如何，OpenAI都将持续投资于AI数据中心。",
+      "title": "CLS, Nov 7: OpenAI's CFO said the company will keep investing in AI data centres regardless of the election outcome.",
+      "summary_zh": "财联社11月7日电，OpenAI首席财务官表示，无论选举结果如何，OpenAI都将持续投资于AI数据中心",
+      "summary": "CLS, Nov 7: OpenAI's CFO said the company will keep investing in AI data centres regardless of the election outcome"
+    },
+    {
+      "id": "c09655b15f6de9d522c15eb9f86e4c53804b1495",
+      "title_zh": "财联社11月7日电，标普将梅赛德斯-奔驰的长期信用评级从A下调至A-，评级展望维持负面。",
+      "title": "CLS, Nov 7: S&P cut Mercedes-Benz's long-term credit rating to A- from A, keeping a negative outlook.",
+      "summary_zh": "财联社11月7日电，标普将梅赛德斯-奔驰的长期信用评级从A下调至A-，评级展望维持负面",
+      "summary": "CLS, Nov 7: S&P cut Mercedes-Benz's long-term credit rating to A- from A, keeping a negative outlook"
+    },
+    {
+      "id": "722e0d8dab9551d3dbd574536235fe35275967c8",
+      "title_zh": "中国“不买”英伟达芯片，美国人急什么",
+      "title": "Why Washington is anxious about China not buying Nvidia chips",
+      "summary_zh": "路透社近日引述“知情人士”的话称，大约有60万枚英伟达H200芯片，由于未获中方批准放行，目前滞留在香港",
+      "summary": "Reuters, citing people familiar with the matter, reported that about 600,000 Nvidia H200 chips are stuck in Hong Kong without Chinese approval for entry."
+    },
+    {
+      "id": "56505e5379f8a9b10c25ee5fe57b66019e0a6fe4",
+      "title_zh": "荷兰和西班牙分别提名 拉加德继任者之争料在Knot和de Cos间展开",
+      "title": "Netherlands and Spain nominate candidates; the race to succeed Lagarde looks set to be between Knot and de Cos",
+      "summary_zh": "【荷兰和西班牙分别提名 拉加德继任者之争料在Knot和de Cos间展开】财联社11月7日电，欧洲央行行长克里斯蒂娜·拉加德的继任者可能最终在荷兰人Klaas Knot和西班牙人Pablo Hernandez de Cos之间产生",
+      "summary": "CLS, Nov 7: the successor to ECB President Christine Lagarde may ultimately come down to Dutchman Klaas Knot or Spaniard Pablo Hernandez de Cos."
+    },
+    {
+      "id": "92f84035075732b2c42b6820331fe9db5ab9b9e0",
+      "title_zh": "财联社11月7日电，马斯克表示，本季度从有关政府获得收入占SpaceX营收的比例将低于10%。",
+      "title": "CLS, Nov 7: Musk said government revenue will account for less than 10 percent of SpaceX's revenue this quarter.",
+      "summary_zh": "财联社11月7日电，马斯克表示，本季度从有关政府获得收入占SpaceX营收的比例将低于10%",
+      "summary": "CLS, Nov 7: Musk said government revenue will account for less than 10 percent of SpaceX's revenue this quarter"
+    },
+    {
+      "id": "e7c0e0e7fb828b8435c4df02b6287a4d928c8836",
+      "title_zh": "国际原子能机构警告：乌克兰核设施面临持续安全风险",
+      "title": "IAEA warns Ukrainian nuclear facilities face persistent safety risks",
+      "summary_zh": "【国际原子能机构警告：乌克兰核设施面临持续安全风险】财联社11月7日电，国际原子能机构总干事格罗西11月6日发布声明表示，乌克兰核设施周边军事活动增加，核设施及其相关基础设施面临持续安全风险",
+      "summary": "CLS, Nov 7: IAEA Director General Grossi said in a Nov 6 statement that increased military activity around Ukrainian nuclear facilities leaves them and related infrastructure exposed to persistent safety risks."
     },
     {
       "id": "ec066bf46acf8c723a72a12742af3ac761025bf8",
       "title": "Federal Reserve Board announces termination of enforcement action with Allegiant United Holdings, LLC, Nano Financial Holdings, Inc., and Nano Banc",
-      "summary": "Federal Reserve Board announces termination of enforcement action with Allegiant United Holdings, LLC, Nano Financial Holdings, Inc., and Nano Banc",
       "title_zh": "美联储理事会宣布终止对 Allegiant United Holdings、Nano Financial Holdings 及 Nano Banc 的执法行动",
-      "summary_zh": "美联储理事会宣布终止对 Allegiant United Holdings、Nano Financial Holdings 及 Nano Banc 的执法行动"
+      "summary": "Federal Reserve Board announces termination of enforcement action with Allegiant United Holdings, LLC, Nano Financial Holdings, Inc., and Nano Banc",
+      "summary_zh": "美联储理事会宣布终止对 Allegiant United Holdings、Nano Financial Holdings 及 Nano Banc 的执法行动。"
     },
     {
-      "id": "17f05f7d0487f658dee74ecd397bc6f4e83cf7d0",
-      "title": "As Nvidia’s stock heads for a bear market, bargain hunters see a golden buying opportunity",
-      "summary": "Portfolio managers say chip demand should be resilient even in a period of political uncertainty.",
-      "title_zh": "英伟达股价迈向熊市之际，逢低买入者视其为难得机会",
-      "summary_zh": "投资组合经理称，即便处于政治不确定期，芯片需求也应保持韧性。"
+      "id": "94351234641dbf6fc47e9833d578b2df8e946d2f",
+      "title_zh": "财联社11月6日电，法国能源部表示，截至目前，已从法国战略储备中售出360万桶柴油。",
+      "title": "CLS, Nov 6: France's energy ministry said 3.6 million barrels of diesel have so far been sold from the national strategic reserve.",
+      "summary_zh": "财联社11月6日电，法国能源部表示，截至目前，已从法国战略储备中售出360万桶柴油",
+      "summary": "CLS, Nov 6: France's energy ministry said 3.6 million barrels of diesel have so far been sold from the national strategic reserve"
     },
     {
-      "id": "f45cab0c925c619b444035ad553cecb31ff6cded",
-      "title": "US stocks slide: Nasdaq falls more than 5 percent intraday, Philadelphia Semiconductor Index down over 11 percent at one point, chip and memory names hit hard",
-      "summary": "Thursday in US trading all three major US indices fell, with the Nasdaq down more than 5 percent at its intraday low",
-      "title_zh": "美股大跌 纳指盘中最大跌幅超5% 费城半导体指数一度跌逾11% 芯片、存储板块重挫",
-      "summary_zh": "美东时间周四，美股三大指数集体下跌，纳指盘中最大跌幅超5%"
+      "id": "0db796168b11b32eb5daebf83f1cab11afda330d",
+      "title_zh": "美股盘前：AI硬件股集体反弹 芯片、存储、半导体设备及光通信板块普遍上涨",
+      "title": "US premarket: AI hardware names rebound together, with chips, memory, semiconductor equipment and optical networking broadly higher",
+      "summary_zh": "北京时间17:00，美股开始盘前交易",
+      "summary": "US premarket trading began at 17:00 Beijing time."
     },
     {
-      "id": "74fbb457b4196db7c05fdc2e06cc83436dde313d",
-      "title": "IRS announces new federal income tax brackets for 2027",
-      "summary": "The IRS has announced higher federal income tax brackets and standard deductions for 2027",
-      "title_zh": "美国国税局公布 2027 年新的联邦所得税税率档位",
-      "summary_zh": "美国国税局公布了 2027 年更高的联邦所得税税率档位与标准扣除额"
+      "id": "c1a42d75e828fac5ed5abf4e2f3b2d5cf0f78912",
+      "title_zh": "历史重演？投资大佬：英伟达正在走思科老路 循环融资终迎泡沫破灭",
+      "title": "History repeating? Veteran investor says Nvidia is following Cisco's path and circular financing ends in a burst bubble",
+      "summary_zh": "对冲基金经理、前 富达 投资基金经理乔治·诺布尔（George Noble）周四警告称， 英伟达 正在通过“扶持”购买其 人工智能 （AI）硬件的客户，走向类似互联网泡沫破灭之路",
+      "summary": "Hedge fund manager and former Fidelity portfolio manager George Noble warned on Thursday that Nvidia is subsidising the customers that buy its AI hardware, tracing a path similar to the dot-com bust."
     },
     {
-      "id": "d4df0f63ad0d19acad974f87576a667f941a5b16",
-      "title": "Nvidia proposes full-stack AI memory co-design: Vera Rubin lifts memory per GPU only about 3 percent while inference throughput rises up to 30 times",
-      "summary": "Nvidia says GPU memory pressure keeps rising as models grow, context windows lengthen and agentic apps spread, while HBM supply tightens and prices climb",
-      "title_zh": "英伟达提出AI内存全栈协同设计方案，Vera Rubin平台每GPU内存容量仅增约3%推理吞吐量提升最高30倍",
-      "summary_zh": "英伟达称，随着AI模型规模扩大、上下文窗口延长以及智能体应用普及，GPU内存压力持续上升，HBM供应趋紧、价格上涨"
+      "id": "f8e45a72ed705fb3b3d17c1f66b079bf4ebd35a0",
+      "title_zh": "中期选举后 英伟达盯上电信老机房",
+      "title": "After the midterms, Nvidia turns to ageing telecom buildings",
+      "summary_zh": "随着美国上层建筑骤然变化，近几年大手大脚惯了的美国科技巨头，也开始“化整为零”的精细生活",
+      "summary": "With the US political landscape shifting abruptly, big tech firms accustomed to spending freely are moving toward smaller, more granular projects."
     },
     {
-      "id": "38c252d0adc5a86a5988c0d27328782e1a6339b0",
-      "title": "Dollar index falls on Nov 5",
-      "summary": "[Dollar index falls on Nov 5] CLS, Nov 6: the dollar index against six major currencies fell 0.02 percent on the day, closing at 101.546 in late forex trade",
-      "title_zh": "美元指数5日下跌",
-      "summary_zh": "【美元指数5日下跌】财联社11月6日电，衡量美元对六种主要货币的美元指数当天下跌0.02%，在汇市尾市收于101.546"
+      "id": "b187a81801e78e06ab290eece8c27bea4e1d4b70",
+      "title": "Factbox-Tesla Cybertruck’s bumpy run: cracked windows, long delays and 11 recalls",
+      "title_zh": "事实清单：特斯拉 Cybertruck 的坎坷历程——车窗开裂、长期延期与 11 次召回"
     },
     {
-      "id": "86f1f64df2264137e10857d6de4683e5bd096407",
-      "title": "Oil prices rise on Nov 5",
-      "summary": "[Oil prices rise on Nov 5] CLS, Nov 6: international oil prices rose on Nov 5",
-      "title_zh": "国际油价5日上涨",
-      "summary_zh": "【国际油价5日上涨】财联社11月6日电，国际油价5日上涨"
+      "id": "e7c622562b9a8687e1ddabf4847bcc9ab7fce832",
+      "title": "Watch the Annual Meeting: Cramer on the fate of the AI buildout and stocks to buy now",
+      "title_zh": "观看年会：克莱默谈 AI 基建的命运与当下值得买入的股票",
+      "summary": "At the Investing Club's 4th annual meeting, Cramer also reveals his outlook for 2027 and answers questions from the live audience and members at home.",
+      "summary_zh": "在投资俱乐部的第 4 届年会上，克莱默还披露了对 2027 年的展望，并回答了现场观众与线上会员的提问。"
     },
     {
-      "id": "584fbacbf303b61850cff1944d06d0b6bbcf18ea",
-      "title": "Serbia publishes final parliamentary election count",
-      "summary": "[Serbia publishes final parliamentary election count] CLS, Nov 6: Serbia's republic electoral commission published the final count of the parliamentary election",
-      "title_zh": "塞尔维亚公布议会选举最终计票结果",
-      "summary_zh": "【塞尔维亚公布议会选举最终计票结果】财联社11月6日电，塞尔维亚共和国选举委员会公布议会选举最终计票结果"
+      "id": "08aef33033767fd17e7df930683af56e2544eabc",
+      "title": "SpaceX is down big on fears of Dem 'retribution' against Musk. Deutsche Bank says buy the dip",
+      "title_zh": "SpaceX 因市场担心民主党对马斯克“清算”而大跌，德意志银行建议逢低买入",
+      "summary": "SpaceX deals mostly with the executive branch, though frustrations are simmering in Congress.",
+      "summary_zh": "SpaceX 主要与行政部门打交道，但国会内部的不满情绪正在升温。"
     },
     {
-      "id": "a8341080b3461291f5af8addf78d7f359843827a",
-      "title": "Iran says it shot down a US MQM-170 drone",
-      "summary": "[Iran says it shot down a US MQM-170 drone] CLS, Nov 6: Iran's Islamic Revolutionary Guard Corps said it downed a US MQM-170 drone over Qeshm Island in the south of the country",
-      "title_zh": "伊朗称击落一架美军MQM-170无人机",
-      "summary_zh": "【伊朗称击落一架美军MQM-170无人机】财联社11月6日电，伊朗伊斯兰革命卫队表示，其在该国南部格什姆岛击落一架美军MQM-170无人机"
+      "id": "e54ac9c0316a754a5a948a3b758ad0d12e3aeece",
+      "title_zh": "报道：微软正逐步终止向甲骨文租用AI云算力的安排",
+      "title": "Report: Microsoft is phasing out its AI cloud capacity lease from Oracle",
+      "summary_zh": "微软公司正逐步终止向甲骨文公司租用AI算力的安排，这是其对云合作伙伴关系进行更大范围重估的一部分",
+      "summary": "Microsoft is phasing out its arrangement to lease AI compute from Oracle as part of a broader reassessment of its cloud partnerships."
     },
     {
-      "id": "3c15107ba143e551549bdc0870cfe7a174c48f17",
-      "title": "CLS, Nov 6: Iran is said to have submitted a nuclear proposal to the United States via Qatar. Washington is reviewing it.",
-      "summary": "CLS, Nov 6: Iran is said to have submitted a nuclear proposal to the United States through Qatar",
-      "title_zh": "财联社11月6日电，伊朗据悉通过卡塔尔向美国提交了核提案。美国正在审阅伊朗的核提案。",
-      "summary_zh": "财联社11月6日电，伊朗据悉通过卡塔尔向美国提交了核提案"
+      "id": "acb4d0f237d95e67073359bd65c43a5749993558",
+      "title": "OpenAI will keep investing in AI data centers despite election results, CFO tells CNBC",
+      "title_zh": "OpenAI 首席财务官对 CNBC 表示，无论选举结果如何都将持续投资 AI 数据中心",
+      "summary": "Voters across the country on Tuesday voiced their support for candidates who have pledged to place restrictions on data center development.",
+      "summary_zh": "本周二，全美选民支持了那些承诺限制数据中心开发的候选人。"
     },
     {
-      "id": "44238cf473be791d2725c2902680e99d4334291e",
-      "title": "CLS, Nov 6: US Secretary of State Rubio is reported to be considering leaving the Trump administration after the Republican midterm losses.",
-      "summary": "CLS, Nov 6: US Secretary of State Rubio is reported to be weighing a departure from the Trump administration after Republican midterm losses",
-      "title_zh": "财联社11月6日电，据报道，美国国务卿鲁比奥在共和党中期选举失利后考虑离开特朗普政府。",
-      "summary_zh": "财联社11月6日电，据报道，美国国务卿鲁比奥在共和党中期选举失利后考虑离开特朗普政府"
+      "id": "14c4d859d089662ea84138617981002e801ba5d9",
+      "title_zh": "美股三大指数涨跌不一 纳指涨超1% 费城半导体指数涨逾4%",
+      "title": "US indices mixed: Nasdaq up more than 1 percent, Philadelphia Semiconductor Index up more than 4 percent",
+      "summary_zh": "美东时间周五，美股三大指数涨跌不一，截至发稿，道指 跌 0.04%， 纳指涨1.44%， 标普500指数涨0.86%",
+      "summary": "On Friday in New York the three main US indices were mixed: the Dow was down 0.04 percent, the Nasdaq up 1.44 percent and the S&P 500 up 0.86 percent at the time of writing."
     },
     {
-      "id": "e9e5cf944b9acaa79a35aa0cc47ddc8606274f6c",
-      "title": "CLS, Nov 6: Stellantis is said to have extended the production halt at its Windsor, Ontario assembly plant.",
-      "summary": "CLS, Nov 6: Stellantis is said to have extended the production halt at its Windsor, Ontario assembly plant",
-      "title_zh": "财联社11月6日电，Stellantis据悉已延长其位于安大略省温莎的组装工厂的停产。",
-      "summary_zh": "财联社11月6日电，Stellantis据悉已延长其位于安大略省温莎的组装工厂的停产"
+      "id": "11bcfeb7709a101cf10d58c744455753797e0f21",
+      "title": "The AI ‘credit card’ is getting costlier as CoreWeave bond yield tops 16%",
+      "title_zh": "随着 CoreWeave 债券收益率突破 16%，AI 的“信用卡”正变得越来越贵",
+      "summary": "Coreweave's steep yields reflect stress in the AI debt markets as investors worry about a data center slowdown",
+      "summary_zh": "CoreWeave 高企的收益率反映出 AI 债券市场的压力，投资者担心数据中心建设放缓。"
     },
     {
-      "id": "8a7be2d62f529455bc988643b2ccf9a5869b9fd6",
-      "title": "Iraqi prime minister and US president discuss regional situation by phone",
-      "summary": "[Iraqi prime minister and US president discuss regional situation by phone] CLS, Nov 6: per a statement from the Iraqi prime minister's media office, Prime Minister al-Zaidi spoke by phone with US President Trump that day; the two discussed the latest regional situation, the security picture and the outlook",
-      "title_zh": "伊拉克总理与美国总统通电话 讨论地区局势",
-      "summary_zh": "【伊拉克总理与美国总统通电话 讨论地区局势】财联社11月6日电，据伊拉克总理媒体办公室声明，伊拉克总理扎伊迪当天与美国总统特朗普通电话，双方讨论了地区最新局势、安全形势及未来展望"
+      "id": "4ccbdc1bb70956e72563ab83664cae8db792584b",
+      "title": "Dynasties or Parity? How MLB, the NFL, and the NBA try to find competitive balance",
+      "title_zh": "王朝还是均势？MLB、NFL 与 NBA 如何寻求竞争平衡",
+      "summary": "MLB executive tells CNBC dynasties can be 'wonderful' for a league if spending rules are fair for all teams.",
+      "summary_zh": "MLB 高管对 CNBC 表示，只要支出规则对所有球队公平，王朝对联盟也可以是“好事”。"
     },
     {
-      "id": "c334cb4ec9bc0d2d09585e561f50f9601529e9b4",
-      "title": "CLS, Nov 6: quantitative hedge fund Engineers Gate has cut most members of its Synthesis equity team.",
-      "summary": "CLS, Nov 6: quantitative hedge fund Engineers Gate has cut most members of its Synthesis equity team",
-      "title_zh": "财联社11月6日电，量化对冲基金Engineers Gate已裁撤其“Synthesis”股票团队的多数成员。",
-      "summary_zh": "财联社11月6日电，量化对冲基金Engineers Gate已裁撤其“Synthesis”股票团队的多数成员"
+      "id": "534a06c3533835970e2a39bf86733aad8f6f95d7",
+      "title": "This pharmaceutical ETF is outperforming. Why it could keep climbing",
+      "title_zh": "这只制药 ETF 表现领先，为何还可能继续上行",
+      "summary": "The Invesco Pharmaceuticals ETF continues to outperform as other areas of the market weaken, making it an investment opportunity worth watching.",
+      "summary_zh": "在市场中其他领域走弱之际，Invesco 制药 ETF 持续跑赢，成为一个值得关注的投资机会。"
     },
     {
-      "id": "d9ee4876cc82c7dcf184e83c7bd77f5eb9b3e2c6",
-      "title": "CLS, Nov 6: Iranian foreign minister Araghchi and his UAE counterpart are said to have discussed regional developments and diplomatic efforts to preserve stability.",
-      "summary": "CLS, Nov 6: Iranian foreign minister Araghchi and his UAE counterpart are said to have discussed regional developments and diplomatic efforts to preserve stability",
-      "title_zh": "财联社11月6日电，伊朗外长阿拉格奇与阿联酋外长据悉就地区局势发展及维护稳定的外交努力进行了讨论。",
-      "summary_zh": "财联社11月6日电，伊朗外长阿拉格奇与阿联酋外长据悉就地区局势发展及维护稳定的外交努力进行了讨论"
+      "id": "ecc886672be8257a6cdc727b4e38b594f48cf697",
+      "title": "Montana votes to ban corporate political money. Next stop? Probably the Supreme Court",
+      "title_zh": "蒙大拿州公投禁止企业政治献金，下一站或为最高法院",
+      "summary": "Montana voters approved a novel strategy to restrict corporate political spending, setting up a constitutional fight that could reach the Supreme Court.",
+      "summary_zh": "蒙大拿选民通过了一项限制企业政治支出的新策略，由此引发的宪法之争可能诉至最高法院。"
     },
     {
-      "id": "038ecf6f99f27341a2e69209c8827a35a14d55b6",
-      "title": "CLS, Nov 6: the Hang Seng Index futures night session closed down 1.58 percent and the Hang Seng Tech futures night session down 2.18 percent.",
-      "summary": "CLS, Nov 6: the Hang Seng Index futures night session closed down 1.58 percent and the Hang Seng Tech futures night session down 2.18 percent",
-      "title_zh": "财联社11月6日电，恒生指数主连夜盘收跌1.58%，恒生科技指数主连夜盘收跌2.18%。",
-      "summary_zh": "财联社11月6日电，恒生指数主连夜盘收跌1.58%，恒生科技指数主连夜盘收跌2.18%"
+      "id": "e24e0f2c6112bf82c70d42f89c5fa4ee83c2fc2f",
+      "title": "Data center double-down: Hassett says blue wave won't stop AI build-out",
+      "title_zh": "数据中心再加码：哈塞特称民主党浪潮不会阻止 AI 基建",
+      "summary": "Data centers are a crucial part of President Donald Trump's push to win the global artificial intelligence race, which he continues despite the midterm results.",
+      "summary_zh": "数据中心是特朗普总统争夺全球人工智能竞赛胜利的关键一环，尽管中期选举结果不利，他仍将继续推进。"
     },
     {
-      "id": "ea2d0aff0ac376d251c97c597aab3f14c8cde5d4",
-      "title": "CLS, Nov 6: Mexico's central bank cut its overnight rate to 6.25 percent from 6.50 percent.",
-      "summary": "CLS, Nov 6: Mexico's central bank cut its overnight rate to 6.25 percent from 6.50 percent",
-      "title_zh": "财联社11月6日电，墨西哥央行将隔夜利率从6.50%下调至6.25%。",
-      "summary_zh": "财联社11月6日电，墨西哥央行将隔夜利率从6.50%下调至6.25%"
+      "id": "af27e679ba56220dc4d9c35dc6e2c23ac467f592",
+      "title": "Wall Street's fear gauge may be flashing a buy sign",
+      "title_zh": "华尔街恐慌指标可能正在发出买入信号",
+      "summary": "History shows that similar spikes in the VIX have been good entry points for stocks",
+      "summary_zh": "历史显示，VIX 出现类似飙升时往往是股票的良好入场点。"
     },
     {
-      "id": "8f1f7b3155072d31b256c97144a28e1c78a4dccd",
-      "title": "Senior Iranian official conveys the supreme leader's message to Putin",
-      "summary": "[Senior Iranian official conveys the supreme leader's message to Putin] CLS, Nov 6: per Iran's official news agency, Supreme National Security Council secretary Rezaei conveyed a message from Supreme Leader Mojtaba Khamenei to Russian President Putin in Moscow on Nov 5",
-      "title_zh": "伊朗高官向普京转达最高领袖讯息",
-      "summary_zh": "【伊朗高官向普京转达最高领袖讯息】财联社11月6日电，据伊朗官方通讯社报道，伊朗最高国家安全委员会秘书雷扎伊11月5日在莫斯科向俄罗斯总统普京转达了来自伊朗最高领袖穆杰塔巴·哈梅内伊的讯息"
+      "id": "51de783f26548b27faca98b946ea8bee964b72fb",
+      "title": "U.S. economy added 165,000 jobs in October, way more than expected; unemployment rate slips to 4.1%",
+      "title_zh": "美国 10 月新增非农就业 16.5 万人，远超预期；失业率降至 4.1%",
+      "summary": "Nonfarm payrolls were expected to increase by 59,000 in October as the unemployment rate was expected to hold steady at 4.2%.",
+      "summary_zh": "市场原本预期 10 月非农增加 5.9 万人，失业率维持在 4.2%。"
     },
     {
-      "id": "14afe50852f1f83b4d0ee8c8133284b5c8cac1e1",
-      "title": "CLS, Nov 6: Meta is rolling out voice chat for Muse, its personal AI agent.",
-      "summary": "CLS, Nov 6: Meta is rolling out voice chat for Muse, its personal AI agent",
-      "title_zh": "财联社11月6日电，Meta正在为其个人AI智能体Muse推出语音聊天功能。",
-      "summary_zh": "财联社11月6日电，Meta正在为其个人AI智能体Muse推出语音聊天功能"
+      "id": "304d28b4467aed324b9e4dbc1882b961ed90b922",
+      "title": "Anthropic IPO announcement odds drop on Kalshi following midterms and AI sell-off",
+      "title_zh": "中期选举与 AI 抛售之后，Kalshi 上 Anthropic 宣布 IPO 的概率下降",
+      "summary": "Kalshi traders cut the odds of an Anthropic IPO announcement before December as AI stocks sold off after Democrats won control of Congress.",
+      "summary_zh": "民主党赢得国会控制权后 AI 股遭到抛售，Kalshi 交易员下调了 Anthropic 在 12 月前宣布 IPO 的概率。"
     },
     {
-      "id": "04c6d11e8f1f2bdd1f9d6296c800eba3a9bde824",
-      "title": "CLS, Nov 6: OpenAI released GPT-6 Cyber, a cybersecurity model built for authorised security research.",
-      "summary": "CLS, Nov 6: OpenAI released GPT-6 Cyber, a cybersecurity model built for authorised security research",
-      "title_zh": "财联社11月6日电，OpenAI发布GPT-6 Cyber，这是一款专为授权安全研究设计的网络安全模型。",
-      "summary_zh": "财联社11月6日电，OpenAI发布GPT-6 Cyber，这是一款专为授权安全研究设计的网络安全模型"
-    },
-    {
-      "id": "7bbbb321f262292714110f008617b8ffdd8e0b4d",
-      "title": "CLS, Nov 6: US Treasury yields from 2 to 5 years all fell 10 basis points on the day.",
-      "summary": "CLS, Nov 6: US Treasury yields from 2 to 5 years all fell 10 basis points on the day",
-      "title_zh": "财联社11月6日电，美国2至5年期国债收益率当日均下跌10个基点。",
-      "summary_zh": "财联社11月6日电，美国2至5年期国债收益率当日均下跌10个基点"
-    },
-    {
-      "id": "048e82d549e5fc88b9ef1aea7e8c7c7835d7eb59",
-      "title": "US imposes a new round of sanctions on Cuba",
-      "summary": "[US imposes a new round of sanctions on Cuba] CLS, Nov 6: the US Treasury's Office of Foreign Assets Control added 2 individuals, 6 companies and 2 vessels to the Cuba sanctions list, and imposed further measures on 2 already-designated companies and 3 vessels",
-      "title_zh": "美国对古巴实施新一轮制裁",
-      "summary_zh": "【美国对古巴实施新一轮制裁】财联社11月6日电，美国财政部外国资产控制办公室宣布，将2名个人、6家企业和2艘船舶列入涉古巴制裁名单，并对已受制裁的2家企业和3艘船舶追加制裁"
-    },
-    {
-      "id": "ac0307a80d5c2914249a8e385a80c78a238737b2",
-      "title": "CLS, Nov 6: the yen rose as much as 0.5 percent against the dollar to 157.59.",
-      "summary": "CLS, Nov 6: the yen rose as much as 0.5 percent against the dollar to 157.59",
-      "title_zh": "财联社11月6日电，日元兑美元涨幅达0.5%，报157.59。",
-      "summary_zh": "财联社11月6日电，日元兑美元涨幅达0.5%，报157.59"
-    },
-    {
-      "id": "975826a3a383e84a82766768b2e5702256d2bdd8",
-      "title": "Veteran bull Ed Yardeni: inflation may cool, and a 5 percent yield makes 10-year Treasuries attractive",
-      "summary": "The US 10-year yield is near 5 percent; veteran Wall Street strategist Ed Yardeni calls that level attractive, provided investors stay confident that productivity will drive inflation lower",
-      "title_zh": "“大多头”Ed Yardeni：通胀或将降温，5%收益率让十年期美债颇具吸引力",
-      "summary_zh": "美国十年期国债收益率已接近5%，知名华尔街策略师Ed Yardeni认为，这一水平极具吸引力——前提是投资者对生产率驱动通胀降温保持信心"
-    },
-    {
-      "id": "5c7591f53ccf3457747c47ff382ebe3c4778e9ec",
-      "title": "Euro area October inflation hits highest since 2023 as December rate-hike expectations build",
-      "summary": "Euro area inflation pressure intensified further.",
-      "title_zh": "欧元区10月通胀率创2023年以来新高 12月加息预期升温",
-      "summary_zh": "欧元区通胀压力进一步加剧"
-    },
-    {
-      "id": "7e8c05de24b5512fc4f7c0855e0c543e4d7083f4",
-      "title": "The ‘Musk selloff’ deepens as Tesla and SpaceX combine for $450 billion two-day wipeout",
-      "summary": "Investors worry a divided Washington could derail “Elon, Inc.”",
-      "title_zh": "“马斯克式抛售”加深：特斯拉与 SpaceX 两日合计蒸发 4500 亿美元",
-      "summary_zh": "投资者担心分裂的华盛顿可能打乱“马斯克系”布局。"
-    },
-    {
-      "id": "e048d5885e11926efcc5f4acb2ac2533249aa2cf",
-      "title": "Micron, Sandisk and other AI stocks are falling hard: ‘Investors don’t like uncertainty’",
-      "summary": "Wall Street is digesting the prospect of a slower AI buildout in the wake of the midterm election results.",
-      "title_zh": "美光、闪迪等人工智能个股大幅下挫：“投资者不喜欢不确定性”",
-      "summary_zh": "中期选举结果出炉后，华尔街正在消化人工智能建设放缓的可能性。"
-    },
-    {
-      "id": "a161906982e243cbcd9841b2e83fdf16e87e1dce",
-      "title": "Dow tumbles 1,800 points, erasing its postelection rally; Nasdaq plummets 5%: Live updates",
-      "summary": "Investors continued to rotate away from technology stocks and into more defensive areas of the market.",
-      "title_zh": "道指暴跌 1,800 点，回吐选举后全部涨幅；纳指重挫 5%：实时更新",
-      "summary_zh": "投资者继续撤离科技股，转向市场中更具防御性的领域。"
-    },
-    {
-      "id": "7bd8e35e8ea79bb050927e2478e559ff9542caf0",
-      "title": "Top Democrats call to rein in AI buildout after midterms sweep: 'National data center moratorium now'",
-      "summary": "Democratic winners and progressive lawmakers are calling for tougher limits on AI and data centers after the 2026 midterm elections.",
-      "title_zh": "民主党高层在中期选举大胜后呼吁收紧人工智能建设：“立即实施全国数据中心暂停令”",
-      "summary_zh": "在 2026 年中期选举后，胜选的民主党人与进步派议员呼吁对人工智能和数据中心施加更严格的限制。"
-    },
-    {
-      "id": "ff2abbb6c9b7f0549ce5053236298283ded0ef60",
-      "title": "AI meltdown: Chip stocks and neoclouds plunge, pushing Nasdaq to worst day since April 2025",
-      "summary": "Companies tied to the AI buildout are all selling off as concerns mount about a slowdown following the midterm elections.",
-      "title_zh": "人工智能交易崩跌：芯片股与新云厂商暴跌，纳指创 2025 年 4 月以来最差单日",
-      "summary_zh": "随着中期选举后对增长放缓的担忧升温，与人工智能建设相关的公司全线遭到抛售。"
-    },
-    {
-      "id": "5ceb129478f16758ba8e59d8b63803df8fad1369",
-      "title": "How Wall Street's postelection rally got obliterated — and what's next",
-      "summary": "Every weekday, the Investing Club releases the Homestretch; an actionable afternoon update just in time for the last hour of trading.",
-      "title_zh": "华尔街选举后行情如何被彻底抹去——以及下一步走向",
-      "summary_zh": "每个工作日，投资俱乐部都会发布 Homestretch，在交易最后一小时前提供可操作的午后更新。"
-    },
-    {
-      "id": "761e35113bacc159ce54777cc0dd29dccece8a63",
-      "title": "IRS announces bigger estate and gift tax exemption for 2027",
-      "summary": "The IRS has announced bigger estate and gift tax exemptions for 2027",
-      "title_zh": "美国国税局公布 2027 年更高的遗产与赠与税免税额",
-      "summary_zh": "美国国税局公布了 2027 年更高的遗产与赠与税免税额"
-    },
-    {
-      "id": "6245d5d4c1e0637807a3cb693a897319e00a9eda",
-      "title": "Three consumer stocks to buy after the midterm elections",
-      "summary": "Consumer discretionary stocks are gaining momentum following the midterm elections",
-      "title_zh": "中期选举后值得买入的三只消费股",
-      "summary_zh": "中期选举后，可选消费股动能增强"
-    },
-    {
-      "id": "c359350ac708a605421bb5ab100810b0bb8ec866",
-      "title": "U.S. warns of 'ongoing cyber threat' to industrial refrigeration systems",
-      "summary": "At least three waves of hacks have hit commercial fridges and freezers in the past few months.",
-      "title_zh": "美国警告工业制冷系统面临“持续的网络安全威胁”",
-      "summary_zh": "过去几个月，商用冰箱与冷柜至少遭遇三波黑客攻击。"
-    },
-    {
-      "id": "e1f5752b530e54e27f423c42dcf5e89452be2fb6",
-      "title": "OpenAI releases GPT-6 Cyber with a 'critical' cybersecurity rating",
-      "summary": "OpenAI released GPT-6 Cyber to a small set of vetted customers, a model designed to find and exploit security vulnerabilities, and rated its cybersecurity risk as 'critical' under its own safety framework",
-      "title_zh": "OpenAI推出GPT-6 Cyber，其网络安全评级为“关键”级",
-      "summary_zh": "OpenAI向一小部分经过审核的客户发布了GPT-6 Cyber——一款专为发现和利用安全漏洞而设计的模型，并根据其安全框架将其在网络安全方面的风险评级定为“关键”"
-    },
-    {
-      "id": "f83c373a0450d8734fbcafe4bcd699cd18a8948b",
-      "title": "Wall Street's fear gauge surges the most since April. Why traders think it should be even higher",
-      "summary": "From its intraday low to high Thursday, VIX moved more than 11 points, the biggest one-day move since April 9.",
-      "title_zh": "华尔街恐慌指数创 4 月以来最大涨幅，交易员认为还应更高",
-      "summary_zh": "周四 VIX 自日内低点至高点波动超过 11 点，为 4 月 9 日以来最大单日波幅。"
-    },
-    {
-      "id": "a2ac2431fdfa39294468538d31e91335793fb4a3",
-      "title": "Trump's energy deals are about to face a wave of investigations by Democrats",
-      "summary": "Democrats are certain to scrutinize the U.S",
-      "title_zh": "特朗普的能源交易即将面临民主党的一波调查",
-      "summary_zh": "民主党势必将审视美国"
-    },
-    {
-      "id": "d9e678a2c24c4486b8932f6464245ddb7adcd36a",
-      "title": "Solar stocks rallied on Democratic victories, but policy risks still threaten the group",
-      "summary": "Solar stocks rallied after Democrats won Congress, but policy, financing and data-center demand remain key risks for First Solar, Sunrun and Enphase.",
-      "title_zh": "太阳能股因民主党胜选而上涨，但政策风险仍威胁该板块",
-      "summary_zh": "民主党赢得国会后太阳能股上涨，但政策、融资与数据中心需求仍是 First Solar、Sunrun 与 Enphase 的关键风险。"
-    },
-    {
-      "id": "37f090d1355a7eeb85d141ee29fcfcf5100a926d",
-      "title": "Blue Origin pushes launch to January 2027 as it races to rebuild damaged launch pad",
-      "summary": "CEO Dave Limp said the company has moved swiftly to repair a launchpad that was damaged by the New Glenn explosion in May, but the work hasn't been easy.",
-      "title_zh": "蓝色起源将发射推迟至 2027 年 1 月，加速重建受损发射台",
-      "summary_zh": "首席执行官 Dave Limp 表示，公司已迅速修复 5 月 New Glenn 爆炸中受损的发射台，但这项工作并不轻松。"
-    },
-    {
-      "id": "6ece76d5ea28f4643d33e7b6a36e39578e02db28",
-      "title": "HSA-eligible health plans in 2027: What to know about tax savings vs. higher deductibles",
-      "summary": "Many employees are eligible to choose an HSA-eligible high-deductible health plan during open enrollment",
-      "title_zh": "2027 年符合 HSA 资格的健康计划：税收节省与更高免赔额之间如何取舍",
-      "summary_zh": "在开放投保期内，许多员工有资格选择符合 HSA 资格的高免赔额健康计划"
-    },
-    {
-      "id": "497269d55a353049db2d9b2bbe8482da5c3421fc",
-      "title": "Trump tightens security in the capital after the midterms: defence secretary said to have cleared National Guard use of military vehicles and boats",
-      "summary": "US defence secretary Hegseth is said to have authorised the National Guard to use boats, dozens of police-marked vehicles and Humvees plus light and medium tactical vehicles in Washington DC, further expanding the military presence in the capital",
-      "title_zh": "特朗普中选后加码首都治安：美防长被曝批准国民警卫队使用军用车船",
-      "summary_zh": "美国国防部长赫格塞思据称批准国民警卫队在华盛顿特区使用船只、数十辆警用标识车辆以及悍马和轻型中型战术车辆，进一步扩大军方在首都的存在"
-    },
-    {
-      "id": "3c8effdf2ae437147f063f9f27abd643b749ffd1",
-      "title": "Google to build its first data centre in Wyoming with a 17 billion dollar investment",
-      "summary": "Google will build its first data centre in Wyoming, investing 17 billion dollars",
-      "title_zh": "谷歌公司在美国Wyoming打造自家第一个数据中心，将投资170亿美元",
-      "summary_zh": "谷歌公司在美国Wyoming打造自家第一个数据中心，将投资170亿美元"
-    },
-    {
-      "id": "82157654a07f867bf29a1a76688f76e143ad0398",
-      "title": "The great AI unwind: 1.8 trillion wiped out as the Nasdaq fell nearly 6 percent intraday, the chip index more than 10 percent, and the data-centre supply chain sold off",
-      "summary": "Thursday Nov 5 in US trading, tech stocks were hit by heavy selling as the AI trade unwound in concert, with chips, cloud, data-centre power and optical networking all falling hard",
-      "title_zh": "AI交易大撤退、1.8万亿蒸发！盘中纳指跌近6%、芯片指数狂泻超10%，数据中心产业链跳水",
-      "summary_zh": "美东时间11月5日周四，美股科技股遭遇猛烈抛售，AI交易出现集中撤退，芯片、云计算、数据中心能源及光通信等产业链全线重挫"
-    },
-    {
-      "id": "a564a9353dcf478259a20bcd4d1c476da6fd78eb",
-      "title": "Democrats to probe JPMorgan's relationship with Jeffrey Epstein when they take Senate control",
-      "summary": "JPMorgan kept Jeffrey Epstein as a client for years after top executive Mary Erdoes hearing claims he paid to have underage girls brought to his home.",
-      "title_zh": "民主党将在掌控参议院后调查摩根大通与杰弗里·爱泼斯坦的关系",
-      "summary_zh": "在高管 Mary Erdoes 获悉爱泼斯坦被指付钱将未成年女孩带到其住所后，摩根大通仍多年将其保留为客户。"
-    },
-    {
-      "id": "e782b18160057c6f6fc8cc1a57a36b5ba51673ad",
-      "title": "Faber Report: Liberty Media acquires high-vote Series B shares of John C. Malone-related enterprises",
-      "summary": "CNBC’s David Faber delivers his latest ‘Faber Report’ on Liberty Media's acquisition of all shares of Series B stock held by John C",
-      "title_zh": "Faber 报告：自由媒体收购与 John C. Malone 相关企业的高投票权 B 类股",
-      "summary_zh": "CNBC 的 David Faber 带来最新一期“Faber 报告”，解读自由媒体收购 John C 所持全部 B 类股。"
-    },
-    {
-      "id": "cf9127f2a3c457042e34152de817fa13a7285a09",
-      "title": "Three tax proposals targeting the rich that the new Congress could revive",
-      "summary": "Democrats' sweeping victories could revive tax proposals targeting carried interest, large trusts, and borrowing against stock.",
-      "title_zh": "新一届国会可能重启的三项针对富人的税收提案",
-      "summary_zh": "民主党的压倒性胜利可能推动针对附带权益、大型信托和以股票质押借款的税收提案重启。"
+      "id": "9d1fb7e2821559a03ee82e3c4df2bfbade76427f",
+      "title_zh": "韩股暴跌近9%触发熔断，日经跌破6万点",
+      "title": "Korean stocks plunge nearly 9 percent, triggering a circuit breaker; Nikkei falls below 60,000",
+      "summary_zh": "韩国首尔综指跌幅扩大至8.8%，跌破5000点关口，触发熔断",
+      "summary": "The KOSPI extended its decline to 8.8 percent, breaking below the 5,000 level and triggering a circuit breaker."
     }
   ],
-  "updated_at": "2026-11-05T21:40:26Z"
+  "updated_at": "2026-11-06T18:03:28Z"
 }
