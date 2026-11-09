@@ -1,355 +1,350 @@
 {
   "items": [
     {
-      "id": "74fc8360fc5dcc53fccb6c4ec2023ece76f67978",
-      "title": "Nvidia heist! Over 76 million yuan in AI chips and hardware mysteriously vanish",
-      "summary": "US media reported on the 6th that police in Oakland, California are investigating a theft of goods involving tech company Nvidia.",
-      "title_zh": "英伟达大劫案！超7600万元AI芯片和硬件离奇失踪",
-      "summary_zh": "据美国媒体6日报道，美国加利福尼亚州奥克兰市警方，目前正在调查一起涉及科技企业英伟达的货物被盗案件"
+      "id": "637c2a98af8dd189e2408d856d4cce5f7b7d2fa2",
+      "title": "Nvidia stock falls 5% as scrutiny turns to Jensen Huang’s relationship with alleged Chinese spy",
+      "summary": "Nvidia said its board has launched an independent investigation following the reports that Huang was the target of a \"foreign intelligence effort.\"",
+      "title_zh": "英伟达股价下跌 5%，市场关注黄仁勋与所谓中国间谍的关系",
+      "summary_zh": "英伟达表示，在有关黄仁勋成为“外国情报行动”目标的报道出现后，董事会已启动独立调查。"
     },
     {
-      "id": "acb58fc1f5d4a392017925b21b78d450b2e08ee4",
-      "title": "Nvidia heist! Over 76 million yuan in goods mysteriously vanish",
-      "summary": "US media reported on the 6th that police in Oakland, California are investigating a theft of goods involving tech firm Nvidia.",
-      "title_zh": "英伟达大劫案！超7600万元货物离奇失踪",
-      "summary_zh": "据美国媒体6日报道，美国加利福尼亚州奥克兰市警方，目前正在调查一起涉及科技企业 英伟达 的货物被盗案件"
+      "id": "7c58ed36a89b42f7c00fd75246da9756f2ed25ad",
+      "title": "What is MegaSpeed? The Nvidia chip buyer in the spotlight after Jensen Haung’s affair",
+      "summary": "The Singapore-based company has previously been probed for allegedly supplying China with Nvidia chips.",
+      "title_zh": "MegaSpeed 是什么？黄仁勋绯闻后被推到聚光灯下的英伟达芯片买家",
+      "summary_zh": "这家总部位于新加坡的公司此前曾因涉嫌向中国供应英伟达芯片而被调查。"
     },
     {
-      "id": "87a03488e97e96d1467f5b1ea8b6a5f87d1dd111",
-      "title": "CITIC Construction: Maintains long-term bullish view on North America compute and domestic AI compute supply chains",
-      "summary": "CITIC Construction released its 2027 communications-sector strategy report, noting rapid expansion of LLM commercialization in 2026, with OpenAI and Anthropic combined ARR reaching about $124 billion by end-September 2026.",
-      "title_zh": "中信建投：维持对北美算力和国产AI算力产业链长期看好",
-      "summary_zh": "【中信建投：维持对北美算力和国产AI算力产业链长期看好】财联社11月8日电，中信建投证券发布通信行业2027年度投资策略报告称，大模型商业化在2026年快速扩张，截至2026年9月底，OpenAI和Anthropic两家ARR合计约1240亿美元"
+      "id": "f92105e2c1d63373e2016006b352eadb0ada54f4",
+      "title": "Musk's Terafab targets 700,000 memory wafers a month, close to Samsung's total DRAM capacity",
+      "summary": "Musk's semiconductor joint venture Terafab is reaching into the core of global memory chip capacity.",
+      "title_zh": "马斯克Terafab目标曝光：瞄准月产70万片存储芯片晶圆，接近三星DRAM总产能",
+      "summary_zh": "马斯克旗下半导体合资企业Terafab正将触角伸向全球存储芯片产能的核心地带"
     },
     {
-      "id": "93b9b4a1481e66311a50bdbf0d818fa80f7a5de7",
-      "title": "Iran's Revolutionary Guards: US task force cannot achieve its goal of pressuring Iran",
-      "summary": "An Iranian Revolutionary Guards spokesman said on the 8th that the US cannot achieve its aim of imposing economic pressure on Iran through its planned 'Iron Gate' task force.",
-      "title_zh": "伊朗革命卫队：美军特遣部队无法达到施压伊朗目的",
-      "summary_zh": "【伊朗革命卫队：美军特遣部队无法达到施压伊朗目的】财联社11月8日电，据伊朗方面8日消息，伊朗伊斯兰革命卫队发言人穆赫比当天表示，美国无法通过组建“铁门”特遣部队计划实现其给伊朗施加经济压力的目的"
+      "id": "566457ecc79ac7104ad625fdc8ff5d0244e94917",
+      "title": "Nvidia’s shares slide as chip giant probes CEO over spy claims",
+      "title_zh": "英伟达股价下滑，芯片巨头就间谍指控调查其 CEO"
     },
     {
-      "id": "a27593245b13e392a7cb343e1a47573187df61f1",
-      "title": "Next week's key calendar: China-US CPI, Russia-US-Ukraine trilateral talks, CoreWeave earnings and Anthropic roadshow",
-      "summary": "China and US inflation data land next week; US CPI sets the tone for December rate-hike expectations, with nine Fed officials giving 12 speeches.",
-      "title_zh": "下周重磅日程：中美CPI、俄美乌三方会谈、CoreWeave财报与Anthropic路演",
-      "summary_zh": "中美通胀数据下周先后落地，美国CPI定调12月加息预期，美联储9位官员12场讲话密集发声"
+      "id": "0e671d952d911619b53b8f30db3edd450fdc570e",
+      "title": "How Wall Street is reacting to the news of Nvidia’s investigation into Jensen Huang spy claims",
+      "summary": "The Wall Street reaction to the blockbuster Nvidia news is to wonder about who would succeed Jensen Huang if he were to be forced out.",
+      "title_zh": "华尔街如何解读英伟达就黄仁勋间谍指控展开调查的消息",
+      "summary_zh": "华尔街对英伟达这一重磅消息的反应是：如果黄仁勋被迫离任，谁将接任。"
     },
     {
-      "id": "6360e6b49e3eea75e54b466219ef4ef045b8ee4b",
-      "title": "Anthropic buys natural-gas power facilities for $3.4 billion for data centers",
-      "summary": "Anthropic has acquired natural-gas power generation facilities for $3.4 billion to supply its data centers.",
-      "title_zh": "财联社11月8日电，ANTHROPIC公司以34亿美元的价格购入天然气发电设施用于数据中心。",
-      "summary_zh": "财联社11月8日电，ANTHROPIC公司以34亿美元的价格购入天然气发电设施用于数据中心"
+      "id": "0c4d58d35d6bfd864e9d5483c7cd17e2cce4ec32",
+      "title": "A scandal touching tens of billions? Of Jensen Huang's 162.5 billion US dollar Nvidia stake, 149.5 billion sits in a joint trust and foundation",
+      "summary": "On November 8 local time, Nvidia founder and CEO Jensen Huang admitted infidelity to his wife in a letter to employees.",
+      "title_zh": "出轨风波牵动千亿资产？黄仁勋1625亿美元英伟达持股中，1495亿美元是夫妻共同信托及基金会持有",
+      "summary_zh": "当地时间11月8日，英伟达创始人兼首席执行官黄仁勋在致员工的信中承认对妻子不忠"
     },
     {
-      "id": "d63cecb904716a1c79ba15f588edbc340bdb02b4",
-      "title": "Latest margin-funding flows: semiconductor stocks see heavy buying",
-      "summary": "Over the past week (Oct 30-Nov 5), A-share margin balances fell from 2,356.7 billion yuan to 2,278.5 billion yuan, with net repayments of 75.8 billion yuan.",
-      "title_zh": "近一周融资资金动向出炉 半导体产业股迎来重金抢筹",
-      "summary_zh": "【近一周融资资金动向出炉 半导体产业股迎来重金抢筹】财联社11月8日电，近一周（10月30日至11月5日），A股融资余额由23567.38亿元降至22785.23亿元；融资资金呈现净偿还态势，金额合计758.44亿元"
+      "id": "61aa4dd87e110fc956dcbbf87d074a0225413334",
+      "title": "Jensen Huang's influence is bigger than Nvidia itself, and that is precisely the problem",
+      "summary": "Nvidia founder and CEO Jensen Huang is caught in a private-life scandal that is shaking market foundations well beyond one company.",
+      "title_zh": "黄仁勋的影响力比英伟达还大——这正是问题所在",
+      "summary_zh": "英伟达创始人兼CEO黄仁勋陷入私生活丑闻，正在动摇远超一家公司范畴的市场根基"
     },
     {
-      "id": "6e75eafda48a16e10db8defeb94abf190096db80",
-      "title": "CITIC Construction: This week's rally is a typical oversold technical rebound; basis for a trend reversal is not yet solid",
-      "summary": "CITIC Construction's research note says this week's move is a typical oversold technical rebound, and the foundation for a trend reversal remains fragile.",
-      "title_zh": "中信建投：本周行情属于典型的超跌技术性修复 趋势性反转的基础尚不牢固",
-      "summary_zh": "【中信建投：本周行情属于典型的超跌技术性修复 趋势性反转的基础尚不牢固】财联社11月8日电，中信建投研报指出，本周行情属于典型的超跌技术性修复，趋势性反转的基础尚不牢固"
+      "id": "7a23f5433a735fea85f621e99e15ef54cfaaa585",
+      "title": "After Huang's admission, South Korea says its GPU contract with Nvidia is unaffected",
+      "summary": "The AI industry is reeling from the infidelity scandal around Nvidia CEO Jensen Huang, and with a possible US government investigation under way, markets are worried about his future at the company.",
+      "title_zh": "黄仁勋承认出轨后 韩国政府称与英伟达的GPU合同不受影响",
+      "summary_zh": "人工智能 行业正在因为 英伟达 首席执行官黄仁勋的出轨问题而震荡，由于黄仁勋可能面临美国政府调查，市场正在担忧他与 英伟达 的未来"
     },
     {
-      "id": "611829616ea972d10d70e35816ef950cf3d7e99e",
-      "title": "SpaceX says it will conduct 15th Starship test launch in mid-November",
-      "summary": "SpaceX said it will conduct its 15th Starship test launch in mid-November, the first attempt to recover the rocket system and its Super Heavy V3 booster during flight.",
-      "title_zh": "美国SpaceX公司称将于11月中旬进行第15次星舰测试发射",
-      "summary_zh": "【美国SpaceX公司称将于11月中旬进行第15次星舰测试发射】财联社11月8日电，SpaceX公司网站称，该公司将于11月中旬进行第15次星舰（Starship）测试发射，此次发射电将史上首次测试飞行期间回收火箭系统及其超重型V3助推器"
+      "id": "af0d5ad4324591def8519e8eeefdad5eaaac0a4a",
+      "title": "Financial conditions stand in for the Fed, but a trillion-dollar TGA drawdown may not fix the liquidity worry",
+      "summary": "Even though the Fed paused in October, US financial conditions are still tightening.",
+      "title_zh": "金融条件替美联储，万亿TGA回落难解流动性隐忧？",
+      "summary_zh": "虽然10月份美联储暂停加息，但美国金融条件仍在收紧"
     },
     {
-      "id": "1d5b4cc54e1d0f27e2b45c7c850648359175640d",
-      "title": "AI-designed avian flu vaccine shows progress in animal trials",
-      "summary": "The University of Cambridge said its team has used AI to design a new broad-spectrum avian flu vaccine that showed protective efficacy against multiple viral variants in animal trials.",
-      "title_zh": "AI辅助设计禽流感疫苗动物实验获进展",
-      "summary_zh": "【AI辅助设计禽流感疫苗动物实验获进展】财联社11月8日电，英国剑桥大学日前发布公报说，该校团队借助人工智能（AI）设计的一种新型广谱禽流感疫苗，在动物实验中对多种禽流感病毒变异株展现出防护效力"
+      "id": "7540020c2bc00858e702f34cd7d71aa02193aece",
+      "title": "Less than three years after launch, Tesla plans to end Cybertruck production; Musk says capacity shifts to Cybercab",
+      "summary": "Tesla's Cybertruck, once heavily hyped, is about to see a major change in its production plan.",
+      "title_zh": "上市不足三年！特斯拉Cybertruck计划停产 马斯克：产能转向Cybercab",
+      "summary_zh": "曾被寄予厚望的 特斯拉 Cybertruck（赛博越野旅行车），即将迎来生产计划的重大调整"
     },
     {
-      "id": "a87eb2e832298cf4dad82c5b247f90862994625c",
-      "title": "Central Meteorological Observatory issues cold-wave blue alert",
-      "summary": "The observatory renewed a cold-wave blue alert on Nov 8: affected by the cold wave, temperatures across southern Northwest China, Huanghuai, Jianghuai, Jianghan, Jiangnan, southern Southwest and South China are expected to drop 6-10C from 20:00 Nov 8 to 08:00 Nov 10.",
-      "title_zh": "中央气象台发布寒潮蓝色预警",
-      "summary_zh": "【中央气象台发布寒潮蓝色预警】财联社11月8日电，中央气象台11月8日18时继续发布寒潮蓝色预警：受寒潮影响，预计，2026年11月8日20时至10日08时，西北地区东南部、黄淮大部、江淮、江汉、江南、西南地区南部、华南等地将降温6～10℃，其中，湖北东部、安徽中南部、江苏北部和西南部、浙江、江西、福建西部和北部、四川"
+      "id": "81af1aee74d348eb5edac9f9a2fa7f0da4e0e653",
+      "title": "Focus Lightings plans a private placement of up to 1.5 billion yuan for red-yellow LED epiwafer and chip expansion",
+      "summary": "Focus Lightings (300708.SZ) said it plans a private placement to raise up to 1.5 billion yuan, which after fees will fund an annual 3 million-piece high-performance red-yellow LED epiwafer and chip expansion project and an R&D centre.",
+      "title_zh": "聚灿光电：拟定增募资不超15亿元 用于红黄光外延片及芯片扩产升级项目等",
+      "summary_zh": "【聚灿光电：拟定增募资不超15亿元 用于红黄光外延片及芯片扩产升级项目等】财联社11月9日电，聚灿光电(300708.SZ)公告称，公司拟向特定对象发行股票，募集资金总额不超过15亿元，扣除发行费用后用于年产300万片高性能红黄光外延片及芯片扩产升级项目及研发中心建设项目"
     },
     {
-      "id": "8fe0e3410cf2a464a3162f0430d1328f4ae11fc9",
-      "title": "First China-Singapore senior-officials exchange program held successfully",
-      "summary": "The first China-Singapore senior officials exchange program was held in China from January 1 to 7.",
-      "title_zh": "首期中国—新加坡高级官员交流项目成功举办",
-      "summary_zh": "【首期中国—新加坡高级官员交流项目成功举办】1月1日—7日，首期中国—新加坡高级官员交流项目在中国举办"
+      "id": "612ed47b2b3b7565a805efdbd8627cce26440157",
+      "title": "Institutional research: the world's largest automotive PCB supplier is ramping high-performance PCB shipments for high-speed communications and AI",
+      "title_zh": "【机构调研】这家公司全球第一大汽车电子PCB供应商高速通信与AI领域高性能PCB量产出货提速"
     },
     {
-      "id": "166557ad77e44d045c7be3c77890e1266655ba66",
-      "title": "Saudi Energy Ministry source says Aramco building damaged, no casualties",
-      "summary": "A Saudi Energy Ministry official source said an administrative building of Saudi Aramco in Riyadh was the target of an 'attempted attack' that day.",
-      "title_zh": "沙特能源部消息人士称阿美石油大楼受损 无人员伤亡",
-      "summary_zh": "【沙特能源部消息人士称阿美石油大楼受损 无人员伤亡】财联社11月8日电，沙特能源部一位官方消息人士称，沙特阿美石油公司位于利雅得的一栋行政大楼当日遭到“袭击企图”"
+      "id": "bb88404b5df634ba622829ce221162008e31757e",
+      "title": "India's high-speed rail plan to adopt a European signalling system displeases Japan",
+      "summary": "CLS, November 9: friction is emerging between Japan and India over a high-speed rail project in western India.",
+      "title_zh": "印度高铁计划引进欧洲信号系统令日方不满",
+      "summary_zh": "【印度高铁计划引进欧洲信号系统令日方不满】财联社11月9日电，围绕印度西部的高速铁路项目，日本与印度之间嫌隙渐显"
     },
     {
-      "id": "72e3637fefd4a7363b5b86c23da5c37b0cc4e2c2",
-      "title": "China Mobile formally signs cooperation agreement with Zhipu (Z.ai)",
-      "summary": "China Mobile and Zhipu (Z.ai) formally signed a cooperation agreement to deepen collaboration on domestic compute, large-model services and AI commercialization.",
-      "title_zh": "中国移动与智谱（Z.ai）正式签署合作协议",
-      "summary_zh": "【中国移动与智谱（Z.ai）正式签署合作协议】财联社11月8日电，中国移动与智谱（Z.ai）正式签署合作协议，双方围绕国产算力、大模型服务和AI商业化展开深度合作"
+      "id": "49f42028061bda4a6b5e9f00272b4f84254ebe2e",
+      "title": "Guanghe Technology plans to buy back 200 million to 400 million yuan of its A-shares",
+      "summary": "Guanghe Technology (001389.SZ) said it will use own or self-raised funds to buy back A-shares via centralized bidding, with a total of at least 200 million and at most 400 million yuan at no more than 204 yuan per share.",
+      "title_zh": "广合科技：拟2亿元至4亿元回购公司A股股份",
+      "summary_zh": "【广合科技：拟2亿元至4亿元回购公司A股股份】财联社11月9日电，广合科技(001389.SZ)公告称，公司拟使用自有资金及/或自筹资金以集中竞价方式回购公司A股股份，回购资金总额不低于2亿元且不超过4亿元，回购价格不超过204元/股"
     },
     {
-      "id": "bc1c47c2d7c0089a0b202bdef84e40d744c6e28c",
-      "title": "Research spotlight: 'AI+ads' platform AppLovin surges 70% in four days as it moves into AI marketing",
-      "summary": "AppLovin has jumped 70% in four days as it pushes into a new phase of AI marketing; nearly 100 agents have entered real workflows and it has served over 10,000 enterprises. (Source headline truncated.)",
-      "title_zh": "【风口研报·公司】\"AI+广告\"平台AppLovin四天暴涨70%，公司同样抢先迈向AI营销新阶段，近百个Agent已进入真实工作流+累计服务超过1万家企业；另有公司作为稀缺...",
-      "summary_zh": ""
+      "id": "2a757382ff24c1bc9e9b48ee2d1e8725f8bda995",
+      "title": "CLS, November 9: Citi keeps a neutral view on aluminium and maintains a target of 3,000 US dollars per tonne for the next 0 to 3 months.",
+      "summary": "CLS, November 9: Citi keeps a neutral view on aluminium overall and maintains a target of 3,000 US dollars per tonne for the next 0 to 3 months.",
+      "title_zh": "财联社11月9日电，花旗称对铝市场总体维持中性观点，并维持未来0至3个月铝价每吨3,000美元的目标价。",
+      "summary_zh": "财联社11月9日电，花旗称对铝市场总体维持中性观点，并维持未来0至3个月铝价每吨3,000美元的目标价"
     },
     {
-      "id": "bac6db37fd47dba0f10c31bcd175f2878a8a2def",
-      "title": "Dalian Yingbo wins 2026 Chinese Super League title",
-      "summary": "Dalian Yingbo beat Tianjin Jinmen Tiger at home in the 30th round of the 2026 CSL to claim the league championship.",
-      "title_zh": "大连英博队获2026赛季中超联赛冠军",
-      "summary_zh": "【大连英博队获2026赛季中超联赛冠军】财联社11月8日电，在辽宁大连举行的2026赛季中国足球超级联赛第30轮比赛中，大连英博队主场战胜天津津门虎队，夺得本赛季联赛冠军"
+      "id": "e48ef85f7339e8fb5bc6dca2249f6bd0f1c32998",
+      "title": "Damage inside Croatia halts Adriatic pipeline crude deliveries to Serbia",
+      "summary": "CLS, November 9: Serbia said that because of damage to the pipeline route inside Croatia, the Adriatic pipeline (JANAF) has suspended crude deliveries to the Pancevo refinery since November 6.",
+      "title_zh": "克罗地亚境内线路受损 亚得里亚海输油管道暂停向塞尔维亚输送原油",
+      "summary_zh": "【克罗地亚境内线路受损 亚得里亚海输油管道暂停向塞尔维亚输送原油】财联社11月9日电，据塞尔维亚方面当地时间11月9日消息，因克罗地亚境内输油线路受损，亚得里亚海输油管道（JANAF）自11月6日起已暂停向塞尔维亚潘切沃炼油厂输送原油"
     },
     {
-      "id": "7d9b5ac6391a5ae8bcf7085414d836c13ca80172",
-      "title": "Why Nvidia is starting with autos in rolling out Physical AI",
-      "summary": "After LLMs popularized text and image generation, tech giants are turning to Physical AI—letting AI perceive, reason, decide and interact in the real world to directly drive machines—and Nvidia is beginning with vehicles.",
-      "title_zh": "英伟达落地物理AI 为何先从汽车入手？",
-      "summary_zh": "当大语言模型完成文本与图像生成的普及后，全球科技巨头正将目光投向“物理AI（Physical AI）”，让 人工智能 走出数字屏幕，在现实环境中感知、推理、决策与交互，直接驱动机器行动"
+      "id": "8bf032181ea464c01aeadc4d68e12ac8632dc88d",
+      "title": "Zhangyuan Tungsten raises cemented carbide product prices as tungsten raw material costs climb",
+      "summary": "Zhangyuan Tungsten said in a price adjustment notice that sustained increases in tungsten raw material costs have sharply raised its production costs.",
+      "title_zh": "章源钨业：因钨原材料价格上涨 调整硬质合金类产品价格",
+      "summary_zh": "【章源钨业：因钨原材料价格上涨 调整硬质合金类产品价格】财联社11月9日电，章源钨业发布《关于调整硬质合金类产品价格的通知函》称，因钨原材料价格持续上涨，致使公司生产成本大幅增长"
     },
     {
-      "id": "1a4db1113f9e2188dadf6e82bcd7d9f87ce2f0e5",
-      "title": "CDB extends over 480 billion yuan in manufacturing loans in first 10 months",
-      "summary": "The China Development Bank said it has used diversified financial products to provide full-cycle financing for manufacturers covering R&D, capacity building and daily operations.",
-      "title_zh": "今年前10个月国开行发放制造业贷款超4800亿元",
-      "summary_zh": "【今年前10个月国开行发放制造业贷款超4800亿元】财联社11月8日电，据国家开发银行消息，今年以来，国开行综合运用多元化金融产品，为制造业企业提供覆盖技术研发、产能建设、日常经营的全周期投融资支持"
+      "id": "ae6c9a3d524fcbf83a62c800c33ff68ebb0ddbdb",
+      "title": "CLS, November 9: Chile's central bank data show October copper exports of 5.409 billion US dollars and lithium exports of 336.35 million US dollars.",
+      "summary": "CLS, November 9: central bank data show Chile's October copper exports at 5.409 billion US dollars and lithium exports at 336.35 million US dollars.",
+      "title_zh": "财联社11月9日电，智利央行数据显示，10月铜出口额为54.09亿美元，锂出口额3.3635亿美元。",
+      "summary_zh": "财联社11月9日电，智利央行数据显示，10月铜出口额为54.09亿美元，锂出口额3.3635亿美元"
     },
     {
-      "id": "505f1032dba30f11a28951df3547fa5d7e22132d",
-      "title": "Fengfan: Hebei Industrial-Finance Group to indirectly hold 30.08% stake, become indirect controlling shareholder",
-      "summary": "Fengfan (601700.SH) disclosed that Tangshan SASAC will transfer 98.48% of Tangkong Development Group to Hebei Industrial-Finance Group, giving the latter indirect control of 30.08% of the listed company.",
-      "title_zh": "风范股份：河北产融集团拟间接持有公司30.08%股份 成为间接控股股东",
-      "summary_zh": "【风范股份：河北产融集团拟间接持有公司30.08%股份 成为间接控股股东】财联社11月8日电，风范股份(601700.SH)披露收购报告书，唐山市国资委拟将其持有的唐控发展集团98.47802%股权无偿划转至河北产融集团，从而使得河北产融集团间接持有上市公司30.08%的股份，成为上市公司的间接控股股东"
+      "id": "2eb8634290ac5b1bded4f39aa769e9c22a97785f",
+      "title": "Longzhou plans to list its 51% stake in Zhongqi Hongyuan and related debt, floor price 1.31 billion yuan",
+      "summary": "Longzhou (002682.SZ) said it will publicly list for transfer its 51% stake in Dongguan Zhongqi Hongyuan Automotive and all related debt, with a first floor price of 1.31 billion yuan.",
+      "title_zh": "龙洲股份：拟挂牌转让中汽宏远51%股权及债权 底价合计13.1亿元",
+      "summary_zh": "【龙洲股份：拟挂牌转让中汽宏远51%股权及债权 底价合计13.1亿元】财联社11月9日电，龙洲股份(002682.SZ)公告称，公司拟以公开挂牌方式转让控股孙公司东莞中汽宏远汽车有限公司51%股权及全部债权，首次挂牌底价合计13.1亿元"
     },
     {
-      "id": "d5a6c5981c190a2fd7ebf3d01b7481d97f12c32b",
-      "title": "EU close to deal linking UK carbon market to EU system after Brexit",
-      "summary": "The EU is close to an agreement to link the UK's carbon market to the EU system following Brexit.",
-      "title_zh": "财联社11月8日电，欧盟接近达成协议，将在英国脱欧后将其碳市场与欧盟体系挂钩。",
-      "summary_zh": "财联社11月8日电，欧盟接近达成协议，将在英国脱欧后将其碳市场与欧盟体系挂钩"
+      "id": "acd2a6440f0d84455a9e4f6ee426d68418c1b321",
+      "title": "Jingce Electronics plans to buy back 100 million to 200 million yuan of shares for cancellation",
+      "summary": "Jingce Electronics (300567.SZ) plans to buy back shares via centralized bidding for 100 million to 200 million yuan at no more than 210 yuan per share, equal to 0.17% to 0.34% of share capital, all to be cancelled to reduce registered capital.",
+      "title_zh": "精测电子：拟1亿元至2亿元回购股份用于注销",
+      "summary_zh": "【精测电子：拟1亿元至2亿元回购股份用于注销】财联社11月9日电，精测电子(300567.SZ)公告称，公司拟使用自有资金或自筹资金以集中竞价方式回购股份，资金总额不低于1亿元且不超过2亿元，回购价格不超过210元/股，预计回购股份数量占总股本0.17%至0.34%，回购股份将全部用于注销并减少注册资本"
     },
     {
-      "id": "72349e465cda73e3dca9b3048412c6d50ef077b4",
-      "title": "German firm aims to develop 'unlimited-range' space missile",
-      "summary": "A German tech company is developing a 'globally unlimited-range' space-based weapon that could theoretically strike any target inside Russia.",
-      "title_zh": "德企欲研发“无限射程”太空导弹",
-      "summary_zh": "【德企欲研发“无限射程”太空导弹】财联社11月8日电，一家德国科技企业正在研发一款“全球无限射程”天基武器，理论上它可以打击俄罗斯境内任意目标"
+      "id": "7b0e24c135027ea54839719669e9ca7fb3e49183",
+      "title": "WUS Printed Circuit: controlling shareholder plans to add 20 million to 30 million yuan of shares",
+      "summary": "WUS Printed Circuit (002463.SZ) said HePaiYouLian, controlled by the family of actual controller Wu Ligang, plans to raise its stake by 20 million to 30 million yuan within six months of the disclosure.",
+      "title_zh": "沪电股份：实控人拟增持2000万元至3000万元股份",
+      "summary_zh": "【沪电股份：实控人拟增持2000万元至3000万元股份】财联社11月9日电，沪电股份(002463.SZ)公告称，公司实际控制人吴礼淦家族控制的合拍友联计划自公告披露之日起6个月内增持公司股份，增持金额不低于2000万元且不超过3000万元"
     },
     {
-      "id": "e421a726d68b07bd014d492fb71b227e20286428",
-      "title": "Morning briefing: global Physical Intelligence open-source platform Hitch Open launched",
-      "summary": "Institutions say Physical AI has moved from technical validation into a continuous industrial-validation window; Hitch Open has built a Physical-AI data foundation for embodied and world-model training. (Source headline truncated.)",
-      "title_zh": "【财联社早知道】全球物理智能开源平台Hitch Open发布，机构称物理AI由技术验证进入连续产业验证窗口，它已构建物理AI数据基座，为具身训练与世界模型训练提供全...",
-      "summary_zh": ""
+      "id": "3db64549e6d878fd01843c927230349d06190a0d",
+      "title": "Apple Intelligence adds iPad and Mac scenarios to its generative AI service and completes the filing",
+      "summary": "According to Shanghai's cyberspace regulator, Apple Intelligence has added iPad and Mac scenarios to its generative AI service and completed the required filing under the interim measures for generative AI services.",
+      "title_zh": "“Apple智能”生成式人工智能服务新增苹果平板、笔记本电脑两类场景，已完成备案",
+      "summary_zh": "【“Apple智能”生成式人工智能服务新增苹果平板、笔记本电脑两类场景，已完成备案】财联社11月9日电，据“网信上海”消息，根据《生成式人工智能服务管理暂行办法》相关要求，“Apple智能”生成式人工智能服务新增苹果平板和苹果笔记本电脑两类场景，已完成备案，现将有关情况予以公告"
     },
     {
-      "id": "6671a3bf73fe38753ba2a7e0b7f9522764fb76a0",
-      "title": "White House deputy chief of staff Walters reportedly departing",
-      "summary": "US sources said on the 7th that White House Deputy Chief of Staff Richard Walters will step down.",
-      "title_zh": "白宫办公厅副主任沃尔特斯被曝将离职",
-      "summary_zh": "【白宫办公厅副主任沃尔特斯被曝将离职】财联社11月8日电，据美国方面7日消息，白宫办公厅副主任理查德·沃尔特斯将离职"
+      "id": "9797f31b4fae366515d0e1539a37116921b00c8f",
+      "title": "CLS, November 9: Wells Fargo cuts CoreWeave's price target to 115 US dollars from 160.",
+      "summary": "CLS, November 9: Wells Fargo cut its price target on US-listed AI compute lessor CoreWeave to 115 US dollars from 160.",
+      "title_zh": "财联社11月9日电，富国银行将美股AI算力租赁商Coreweave目标价从160美元下调至115美元。",
+      "summary_zh": "财联社11月9日电，富国银行将美股AI算力租赁商Coreweave目标价从160美元下调至115美元"
     },
     {
-      "id": "c4996dc369ec0a9d335afc5562c83696466342b3",
-      "title": "Olon Circuit plans 200-300 million yuan buyback for employee stock ownership or incentives",
-      "summary": "Olon Circuit (603920.SH) plans to repurchase shares worth 200-300 million yuan at no more than 55 yuan/share via centralized bidding, to be used for ESOP or equity incentives.",
-      "title_zh": "世运电路：拟2亿元至3亿元回购股份用于员工持股计划或股权激励",
-      "summary_zh": "【世运电路：拟2亿元至3亿元回购股份用于员工持股计划或股权激励】财联社11月8日电，世运电路(603920.SH)公告称，公司拟以自有资金或自筹资金通过集中竞价交易方式回购股份，回购金额不低于2亿元且不超过3亿元，回购价格不高于55元/股，回购股份将用于员工持股计划或股权激励"
+      "id": "c0532850105e4474ced1a5915e701b6f2167b745",
+      "title": "Guosen Securities completes the third batch of stock purchases under the swap facility",
+      "summary": "CLS, November 9: Guosen Securities completed its first stock purchases under the third batch of the securities, fund and insurance company swap facility.",
+      "title_zh": "国信证券完成第三批互换便利股票买入操作",
+      "summary_zh": "【国信证券完成第三批互换便利股票买入操作】财联社11月9日电，记者获悉，11月9日，国信证券顺利完成第三批“证券、基金、保险公司互换便利”项下首批股票买入操作"
     },
     {
-      "id": "424b5e9f70e870007b23a7716ddf71c4a408ec6e",
-      "title": "Next week's key calendar: post-election trade logic reshaped by China-US CPI, Russia-US-Ukraine talks, AI earnings",
-      "summary": "Key events for the week of Nov 9-15 (Beijing time): as US midterm results came in with Democrats sweeping both chambers, market logic has shifted.",
-      "title_zh": "下周重磅日程：中选后交易逻辑重塑，中美CPI、俄美乌三方会谈、AI财报三重考验来袭",
-      "summary_zh": "11月09日 - 11月15日当周重磅财经事件一览，以下均为北京时间： 本周美国中选结果陆续出炉、民主党横扫参众两院，市场逻辑随即变天"
+      "id": "dbbc6cd826c11cbd0801205a40efcb6ca9af12bb",
+      "title": "CLS, November 9: Turkey's main BIST-100 index rose 1.4% and the main banking index rose 3.1%.",
+      "summary": "CLS, November 9: Turkey's main BIST-100 index rose 1.4 percent and the main banking index rose 3.1 percent.",
+      "title_zh": "财联社11月9日电，土耳其主要BIST-100指数上涨1.4%，主要银行指数上涨3.1%。",
+      "summary_zh": "财联社11月9日电，土耳其主要BIST-100指数上涨1.4%，主要银行指数上涨3.1%"
     },
     {
-      "id": "92af5d1079168792510d2aebaedfa39a3a12f066",
-      "title": "Global watch next week: US CPI and geopolitical risk arrive; can AI trades shake off the selloff?",
-      "summary": "US tech stocks were hit by sharp selling this week, and the AI investment boom faces a double test of policy shifts and shaken market confidence.",
-      "title_zh": "环球下周看点：美国CPI与地缘风险接踵而至 AI交易能否走出抛售阴霾？",
-      "summary_zh": "美国科技股本周遭遇猛烈抛售，AI投资热潮同时面临政策环境变化与资本市场信心动摇的双重考验"
+      "id": "6e0cb082ca48cccd1e016de91660cda141d28472",
+      "title": "HSBC strategists turn bullish on equities again after the tech selloff",
+      "summary": "CLS, November 9: two weeks after cutting equity exposure, HSBC strategists have turned bullish on stocks again.",
+      "title_zh": "汇丰策略师：科技股大跌之后再度看多股市",
+      "summary_zh": "【汇丰策略师：科技股大跌之后再度看多股市】财联社11月9日电，汇丰策略师时隔两周、在刚刚降低股票敞口后再度转向看多股票"
     },
     {
-      "id": "c230edbdfae7bd131cdae4dec6cd8cfad08d2156",
-      "title": "Decisive election. Dramatic stock swings. How we handled the market last week",
-      "summary": "On Friday, Jim Cramer revealed his strategy for navigating this new era at the Investing Club's 4th Annual Meeting.",
-      "title_zh": "选举结果尘埃落定，股市剧烈震荡——我们上周如何应对市场",
-      "summary_zh": "周五，吉姆·克莱默在投资俱乐部的第四届年会上透露了他应对这一新时代的策略。"
+      "id": "1bcc97a2197717595cf004cf5c43fa188b7a1644",
+      "title": "CLS, November 9: the Stoxx Europe 600 extended gains to 1%, touching its intraday high.",
+      "summary": "CLS, November 9: the Stoxx Europe 600 extended its advance to 1 percent and touched the session high.",
+      "title_zh": "财联社11月9日电，斯托克欧洲600指数涨幅扩大至1%，触及日内高点。",
+      "summary_zh": "财联社11月9日电，斯托克欧洲600指数涨幅扩大至1%，触及日内高点"
     },
     {
-      "id": "11b69fc7937814f6cb6f8befae69877a10dc9107",
-      "title": "Shanghai-Shenzhen listed companies' major announcements (evening of Nov 8)",
-      "summary": "Several Shanghai- and Shenzhen-listed companies released announcements on the evening of Nov 8; a summary of key disclosures follows.",
-      "title_zh": "11月8日晚间沪深上市公司重大事项公告最新快递",
-      "summary_zh": "沪深两市多家上市公司11月8日晚间发布公司公告，以下为重要公告汇总"
+      "id": "82abb255d815c3346592b3f9511eb9e65bf4458a",
+      "title": "WUS Printed Circuit plans to buy back 500 million to 1 billion yuan of its A-shares",
+      "summary": "WUS Printed Circuit (002463.SZ) plans to buy back A-shares via centralized bidding for 500 million to 1 billion yuan at no more than 156.70 yuan per share.",
+      "title_zh": "沪电股份：拟5亿元至10亿元回购公司部分A股股份",
+      "summary_zh": "【沪电股份：拟5亿元至10亿元回购公司部分A股股份】财联社11月9日电，沪电股份(002463.SZ)公告称，公司拟使用自有资金或自筹资金，以集中竞价交易方式回购公司部分A股股份，回购资金总额不低于5亿元且不超过10亿元，回购价格不超过156.70元/股"
     },
     {
-      "id": "6b123033ecd1804e9bf71dff66a244fd1ac1c080",
-      "title": "620 billion yuan 'ammunition': ETFs see 23 straight days of net inflows",
-      "summary": "In the first week of November (Nov 2-6), A-shares bottomed and rebounded from a sharp correction; the CSI 300 ended a 12-week losing streak and major indexes turned positive.",
-      "title_zh": "6200亿元“弹药”！ETF连续23日资金净流入 这些产品被买爆",
-      "summary_zh": "11月开局第一周（11月2日—6日），A股终于从大幅调整中触底反弹，沪深300指数周线终结12连阴，各大核心指数周回报转正"
+      "id": "0cdee4429760a95032ae0c75fb470968411be1ef",
+      "title": "CLS, November 9: S&P 500 futures extended gains to 0.7%, marking a session high.",
+      "summary": "CLS, November 9: S&P 500 futures extended their advance to 0.7 percent intraday, setting the high of the day.",
+      "title_zh": "财联社11月9日电，标普500指数期货延续涨势，盘中涨幅扩大至0.7%，创下当日高点。",
+      "summary_zh": "财联社11月9日电，标普500指数期货延续涨势，盘中涨幅扩大至0.7%，创下当日高点"
     },
     {
-      "id": "234c91128944bf7b79b2eeb89d0ed0ccdd7648a3",
-      "title": "Trump offers White House spokesperson role to UFC boss, who may have declined",
-      "summary": "On Saturday, President Trump posted on Truth Social that he had offered the White House press secretary job to UFC CEO Dana White.",
-      "title_zh": "特朗普邀UFC老板出任白宫发言人，对方或已婉拒",
-      "summary_zh": "当地时间周六，美国总统特朗普在其社交媒体平台Truth Social上发文，宣布已向终极格斗冠军赛（UFC）首席执行官达纳·怀特（Dana White）提供白宫新闻发言人一职"
+      "id": "9e65c1c79baa171a534f27b6b9db366961c2297e",
+      "title": "China releases a batch of mandatory national standards for fire protection",
+      "summary": "CLS, November 9: the market regulator approved three mandatory national standards covering fire product inspection rules, aerial fire trucks and fire lane management.",
+      "title_zh": "一批消防领域强制性国家标准发布",
+      "summary_zh": "【一批消防领域强制性国家标准发布】财联社11月9日电，市场监管总局批准发布《消防产品现场检查判定规则》《消防车 第12部分：举高消防车》《消防车通道设置及管理导则》3项消防领域强制性国家标准"
     },
     {
-      "id": "973968962563bbf90299cf0f2df061453fa90b7f",
-      "title": "Does Musk dominate the direction of US AI?",
-      "summary": "Musk's grip on US AI stems from his control of the compute resources that decide AI firms' survival at a time when US data-center approvals are frozen, cementing his position as the ultimate landlord.",
-      "title_zh": "马斯克主宰美国AI走向？",
-      "summary_zh": "马斯克之所以能主宰美国AI走向，正是因为在全美数据中心审批被冻结的当下，他手中死死握着决定AI公司生死的算力资源，直接坐稳了绝对‘包租公’的霸主地位"
+      "id": "3271faa1c2dfa5160f5fd2120c1b153cea34ff29",
+      "title": "The Nvidia heist in detail: 76.1 million yuan of AI chips stolen, suspects used a food transport firm's truck and vanished after multiple stops, no arrests",
+      "summary": "According to CCTV, police in Oakland, California are investigating a cargo theft involving Nvidia.",
+      "title_zh": "英伟达“大劫案” 细节震撼披露：7610万元AI芯片等被盗 嫌疑人用“食品运输公司”卡车收货 运输途中多次停靠后失踪 警方未抓获任何人",
+      "summary_zh": "据央视新闻报道，美国加利福尼亚州奥克兰市警方正在调查涉及 英伟达 的货物被盗案件"
     },
     {
-      "id": "c43add4956e6bf1a5f090b709968cc051df6eee9",
-      "title": "After tech selloff, Goldman says AI-debt supply pressure is building in credit markets",
-      "summary": "After this week's tech selloff, Goldman warns that surging AI-related debt is quietly building pressure in credit markets.",
-      "title_zh": "美股科技股重挫后，高盛称AI债务供给压力正在信用市场累积",
-      "summary_zh": "科技股本周遭遇抛售，高盛最新警告称， AI债务的激增， 信用市场的压力正在悄然积聚"
+      "id": "a473424194b8ec84f71d4ad30d47a518da6bbfc9",
+      "title": "Musk says Tesla may rent out Optimus robots rather than sell them",
+      "summary": "Tesla's humanoid Optimus, one of the market's focal products, is expected to reach external customers around the end of 2027, but the delivery model may differ from what investors imagined.",
+      "title_zh": "马斯克最新透露：特斯拉可能将出租而非出售Optimus机器人",
+      "summary_zh": "特斯拉 的人形 机器人 Optimus是市场关注的焦点产品之一，其预计将在2027年底左右开始向外部客户交付，但交付形式可能与投资者此前想象不同"
     },
     {
-      "id": "996e029818318b5c7aa8f05d4462276bbb2edcbf",
-      "title": "Ten institutions on the market: bottom confirmed, 'interrupted rebound' begins",
-      "summary": "The Shanghai Composite rose 1.39% this week, the Shenzhen Component 3.16%, and the ChiNext 2.14%.",
-      "title_zh": "十大机构论市：低点已确认 “阻断式反弹”开启",
-      "summary_zh": "本周沪指上涨1.39%，深证成指上涨3.16%，创业板指上涨2.14%"
+      "id": "38d879552ca0ac781b41e1ef3c9b8078c61c906a",
+      "title": "October price data: CPI stays mild while PPI growth widens",
+      "summary": "On November 9, China's October consumer price index and producer price index data were released.",
+      "title_zh": "10月物价数据出炉！CPI温和、PPI同比涨幅扩大",
+      "summary_zh": "11月9日，10月份居民消费价格（CPI）和工业生产者出厂价格（PPI）数据出炉"
     },
     {
-      "id": "c3c8f79beebc0c976be71dfd91c000d01b0e7f23",
-      "title": "Robots' 'brains' get a new variable; are they just 'a few millimeters' from mass deployment?",
-      "summary": "At the 9th CIIE, reporters observed robots taking orders, sorting medicine and handling parts—demonstrating ever more concrete workflows, with some solutions already entering stores and factories.",
-      "title_zh": "机器人“大脑”再添新变量 规模上岗还差“最后几毫米”？",
-      "summary_zh": "接收订单、分拣药品并送至柜台，抓取丝杠零件、产线上下料……财联社记者在第九届中国国际进口博览会（下称“进博会”）上观察到， 机器人 正演示越来越具体的工作流程，部分方案已进入门店和工厂"
+      "id": "f1956add08d96322e3e10164828e5385b6d0f87d",
+      "title": "Dow futures rally 500 points as oil prices drop; traders brace for more data and earnings: Live updates",
+      "summary": "Stock futures rise and AI earnings could set the tone for markets this week.",
+      "title_zh": "油价下跌推动道指期货大涨 500 点，交易员备战更多数据与财报：实时更新",
+      "summary_zh": "股指期货走高，AI 财报可能为本周市场定调。"
     },
     {
-      "id": "3f57f15f94cb070d9806b7ea5d59f2b306a35624",
-      "title": "Saudi Aramco building in Riyadh damaged after attempted attack",
-      "summary": "A Saudi Aramco building in Riyadh was damaged by falling debris after an attempted attack, Saudi Arabia's Energy Ministry said.",
-      "title_zh": "沙特阿美利雅得一建筑遭袭击企图后受损",
-      "summary_zh": "沙特能源部表示，沙特阿美位于利雅得的一栋建筑在一次袭击企图后因坠物受损。"
+      "id": "84892a46be94ad1137c943d9736e9f25c0033816",
+      "title": "UniX AI raises 500 million yuan in a Pre-A round with downstream partner Greenland Group",
+      "summary": "On November 9, general-purpose embodied AI robot maker UniX AI announced the completion of a 500 million yuan Pre-A round.",
+      "title_zh": "优理奇完成5亿元Pre-A轮融资，下游场景伙伴绿地集团参投",
+      "summary_zh": "11月9日，通用具身智能机器人企业优理奇机器人（UniX AI，以下简称“优理奇”）宣布完成5亿元Pre-A轮融资"
     },
     {
-      "id": "3307eb035bcb4e5e2cfd3e9f9e707186a910bf3a",
-      "title": "After the midterms, is the Nasdaq a buy-the-dip opportunity?",
-      "summary": "A frustrated Republican president—barred from re-election—lost both chambers in the midterms amid the Middle East war and other factors.",
-      "title_zh": "中期选举之后，纳斯达克可以抄底吗？",
-      "summary_zh": "无奈的共和党总统 一位不能连任的共和党总统，因为中东战争等原因，在中期选举中失去参众两院"
+      "id": "10e338f54b61f07db205eb741f9c40c61efeba43",
+      "title": "Asian stocks rise broadly, Taiwan up more than 6% at one point, shrugging off the AI selloff",
+      "summary": "The MSCI Asia-Pacific index and Korean stocks rose 2% intraday while Japanese stocks gained more than 3%.",
+      "title_zh": "亚洲股市普涨 台股一度涨逾6% 无惧AI股抛售潮",
+      "summary_zh": "MSCI亚太指数、韩国股市盘中上涨2%，日本股市涨超3%"
     },
     {
-      "id": "0bcd41dd899cb5e4db50d96c6f71abad514b369d",
-      "title": "Leveraged funds' latest week repositioning: semiconductor equipment bought heavily, PCB and optical-module giants sold",
-      "summary": "The latest weekly margin-funding flows are out.",
-      "title_zh": "杠杆资金近一周调仓：半导体设备迎来重金抢筹 PCB、光模块巨头遭大额抛售",
-      "summary_zh": "近一周融资资金动向出炉"
+      "id": "b55eb452681925bae243d31437b16b2bdbc0223a",
+      "title": "Rubio sees little hope of diplomatic breakthrough to Mideast deadlock amid 'outrageous' Iranian demands",
+      "summary": "U.S",
+      "title_zh": "鲁比奥认为，在伊朗“离谱”要求下，中东僵局难有外交突破"
     },
     {
-      "id": "40cd9dce4bc05cab1b4c1e5ad4086eeebabfb82e",
-      "title": "After the US stock crash, 'Wood' says the more the market worries, the more bullish she is; bull market not over",
-      "summary": "As US AI trades tumbled and the Nasdaq entered a correction this week, ARK Invest's Cathie Wood added to positions against the trend.",
-      "title_zh": "美股暴跌后，“木头姐”：市场越担忧我越乐观，牛市未完",
-      "summary_zh": "本周美股AI交易重挫、纳斯达克综合指数跌入调整区间之际，ARK Invest掌门人Cathie Wood选择逆势加仓"
+      "id": "9b044a044aff0069bdbecbc71b860a75b2f7988d",
+      "title": "Congress returns with government funding, Pete Hegseth and the debt limit on the agenda",
+      "summary": "Republicans have less than two months left with majorities in both the Senate and the House — and a long list of legislation to take up in the coming weeks.",
+      "title_zh": "美国国会复会，政府拨款、赫格塞思与债务上限列入议程",
+      "summary_zh": "共和党在参众两院的多数地位只剩不到两个月，而未来数周还有一长串立法要处理。"
     },
     {
-      "id": "83f831f8634d94617ecf33500a2c8af486efe128",
-      "title": "In pictures: France protests draw 146,000 as clashes erupt for fourth straight weekend",
-      "summary": "France's Interior Ministry counted 146,000 protesters Saturday as demonstrations over living costs public services entered a fourth consecutive weekend.",
-      "title_zh": "图集：法国抗议持续第四个周末，冲突爆发，参与人数达14.6万",
-      "summary_zh": "法国内政部统计，周六约有14.6万人参与抗议，围绕生活成本与公共服务的示威进入连续第四个周末。"
+      "id": "efb416e30180c3db36c0cf6cac973a356b99acd6",
+      "title": "The 'Dongfang' complex surges with consecutive limit-ups as peak season and tight supply lift coal stocks",
+      "summary": "With winter coal consumption at its peak and power plant inventories low, coal prices are expected to stay elevated.",
+      "title_zh": "“东方”系火了 多股两连板！旺季+供给紧张 机构看好煤炭股后市",
+      "summary_zh": "当前处于冬季耗煤旺季叠加电厂库存偏低，煤价有望维持高位"
     },
     {
-      "id": "2ca1b2bfd9b5cf129ee48e6a0361d5a17e85ff37",
-      "title": "35 and can't code? This wave of AI dividends may be for you",
-      "summary": "Since the start of the year, global tech companies have announced nearly 200,000 job cuts.",
-      "title_zh": "35岁不会写代码？这波 AI 红利，可能就轮到你了",
-      "summary_zh": "今年以来，全球科技公司已宣布裁员近 20 万人"
+      "id": "3755c336d2fc551445c60fb6f600ee3c383e409e",
+      "title": "A record: more than 620 billion yuan of buying",
+      "summary": "On November 9 satellite-themed ETFs led gains, with the Yongying Satellite ETF up 3.99% after rising more than 7% intraday.",
+      "title_zh": "创纪录！超6200亿元扫货",
+      "summary_zh": "11月9日，卫星主题ETF领涨，卫星ETF永赢上涨3.99%，盘中一度上涨超7%"
     },
     {
-      "id": "c093a30cb42bc7066d877f499d39363168c86380",
-      "title": "Huaxin Cement plans ~$1.642 billion acquisition of 99.99% of Brazil's CSN CIMENTOS",
-      "summary": "Huaxin Cement (600801.SH) plans to acquire 99.99% of CSN CIMENTOS from Companhia Siderurgica Nacional for about 9.03 billion reais (~$1.642 billion).",
-      "title_zh": "华新建材：拟约16.42亿美元收购巴西CSN CIMENTOS 99.99%股权",
-      "summary_zh": "华新建材 (600801.SH)公告称，公司拟以预估约90.337亿巴西雷亚尔(约16.42亿美元)收购 巴西国家钢铁 公司持有的CSN CIMENTOS 99.99%股权"
+      "id": "70a38e412b501a3d7f8ae6a6c393e1b6c8618d68",
+      "title": "110 million in funding, 1 billion in orders, zero deliveries: Wujing Dynamics stalls and exposes a corner of the embodied AI bubble",
+      "summary": "In a recording of an internal meeting obtained by Tech Planet, employees press executives about a colleague they can no longer reach, exposing another burst bubble in the embodied AI sector.",
+      "title_zh": "1.1亿融资、10亿订单、0交付：无境动力停摆，撕开具身智能泡沫一角",
+      "summary_zh": "“你现在能不能联系上小飞，你什么时候能联系上他，他在干什么？” Tech星球获得的一份公司内部会议录音里，员工向公司高管急促的质问，撕开了具身智能赛道又一场泡沫破裂的现实"
     },
     {
-      "id": "4c3384cbfb3e078b230e82276735dced79e651d3",
-      "title": "Major breakthrough! China's next-generation lithography machine model unveiled",
-      "summary": "The 9th China International Import Expo is being held in Shanghai from November 5 to 10.",
-      "title_zh": "重大突破！我国新一代光刻机模型亮相",
-      "summary_zh": "11月5日至10日，第九届中国国际进口博览会在上海举行"
+      "id": "225949bd873c8831aec61a50b3b88eb2094794bb",
+      "title": "SpaceX lockup expiry meets index rebalancing; Goldman sees 10.9 billion US dollars of passive buying in December",
+      "summary": "The post-IPO SpaceX story is entering its most important chapter.",
+      "title_zh": "SpaceX解禁潮撞上指数调仓！高盛测算：12月调仓或带来109亿美元被动买盘",
+      "summary_zh": "SpaceX上市后的故事，正进入真正关键的章节"
     },
     {
-      "id": "dbedc520ab0fd6d4dcc1116c3bb183d668b9476c",
-      "title": "Next two years: 'fight to the end' or 'maximum negotiation'? Frequent White House reshuffle as lame-duck Trump strikes a hard line",
-      "summary": "After the GOP's historic midterm defeat, Trump reshuffled staff in a hardline direction within a week—replacing chief of staff Susie Wiles with hawk Stephen Miller and inviting UFC's Dana White as press secretary.",
-      "title_zh": "未来两年“战斗到底”还是“极限谈判”？白宫人事频繁更迭，“坡脚”特朗普摆出“强硬姿态”",
-      "summary_zh": "共和党在中期选举中遭遇历史性惨败后，特朗普非但没有向选民释放的不满信号妥协，反而在一周之内完成了一轮强硬色彩鲜明的人事洗牌——以强硬派干将Stephen Miller取代Susie Wiles出任白宫幕僚长，并公开邀请UFC总裁Dana White担任新闻秘书"
+      "id": "af09e5623e7640595837227889cda8fcba0a5fff",
+      "title": "Apple, Unitree and Qwen combine as the HALO robot brain arrives",
+      "summary": "Robot concept stocks strengthened on Monday, with Xiangming Intelligent and Shangwei New Materials up 20%, Unitree up more than 9% and a raft of peers following.",
+      "title_zh": "苹果+宇树+千问！机器人大脑HALO来了",
+      "summary_zh": "周一 机器人 概念走强 ， 祥明智能 、 上纬新材 等20CM涨停， 宇树科技-W 涨超9%， 天准科技 、 开特股份 等多股跟涨"
     },
     {
-      "id": "32164078df07a91add8bba9cad82d3ec42ff7744",
-      "title": "From prediction market to next-gen exchange: can $40 billion Kalshi IPO next year?",
-      "summary": "Prediction-market platform Kalshi recently closed a $1 billion Series G at a $40 billion valuation, up about 82% from its $22 billion May Series F.",
-      "title_zh": "从预测市场到下一代交易所：400亿美元Kalshi明年冲刺IPO？",
-      "summary_zh": "近期，预测市场平台Kalshi完成G轮10亿美元融资，估值升至400亿美元，较今年5月F轮融资估值的220亿美元上涨约82%"
+      "id": "11e8a0242bce618412f5121bfc1074ded3d885d1",
+      "title": "Within reach: bank stocks strengthen again with several names near highs",
+      "summary": "On November 9 A-shares opened higher and faded, the three main indices closed mixed, and banks rose about 1% to lead the sector table.",
+      "title_zh": "一步之遥！银行股再度走强 多只标的逼近新高",
+      "summary_zh": "11月9日，A股高开低走，三大指数涨跌不一， 银行 股全天低开高走，截至收盘，板块涨约1%，涨幅居行业板块前列"
     },
     {
-      "id": "4c3c20e8b9643f631b8db1bcf48b447395d83bcd",
-      "title": "Shennan Circuits: controlling shareholder proposes 2026 cash dividend of at least 35% of net profit",
-      "summary": "Shennan Circuits (002916.SZ) received a proposal from its controlling shareholder to pay 2026 cash dividends (including buyback amounts treated as dividends) of at least 35% of net profit attributable to shareholders.",
-      "title_zh": "深南电路：控股股东提议2026年度现金分红总额不低于净利润35%",
-      "summary_zh": "深南电路 (002916.SZ)公告称，公司收到控股股东深天科技控股出具的2026年度现金分红提议函，建议公司在符合利润分配条件、未发生超出既定计划的重大投资或重大现金支出需求，且不影响公司持续经营和长期发展的前提下，公司2026年度现金分红总额（包括可视同现金分红的回购股份金额等）不低于当年归属于上市公司股东的净利润"
+      "id": "ddc80ca2b357c1d00c06c7ecf662da39e419a815",
+      "title": "Wallstreetcn calendar 11.11 flash sale with a thousand-yuan knowledge bundle",
+      "summary": "Risk disclosure and disclaimer: markets carry risk and investing requires caution.",
+      "title_zh": "见闻历11.11限时大促！随日历附赠千元知识礼包，送什么都不如送“搞钱的智慧”",
+      "summary_zh": "风险提示及免责条款 市场有风险，投资需谨慎"
     },
     {
-      "id": "c141e24febe4a87adc834bb9e6802b17332b4f05",
-      "title": "Iran executes three men arrested during January anti-government protests",
-      "summary": "Iran executed three men convicted over their involvement in January anti-government protests, state media reported.",
-      "title_zh": "伊朗处决三名于一月反政府抗议中被捕男子",
-      "summary_zh": "据伊朗国家媒体报道，伊朗处决了三名因参与一月份反政府抗议而被定罪的男子。"
+      "id": "afde497d4516ae163e12be05c13fbe433a063431",
+      "title": "November 9 dragon-tiger list review: Snowman Group tops net buying",
+      "summary": "On November 9, 60 stocks including one convertible bond appeared on the dragon-tiger list with total turnover of 14.309 billion yuan.",
+      "title_zh": "11月9日龙虎榜复盘：雪人集团净买额居首",
+      "summary_zh": "11月9日共有60只个股（含1只可转债）上榜龙虎榜，总上榜成交额143.09亿元"
     },
     {
-      "id": "20fe0909ec91e8e7892cc7dc1d449ba7d562deb7",
-      "title": "Preparing for two years of 'fierce struggle'! Trump invites UFC chief to be White House spokesperson",
-      "summary": "Trump is preparing for a more confrontational political battle.",
-      "title_zh": "为未来两年“激烈斗争”做准备！特朗普邀请“格斗联盟”UFC总裁出任白宫发言人",
-      "summary_zh": "特朗普正在为一场更具对抗性的政治战做准备"
+      "id": "1c40e019bfeddd009f7b6ff847f9869af89baa91",
+      "title": "Institutional research: satellite internet, commercial space and domestic chips back steady satellite revenue growth and small-batch DBF shipments",
+      "summary": "On November 9 several listed companies disclosed investor relations records detailing business developments and highlights.",
+      "title_zh": "机构调研丨卫星互联网+商业航天+国产芯片 这家公司卫星通信收入稳增 DBF产品已小批量出货",
+      "summary_zh": "11月9日，多家上市公司发布投资者关系活动记录表公告，披露各自与机构之间的业务交流内容，其中透露出公司业务布局的诸多进展与亮点"
     },
     {
-      "id": "bff175a4c282e3ff3595bcb3fb3b3d5367cd2f3a",
-      "title": "GOP's midterm rout—is crypto's good fortune over?",
-      "summary": "The crypto industry enjoyed two years of political dividends in Washington, but that came to an abrupt halt as Democrats swept the midterm congressional elections.",
-      "title_zh": "共和党中选大败，币圈“好事到头”了？",
-      "summary_zh": "加密货币行业在华盛顿享受了两年的政治红利，如今随着民主党横扫国会中期选举，这一局面戛然而止"
+      "id": "9d751fa529bd8d712995ac35910a4d06d8071ce2",
+      "title": "Eighth-lowest of the year: A-share turnover falls below 1.5 trillion yuan as nearly 20 stocks hit yearly volume highs",
+      "summary": "Trading activity in the A-share market fell further today, November 9.",
+      "title_zh": "年内第八低！A股成交额跌破1.5万亿 近20股量能创年内新高 这些方向高占比",
+      "summary_zh": "今日（11月9日），市场交投活跃度进一步回落"
     },
     {
-      "id": "a975ed9b7ed7715b2ce627a9106f4deb834ab1b2",
-      "title": "US Oct jobs beat lifts rate-hike odds; rising Treasury costs signal structural demand shift (W45 macro)",
-      "summary": "October nonfarm payrolls rose 165,000 vs 70,000 expected, unemployment fell to 4.1%, and hourly earnings rose 0.4% MoM, driving a tightening trade.",
-      "title_zh": "美10月非农超预期推升加息概率，美债成本上升需求呈结构性变化---W45海外宏观脱水",
-      "summary_zh": "10月美国新增非农16.5万人远超预期7万人，失业率回落至4.1%，时薪环比回升至0.4%，市场演绎紧缩交易"
+      "id": "ddf712250224253798ac7d299ed9a076782896ef",
+      "title": "Shenzhou Semiconductor to face listing review on November 16 with a 2.183 billion yuan fundraising plan",
+      "summary": "The Shanghai Stock Exchange listing committee will meet on November 16, 2026 to review the initial public offering of Jiangsu Shenzhou Semiconductor Technology.",
+      "title_zh": "神州半导体11月16日上会 拟募资总额21.83亿元",
+      "summary_zh": "据上交所网站11月9日消息，上海证券交易所上市审核委员会定于2026年11月16日召开2026年第58次上市审核委员会审议会议，审议江苏神州 半导体 科技股份有限公司（以下简称“神州 半导体 ”）的首发事项"
     },
     {
-      "id": "6959e6d7fc00001ffb9fd2b03f9910ef8873d3be",
-      "title": "Nomura: 'blue wave' hits US data centers, Chinese AI stands to benefit",
-      "summary": "With Democrats sweeping both chambers in the midterms, concerns over US data-center construction prospects have risen—to the relative benefit of Chinese AI.",
-      "title_zh": "野村：“蓝色浪潮”冲击美国数据中心，中国AI反而受益",
-      "summary_zh": "美国民主党在中期选举中横扫国会两院，市场对美国数据中心建设前景的担忧随之升温"
+      "id": "47c4eef4561d04c67017d6eab710ce9995f806c0",
+      "title": "A-share bottoming looks complete but a rebound needs policy money; Southeast Asia pulls back with uneven policy support; El Nino reshapes China's seed supply, 1109 macro digest",
+      "summary": "A-share valuations and sentiment are close to the thresholds seen at past market bottoms, suggesting the base is relatively well formed.",
+      "title_zh": "A股底部构筑完善但反弹待政策资金，东南亚股市普遍回调但政策托底分化，厄尔尼诺下中国种业供给优化---1109宏观脱水",
+      "summary_zh": "A股估值与情绪已接近历次市场底部阈值，底部构筑相对完善"
     }
   ],
-  "updated_at": "2026-11-08T11:37:48Z"
+  "updated_at": "2026-11-09T12:37:52Z"
 }
