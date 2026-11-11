@@ -1,32 +1,32 @@
 {
   "items": [
     {
-      "id": "294f786c1e609ae646086bb301023f8c5947af7a",
-      "title": "Kalshi plans to launch futures tracking US CPI and core inflation on December 8",
-      "summary": "CLS, November 11: Kalshi communications head Elisabeth Diana said the company plans to launch new futures contracts on December 8 tracking the US consumer price index and the core inflation measure that excludes food and energy.",
-      "title_zh": "Kalshi拟12月8日推出追踪美国CPI及核心通胀的期货",
-      "summary_zh": "【Kalshi拟12月8日推出追踪美国CPI及核心通胀的期货】财联社11月11日电，Kalshi传播主管Elisabeth Diana表示，该公司计划于12月8日推出追踪美国消费者价格指数(CPI)和剔除食品及能源的核心通胀指标的新期货合约"
+      "id": "dfee4319e1919ee7dbaf3a21a9b973b91d82841c",
+      "title": "Nvidia shares rebound 5% as Huang faces scrutiny ahead of earnings",
+      "summary": "Investors are assessing whether CEO Jensen Huang's affair will have spillover effects on Nvidia's business.",
+      "title_zh": "英伟达股价反弹 5%，黄仁勋在财报前承压",
+      "summary_zh": "投资者正在评估 CEO 黄仁勋的绯闻是否会对英伟达的业务产生外溢影响。"
     },
     {
-      "id": "2648e128a589f4804656a7c342560abdf7b5238e",
-      "title": "A violent Treasury sell-off as inflation data and hawkish Fed remarks shake rate bets",
-      "summary": "CLS, November 11: with inflation running above expectations and Fed officials warning they may raise rates more aggressively, the US bond market suffered one of its worst sell-offs since April 2025.",
-      "title_zh": "美国国债遭遇猛烈抛售潮 通胀数据和美联储鹰派言论动摇利率押注",
-      "summary_zh": "【美国国债遭遇猛烈抛售潮 通胀数据和美联储鹰派言论动摇利率押注】财联社11月11日电，因通胀高于预期，加之美联储官员警告可能加大升息力度，美国债市遭遇2025年4月以来最严重抛售潮之一"
+      "id": "469d9af877a1745760507ef5d72bc12357f26c12",
+      "title": "Chile central bank survey: 12-month inflation seen at 3.4%",
+      "summary": "CLS, Nov 11: Chile's central bank survey puts the 12-month inflation expectation at 3.4%.",
+      "title_zh": "财联社11月11日电，智利央行调查显示，未来12个月智利通胀率预计为3.4%。",
+      "summary_zh": "财联社11月11日电，智利央行调查显示，未来12个月智利通胀率预计为3.4%"
     },
     {
-      "id": "cabbde7de386cd803a45e806c3018cc573f28535",
-      "title": "AMD’s stock fades as investors weigh whether Nvidia’s turmoil will mean lasting wins",
-      "summary": "It’s one thing for money to shift between stocks, but it’s another thing for customers to shift their supplier relationships.",
-      "title_zh": "AMD 股价走弱，投资者在权衡英伟达的动荡是否会带来持久收益",
-      "summary_zh": "资金在不同股票之间转移是一回事，客户更换供应商关系是另一回事。"
+      "id": "aea6034196c28ba3152768e61c8c5fba0ba0e532",
+      "title": "AMD up more than 6% in US premarket trading",
+      "summary": "CLS, Nov 11: AMD shares gained more than 6% in US premarket trading.",
+      "title_zh": "财联社11月11日电，AMD美股盘前涨超6%。",
+      "summary_zh": "财联社11月11日电，AMD美股盘前涨超6%"
     },
     {
-      "id": "d6ea85fdbde669f2edfc25b405b775b020d42bb9",
-      "title": "Schumer accuses Trump of defending Nvidia CEO Jensen Huang at cost of national security",
-      "summary": "Rep",
-      "title_zh": "舒默指责特朗普为英伟达 CEO 黄仁勋辩护，代价是国家安全",
-      "summary_zh": null
+      "id": "65a6f6c7ef63b9c2c131b86ce9e4e86c7fee1979",
+      "title": "October inflation beat, Fed officials signal hikes: how likely is a 50bp December move?",
+      "summary": "After the US October CPI release, several Fed officials delivered further hawkish signals.",
+      "title_zh": "10月通胀超预期、多位美联储官员释放加息信号 12月加息50个基点可能性有多大？",
+      "summary_zh": "美国10月CPI数据公布后，多位美联储官员进一步释放鹰派信号"
     },
     {
       "id": "cd1a097293fb6c7146fc9e6eff781abc517c24a7",
@@ -36,18 +36,9 @@
       "summary_zh": "黄仁勋周日承认，他与一名被《纽约时报》和《金融时报》报道与中国情报部门有关联的女性存在婚外情。"
     },
     {
-      "id": "4427c048f5232f6b9b57f1ace74f5162f24487ff",
-      "title": "Op-ed: In Nvidia CEO Jensen Huang's alleged China spy scandal, there's plenty of blame to go around",
-      "summary": "In the AI era, our economic competitiveness, military capabilities, and intelligence edge can be taken down by one man",
-      "title_zh": "评论：英伟达 CEO 黄仁勋所谓中国间谍丑闻中，需要担责的不止一方",
-      "summary_zh": "在 AI 时代，一个国家的经济竞争力、军事能力与情报优势，可能被一个人拖垮。"
-    },
-    {
-      "id": "2e508a4f220f7119d1cdcaed52a90d93c110f8c3",
-      "title": "US CPI beats again as Waller's warning comes true: Wall Street focuses on a 25 or 50 basis point hike in December",
-      "summary": "US October inflation came in above expectations again, pushing market odds of a December Fed hike higher and bringing a larger move into the discussion.",
-      "title_zh": "美CPI又超预期、沃勒警告应验！华尔街聚焦12月加息25还是50基点，“新美联储通讯社”：加加停停策略面临考验",
-      "summary_zh": "美国10月通胀再度高于预期，令美联储12月加息的市场预期进一步升温，而更大幅度的加息也开始进入讨论范围"
+      "id": "08a5062a14775e93ce60f3d4afdbbdbc2152cda4",
+      "title": "Nvidia, chip stocks rebound premarket after CoreWeave lifts revenue outlook",
+      "title_zh": "CoreWeave 上调营收指引后，英伟达与芯片股盘前反弹"
     },
     {
       "id": "36d51f019d011bc2223545b6daf0349263781567",
@@ -57,95 +48,207 @@
       "summary_zh": "针对黄仁勋的指控，让人们再次关注这位英伟达 CEO 对美国对华政策可能施加的影响。"
     },
     {
-      "id": "7e5f444e2b771e067dc6c797327886ee520b4102",
-      "title": "'Markets bottom on bad news' maxim rings true as chip stocks rally amid Nvidia scandal",
-      "summary": "The cliche is one of those smart-sounding rules of thumb that proves true just often enough to remain a Wall Street cliché in good standing.",
-      "title_zh": "“坏消息见底”的箴言再度应验：芯片股在英伟达丑闻中反弹",
-      "summary_zh": "这类听上去很聪明的经验法则之所以还留在华尔街的常用语里，正是因为它偶尔确实成立。"
+      "id": "52476978d24c4d1919cdaaa6e11f3749a556d363",
+      "title": "Shengyi Technology denies Nvidia cancelled M9 orders over quality issues",
+      "summary": "Asked by an investor about reports that its M9 product lost Nvidia orders over quality problems, the company said it has received no notice of any end-customer cancellation.",
+      "title_zh": "m9因品质问题被英伟达取消订货？生益科技：未接到任何终端取消订单的通知",
+      "summary_zh": "有投资者问，今天有消息说，公司的m9因为品质问题，被 英伟达 取消了订货"
     },
     {
-      "id": "ad0354257ae8f5b48d35e885de20c155cdd928b2",
-      "title": "Fed overnight reverse repo usage falls to 152 million dollars",
-      "summary": "CLS, November 11: usage of the Fed's overnight reverse repo agreement on Tuesday was 152 million dollars, against 252 million dollars the previous trading day.",
-      "title_zh": "财联社11月11日电，美联储隔夜逆回购协议（RRP）周二使用规模为1.52亿美元，上个交易日报2.52亿美元。",
-      "summary_zh": "财联社11月11日电，美联储隔夜逆回购协议（RRP）周二使用规模为1.52亿美元，上个交易日报2.52亿美元"
+      "id": "71993e1fe582753b3f511ee668256731893b349e",
+      "title": "AI trade revives: memory and optical names rally premarket, CoreWeave jumps 17%, oil steadies",
+      "summary": "US AI sentiment recovered markedly, lifting tech futures.",
+      "title_zh": "AI交易回暖，美股盘前存储芯片股、光通信股普涨，CoreWeave暴涨17%，油价止跌",
+      "summary_zh": "美国人工智能板块交易情绪显著回升，推动科技股期货走高"
     },
     {
-      "id": "0b34ce184e6b6287e19a52981873957703822c9e",
-      "title": "Nvidia hires Wachtell Lipton to lead independent review into Jensen Huang affair",
-      "summary": null,
-      "title_zh": "英伟达聘请 Wachtell Lipton 主导对黄仁勋绯闻的独立审查",
-      "summary_zh": null
+      "id": "9140f5dea34b0a1779118c0b845ce21d6668131d",
+      "title": "How much CPO demand will Nvidia's Rubin Ultra create? Bernstein sees 5x optical value per pod",
+      "summary": "Co-packaged optics demand from Nvidia's next AI architecture is pushing the optical communications industry into a growth cycle far larger than currently expected.",
+      "title_zh": "英伟达Rubin Ultra将催生多少CPO需求？伯恩斯坦：单Pod光学价值量翻5倍",
+      "summary_zh": "英伟达下一代AI芯片架构所催生的共封装光学（CPO）需求，正推动光学通信行业进入一个规模远超当前预期的新增长周期"
     },
     {
-      "id": "fda828bcce465d3e6eca6214302ce8504e325803",
-      "title": "Nvidia-backed AI cloud firm Nscale considers delaying $35 billion listing, the Telegraph reports",
-      "summary": null,
-      "title_zh": "英伟达支持的 AI 云公司 Nscale 考虑推迟 350 亿美元上市，《电讯报》报道",
-      "summary_zh": null
+      "id": "a950946bfef5095c8262471c7da959aac3cc90e2",
+      "title": "Huang fallout continues? Broker says Nvidia looks 'absurdly cheap' and the buy window is open",
+      "summary": "Mizuho technology analyst Jordan Klein said that despite near-term uncertainty around CEO Jensen Huang, the stock may be 'absurdly cheap' and offers an attractive entry point.",
+      "title_zh": "黄仁勋风波持续发酵？投行：英伟达股票 “便宜得离谱” 买入良机已至",
+      "summary_zh": "瑞穗证券（Mizuho Securities）科技分析师Jordan Klein日前表示，尽管围绕 英伟达 CEO黄仁勋短期内存在不确定性， 但目前该公司股价可能“便宜得离谱”，为投资者提供了一个极具吸引力的买入良机"
     },
     {
-      "id": "9d3f132ac9f03af18dd15a367df5b4e3da8b88da",
-      "title": "Schumer says Congress must have answers on Trump defense of Nvidia CEO",
-      "summary": null,
-      "title_zh": "舒默称国会在特朗普为英伟达 CEO 辩护一事上必须得到答案",
-      "summary_zh": null
+      "id": "9982fa3bbbcc502e2126c5717aa39743bf8fd795",
+      "title": "Memory bullish: super-cycle seen running to 2028, but two houses diverge sharply on pricing",
+      "summary": "BofA, citing TrendForce senior analyst Avril Wu, said the memory industry can sustain the current upcycle into 2027 and avoid a downturn in 2028.",
+      "title_zh": "利好存储芯片！超级周期料延续至2028年 但两大机构价格预期分歧巨大",
+      "summary_zh": "美国银行 （BofA）援引集邦科技（TrendForce Corp.）资深分析师Avril Wu的评论称， 存储芯片 行业可以维持目前的上升周期到2027年，并在2028年避免进入下行周期"
     },
     {
-      "id": "5815ae2bf0e65b9b9bb0570294aa08e0199a7e9e",
-      "title": "Dollar jumps as hot CPI and Waller comments bring supersized Fed hike into play",
-      "summary": null,
-      "title_zh": "美元跳涨：火热的 CPI 与沃勒的表态令超常规加息进入视野",
-      "summary_zh": null
+      "id": "d79c0a73c3f8afc8eb6eb22f999606520ded6ef3",
+      "title": "Memory lines up another price hike as channel prices move first; margin buyers pile into several names",
+      "summary": "A fresh round of memory price increases is being prepared, with some leading suppliers verbally signalling enterprise-grade die hikes to channel partners.",
+      "title_zh": "存储酝酿新一轮涨价！渠道价格已先动 多股获融资客抢筹(名单)",
+      "summary_zh": "存储市场正酝酿新一轮涨价，部分头部企业已向渠道商口头告知企业级颗粒涨价意向"
     },
     {
-      "id": "c42a88bc77187759a83c9df234b6bed3dbfce1cc",
-      "title": "Even Wall Street’s lone Nvidia bear says forcing out CEO Jensen Huang ‘would be a mistake for everyone’",
-      "summary": "Nvidia’s board is investigating CEO Jensen Huang over his relationship with an alleged spy.",
-      "title_zh": "就连华尔街唯一看空英伟达的人也认为，赶走 CEO 黄仁勋“对所有人都是错误”",
-      "summary_zh": "英伟达董事会正在调查 CEO 黄仁勋与一名疑似间谍的关系。"
+      "id": "6bcad9f32dc4cb0f33b4b95d32aea5efccd55e63",
+      "title": "Memory makers prepare another round of hikes, enterprise grade first",
+      "summary": "The new round of memory price increases is unfolding asymmetrically.",
+      "title_zh": "存储厂商酝酿新一轮涨价 先涨的是企业级",
+      "summary_zh": "存储市场的新一轮涨价，正以一种不太对称的方式展开"
     },
     {
-      "id": "c95664d0efb84aa51fe6823c14fac652d7ef5112",
-      "title": "GE Vernova sellers have it all wrong — plus, why Fed rate hike odds are soaring",
-      "summary": "Every weekday, the Investing Club releases the Homestretch; an actionable afternoon update just in time for the last hour of trading.",
-      "title_zh": "GE Vernova 的卖空者全错了——以及为何美联储加息概率在飙升",
-      "summary_zh": "每个工作日，投资俱乐部都会发布 Homestretch，一份赶在收盘前一小时给出的可操作午后更新。"
+      "id": "8bb02f27c728c79a389809565ca66fd5be5e5a93",
+      "title": "Exclusive: Citigroup Securities expects to open in the second half of next year",
+      "summary": "CLS, Nov 11: Citigroup told reporters it is progressing with the establishment of Citigroup Securities (China) and the required regulatory procedures, with approval pending and an expected opening in the second half of next year.",
+      "title_zh": "独家|花旗证券预计明年下半年开业",
+      "summary_zh": "【独家|花旗证券预计明年下半年开业】财联社11月11日电，财联社记者今日从花旗集团获悉，公司正推进花旗证券（中国）有限公司（简称“花旗证券”）的设立，并履行开业所需的各项法定及监管程序，后续尚需通过验收，预计明年下半年开业"
     },
     {
-      "id": "6e6d038a0b76dea04c67284a55f5e1cb7cd79a95",
-      "title": "Fed Governor Bowman warns stocks could correct if AI bets disappoint",
-      "summary": "Fed Governor Michelle Bowman said financial markets pose a risk to economic activity, including the possibility of a sharp fall in equity prices if returns on AI investment fall short of expectations.",
-      "title_zh": "美联储理事鲍曼警告：若AI押注落空，股市或现回调",
-      "summary_zh": "美联储理事米歇尔·鲍曼认为，金融市场对经济活动构成风险，其中包括：若人工智能投资的回报不及预期，股价可能出现急跌"
+      "id": "37c2d375b56b8a7818d17a3df2de72ab31e00f1c",
+      "title": "Wang Huning meets Cuban special envoy and foreign minister Rodriguez",
+      "summary": "Wang Huning, member of the CPC Politburo Standing Committee and chairman of the CPPCC National Committee, met Cuban special envoy and foreign minister Rodriguez in Beijing on Nov 11.",
+      "title_zh": "王沪宁会见古巴党和政府特使、古共中央政治局委员、外交部长罗德里格斯",
+      "summary_zh": "【王沪宁会见古巴党和政府特使、古共中央政治局委员、外交部长罗德里格斯】中共中央政治局常委、全国政协主席王沪宁11日在京会见古巴党和政府特使、古共中央政治局委员、外交部长罗德里格斯"
     },
     {
-      "id": "d28f93e34280c3402015d5edf1c0dae2d41b3e44",
-      "title": "S&P 500 falls after hot CPI ignites inflation concerns: Live updates",
-      "summary": "Traders reacted to a pivotal consumer inflation report as well as new comments from a key Federal Reserve official.",
-      "title_zh": "火热 CPI 引发通胀担忧，标普 500 下跌：实时更新",
-      "summary_zh": "交易员在消化一份关键的消费者通胀报告，以及一位重要美联储官员的最新表态。"
+      "id": "50e77361a378a60f8a50ace93e28e6c291ac5598",
+      "title": "Delong Hui Neng: El Nino will not hit results quickly or directly",
+      "summary": "Delong Hui Neng (000593.SZ) said it noted media reports on El Nino-driven cold waves and that the phenomenon will not have a fast or direct effect on company results.",
+      "title_zh": "德龙汇能：厄尔尼诺现象不会对公司业绩产生快速直接的影响",
+      "summary_zh": "【德龙汇能：厄尔尼诺现象不会对公司业绩产生快速直接的影响】财联社11月11日电，德龙汇能(000593.SZ)公告称，公司关注到部分媒体关于“厄尔尼诺致寒潮频发”等报道"
     },
     {
-      "id": "281d3b2833a144b2bc3ecbfe5e4bb523cad5faa8",
-      "title": "The Fed turns hawkish again: voter Logan says at least two more hikes are needed and the pace may quicken",
-      "summary": "Fed officials' concern about inflation has clearly intensified and their hawkish stance is hardening.",
-      "title_zh": "美联储再次放鹰！今年票委Logan：至少还需加息两次，步伐或将加快",
-      "summary_zh": "美联储官员对通胀的担忧情绪明显升温，鹰派立场趋于强化"
+      "id": "c6b4e37dedc63a8508295316214dbd486951737c",
+      "title": "Russia says security architecture is the core issue at trilateral talks",
+      "summary": "Russian presidential aide Medinsky, leading the Russian delegation at Russia-US-Ukraine talks in Abu Dhabi, said on Nov 11 that security architecture is the core topic.",
+      "title_zh": "俄罗斯称安全架构是俄美乌三方会谈核心议题",
+      "summary_zh": "【俄罗斯称安全架构是俄美乌三方会谈核心议题】财联社11月11日电，据俄罗斯方面消息，率俄罗斯代表团在阿联酋阿布扎比参加俄美乌三方会谈的俄总统助理梅金斯基11日说，安全架构是阿布扎比会谈的核心议题"
     },
     {
-      "id": "0dd28872b2b39bda449991c414ed6d1f130e7b64",
+      "id": "123f844e05cf46a3bb606a10613c395b70f2d14d",
+      "title": "US envoy Kushner says he and Witkoff will travel to Moscow to meet Putin tomorrow",
+      "summary": "CLS, Nov 11: US envoy Kushner said he and Witkoff will travel to Moscow tomorrow to meet Russian President Putin.",
+      "title_zh": "财联社11月11日电，美国特使库什纳称他明天和威特科夫将前往莫斯科，会见俄罗斯总统普京。",
+      "summary_zh": "财联社11月11日电，美国特使库什纳称他明天和威特科夫将前往莫斯科，会见俄罗斯总统普京"
+    },
+    {
+      "id": "d5001cb3617cf4ec224ea0a880a90c95fbfdb5db",
+      "title": "Harvest Nasdaq ETF (159501) to halt trading from the open to 10:30 on Nov 12",
+      "summary": "CLS, Nov 11: Harvest Nasdaq ETF (159501) will be suspended from the Nov 12 open until 10:30 that day.",
+      "title_zh": "财联社11月11日电，纳指ETF嘉实(159501)将于2026年11月12日开市起至当日10:30停牌。",
+      "summary_zh": "财联社11月11日电，纳指ETF嘉实(159501)将于2026年11月12日开市起至当日10:30停牌"
+    },
+    {
+      "id": "039b98d994ce6cbd6d44cc8dd995d5f4ccf763ea",
+      "title": "China Merchants Nasdaq 100 ETF (159659) to halt trading from the open to 10:30 on Nov 12",
+      "summary": "CLS, Nov 11: China Merchants Nasdaq 100 ETF (159659) will be suspended from the Nov 12 open until 10:30 that day.",
+      "title_zh": "财联社11月11日电，纳斯达克100ETF招商(159659)将于2026年11月12日开市起至当日10:30停牌。",
+      "summary_zh": "财联社11月11日电，纳斯达克100ETF招商(159659)将于2026年11月12日开市起至当日10:30停牌"
+    },
+    {
+      "id": "4d709397c61bcc04c2e117de827613ab0ba1fca7",
+      "title": "Two oil tankers explode in the Strait of Hormuz",
+      "summary": "Iran's Revolutionary Guard navy said two tankers trying to exit the Strait of Hormuz covertly on an unauthorised route struck mines the previous night, causing heavy explosions.",
+      "title_zh": "两艘油轮在霍尔木兹海峡爆炸",
+      "summary_zh": "【两艘油轮在霍尔木兹海峡爆炸】当地时间11日，伊朗伊斯兰革命卫队海军表示，在前一天晚上，有两艘油轮试图通过一条未经伊朗授权的航线秘密驶出霍尔木兹海峡，油轮触碰水雷，引发剧烈爆炸"
+    },
+    {
+      "id": "c1d762ef477f4d79a9ab41513ee9a067c462d6f1",
+      "title": "Russia publishes results of this round of trilateral talks",
+      "summary": "Russian delegation head and presidential aide Medinsky published partial results of this round of Russia-US-Ukraine talks on Nov 11.",
+      "title_zh": "俄方公布本轮俄美乌三方会谈成果",
+      "summary_zh": "【俄方公布本轮俄美乌三方会谈成果】财联社11月11日电，俄谈判代表团团长、俄总统助理梅金斯基当地时间11月11日公布了本轮俄美乌三方会谈的部分成果"
+    },
+    {
+      "id": "5a85cd77f9839adeeecf5f0789f5b0f8ccc9e699",
+      "title": "GF Nasdaq ETF (159941) to halt trading from the open to 10:30 on Nov 12",
+      "summary": "CLS, Nov 11: GF Nasdaq ETF (159941) will be suspended from the Nov 12 open until 10:30 that day.",
+      "title_zh": "财联社11月11日电，纳指ETF广发(159941)将于2026年11月12日开市起至当日10:30停牌。",
+      "summary_zh": "财联社11月11日电，纳指ETF广发(159941)将于2026年11月12日开市起至当日10:30停牌"
+    },
+    {
+      "id": "a3fa1c9bd90c6c79296bac457cc946598c5b312a",
+      "title": "German chancellor Merz: Germany must do everything to keep its AAA rating",
+      "summary": "CLS, Nov 11: German Chancellor Merz said Germany must make every effort to preserve its AAA credit rating.",
+      "title_zh": "财联社11月11日电，德国总理默茨表示，德国必须尽一切努力维持AAA信用评级。",
+      "summary_zh": "财联社11月11日电，德国总理默茨表示，德国必须尽一切努力维持AAA信用评级"
+    },
+    {
+      "id": "47e3c0b83ea2e3697cd5bb3b7d5da4395d6cbad0",
+      "title": "Russia says Europe's current security system is not working well",
+      "summary": "CLS, Nov 11: Russia said the current European security system is not functioning well.",
+      "title_zh": "财联社11月11日电，俄罗斯表示，欧洲现行安全体系运作得并不好。",
+      "summary_zh": "财联社11月11日电，俄罗斯表示，欧洲现行安全体系运作得并不好"
+    },
+    {
+      "id": "456259fd34cf6bb52092c16a1c216930b1e3ef75",
+      "title": "Hot US inflation knocks gold more than a hundred points in a night, nearing the 4000 mark",
+      "summary": "The bulls' run lasted less than a week; the stronger-than-expected US inflation print knocked bullion back after it had just reclaimed 4100.",
+      "title_zh": "美通胀超预期 黄金一夜跌逾百点濒临4000美元大关",
+      "summary_zh": "黄金 多头的狂欢持续了不到一周，超出预期的美通胀数据，再度打压了刚站上4100美元的金价"
+    },
+    {
+      "id": "cb3daf027506f9cde86745a28401866b51f28559",
+      "title": "Huatai-PineBridge Nasdaq ETF (513110) to halt trading from the open to 10:30 on Nov 12",
+      "summary": "CLS, Nov 11: Huatai-PineBridge Nasdaq ETF (513110) will be suspended from the Nov 12 open until 10:30 that day.",
+      "title_zh": "财联社11月11日电，纳指ETF华泰柏瑞(513110)将于2026年11月12日开市起至当日10:30停牌。",
+      "summary_zh": "财联社11月11日电，纳指ETF华泰柏瑞(513110)将于2026年11月12日开市起至当日10:30停牌"
+    },
+    {
+      "id": "f530dc4fb9b32535c0054978bc2962845fed2ed5",
+      "title": "Bosera Nasdaq 100 ETF (513390) to halt trading from the open to 10:30 on Nov 12",
+      "summary": "CLS, Nov 11: Bosera Nasdaq 100 ETF (513390) will be suspended from the Nov 12 open until 10:30 that day.",
+      "title_zh": "财联社11月11日电，纳指100ETF博时(513390)将于2026年11月12日开市起至当日10:30停牌。",
+      "summary_zh": "财联社11月11日电，纳指100ETF博时(513390)将于2026年11月12日开市起至当日10:30停牌"
+    },
+    {
+      "id": "c00717b3174eea6de10429fea0f8cdfd74931781",
+      "title": "E Fund US 50 ETF (513850) to halt trading from the open to 10:30 on Nov 12",
+      "summary": "CLS, Nov 11: E Fund US 50 ETF (513850) will be suspended from the Nov 12 open until 10:30 that day.",
+      "title_zh": "财联社11月11日电，美国50ETF易方达(513850)将于2026年11月12日开市起至当日10:30停牌。",
+      "summary_zh": "财联社11月11日电，美国50ETF易方达(513850)将于2026年11月12日开市起至当日10:30停牌"
+    },
+    {
+      "id": "8f09431b801b84960c001dcfba30b2e809ca461f",
+      "title": "HKMA lends HK$2.52 billion to banks through the discount window",
+      "summary": "CLS, Nov 11: the Hong Kong Monetary Authority lent HK$2.52 billion to banks via the discount window.",
+      "title_zh": "财联社11月11日电，香港金管局通过贴现窗向银行借出25.2亿港元。",
+      "summary_zh": "财联社11月11日电，香港金管局通过贴现窗向银行借出25.2亿港元"
+    },
+    {
+      "id": "eb9759a7ef73b0eb20512bbc477fb6cde24e35cd",
+      "title": "Fullgoal Nasdaq ETF (513870) to halt trading from the open to 10:30 on Nov 12",
+      "summary": "CLS, Nov 11: Fullgoal Nasdaq ETF (513870) will be suspended from the Nov 12 open until 10:30 that day.",
+      "title_zh": "财联社11月11日电，纳指ETF富国(513870)将于2026年11月12日开市起至当日10:30停牌。",
+      "summary_zh": "财联社11月11日电，纳指ETF富国(513870)将于2026年11月12日开市起至当日10:30停牌"
+    },
+    {
+      "id": "3af34aa0fceef0b1a664096ce10335ea45177c8a",
+      "title": "Guotai Nasdaq ETF (513100) to halt trading from the open to 10:30 on Nov 12",
+      "summary": "CLS, Nov 11: Guotai Nasdaq ETF (513100) will be suspended from the Nov 12 open until 10:30 that day.",
+      "title_zh": "财联社11月11日电，纳指ETF国泰(513100)将于2026年11月12日开市起至当日10:30停牌。",
+      "summary_zh": "财联社11月11日电，纳指ETF国泰(513100)将于2026年11月12日开市起至当日10:30停牌"
+    },
+    {
+      "id": "0c777095419028d31bd54b66c7885addf1084da0",
+      "title": "Goldman updates Fed call: a third hike next March, cuts pushed to end-2027",
+      "summary": "The October CPI print far above expectations pushed the market to reprice the Fed path again.",
+      "title_zh": "高盛更新美联储利率预测：明年3月第三度加息 降息推迟至明年底",
+      "summary_zh": "受美国10月CPI大幅高于预期的通胀数据扰动，市场对美联储货币政策路径的预期再度调整"
+    },
+    {
+      "id": "c01c4dabf5e6008e89f7f6b96e752fef015f3706",
       "title": "Homeowners tap equity as HELOC balances post biggest jump since 2005: New York Fed report",
       "summary": "The rise in balances on HELOCs marks the 18th consecutive quarterly increase, according to a new report from the Federal Reserve Bank of New York.",
       "title_zh": "纽约联储报告：房主提取房屋净值，HELOC 余额创 2005 年以来最大增幅",
       "summary_zh": "纽约联储的一份新报告显示，房屋净值信用额度余额的上升标志着连续第 18 个季度增长。"
     },
     {
-      "id": "5831a794b2edc098a47e9971f6f39f059af98b5e",
-      "title": "CPI slams Treasuries: the 2 year yield jumps more than 20 basis points intraday as gold and silver tumble",
-      "summary": "US October inflation again beat expectations, Treasuries sold off with yields rising across the curve, and a firmer dollar plus higher rate expectations weighed on gold and silver.",
-      "title_zh": "CPI暴击美债！2年期收益率盘中飙升逾20基点，金银大跌",
-      "summary_zh": "美国10月通胀再度超出市场预期，美债遭遇抛售，收益率全线大幅攀升；美元走强、利率上行预期升温，也令黄金和白银承压"
+      "id": "e0032a79e48a98fe4a8631204391ca8f2ba95a2d",
+      "title": "GE Vernova sellers have it all wrong — plus, why Fed rate hike odds are soaring",
+      "summary": "Every weekday, the Investing Club releases the Homestretch; an actionable afternoon update just in time for the last hour of trading.",
+      "title_zh": "GE Vernova 的卖空者全错了——以及为何美联储加息概率在飙升",
+      "summary_zh": "每个工作日，投资俱乐部都会发布 Homestretch，一份赶在收盘前一小时给出的可操作午后更新。"
     },
     {
       "id": "3cef21493bcca5e8d46c65591f278f76202568ca",
@@ -155,6 +258,13 @@
       "summary_zh": "随着高物价持续挤压家庭预算，许多消费者转向信用卡来维持收支。"
     },
     {
+      "id": "a699af104e31f896c40192dc85efd00f90861a74",
+      "title": "Why Goldman Sachs is now changing its Federal Reserve interest-rate forecast",
+      "summary": "Following Tuesday’s hot CPI data , Goldman Sachs is now pencilling in additional Fed tightening.",
+      "title_zh": "高盛为何调整对美联储利率路径的预测",
+      "summary_zh": "在周二高于预期的 CPI 数据之后，高盛开始计入美联储进一步收紧的可能。"
+    },
+    {
       "id": "0f012eb48e701b3cdf418bd8a7640ccccd21251b",
       "title": "Federal Reserve Board announces approval of two applications by Mutual Federal Bancorp, MHC, and MFB Bancorp, Inc.",
       "summary": "Federal Reserve Board announces approval of two applications by Mutual Federal Bancorp, MHC, and MFB Bancorp, Inc.",
@@ -162,194 +272,82 @@
       "summary_zh": "美联储理事会宣布批准 Mutual Federal Bancorp, MHC 与 MFB Bancorp, Inc. 提交的两项申请。"
     },
     {
-      "id": "65b6267f033489c3595b1d34b5d384e63235a3f3",
-      "title": "US October CPI rose 0.4 percent month over month and core 0.3, both above expectations",
-      "summary": "US October CPI was 0.4 percent month over month against 0.3 expected and 0.6 previously; core CPI was 0.3 percent against 0.2 expected and 0.3 previously.",
-      "title_zh": "美国10月CPI环比0.4%、核心环比0.3%，双双超预期！",
-      "summary_zh": "美国10月CPI环比 0.4%，预期 0.3%，前值 0.6%；美国10月核心CPI环比 0.3%，预期 0.2%，前值 0.3%"
+      "id": "e64924a7024f920bc8fb7589e706c13e01a502ef",
+      "title": "'Hellish argument': Israeli media report a sharp Trump-Netanyahu clash over Iran, PM's office denies",
+      "summary": "Israeli outlets including Ynet reported on Nov 11, citing sources, that Netanyahu and Trump spoke by phone over the weekend about Iran in a call described as very difficult and heated, with one source calling it 'a hellish argument'.",
+      "title_zh": "“地狱般的争吵”！以媒爆特朗普与内塔尼亚胡就伊朗问题发生激烈冲突，以总理办公室否认",
+      "summary_zh": "据以色列Ynet新闻网等媒体11日援引消息人士的话爆料， 以色列总理内塔尼亚胡和美国总统特朗普上周末就伊朗问题通了电话，这番通话异常艰难且充满火药味，一名消息人士甚至称之为“一场地狱般的争吵”"
     },
     {
-      "id": "0600b21cb16753c1184f5dae7ef29abf84efe689",
-      "title": "Kansas City Fed president says the current rate is not restraining the economy",
-      "summary": "CLS, November 11: Kansas City Fed president Jeffrey Schmid said the Fed's benchmark rate is supporting the economy rather than restraining it.",
-      "title_zh": "堪萨斯城联储行长称当前利率并未抑制经济",
-      "summary_zh": "【堪萨斯城联储行长称当前利率并未抑制经济】财联社11月11日电，堪萨斯城联储行长杰弗里·施密德表示，美联储的基准利率在支持经济，而不是抑制经济"
+      "id": "d3bfb66f23e713ba2d48734cd9e0c1e3bd128cba",
+      "title": "Russia publishes results of this round of trilateral talks",
+      "summary": "Russian delegation head and presidential aide Medinsky published partial results of this round of Russia-US-Ukraine talks on Nov 11.",
+      "title_zh": "俄方公布本轮俄美乌三方会谈成果",
+      "summary_zh": "当地时间11月11日，俄谈判代表团团长、俄总统助理梅金斯基公布了本轮俄美乌三方会谈的部分成果"
     },
     {
-      "id": "2c7b55f026bc7f370c40c3ba6506ac58a6737572",
-      "title": "UK police: a US soldier arrested on suspicion of Russia-related espionage",
-      "summary": "CLS, November 11: British counter-terrorism police said a 41 year old US Army soldier was arrested near Gloucester in England on suspicion of espionage linked to Russia.",
-      "title_zh": "英国警方：一美军士兵因涉嫌从事与俄相关间谍活动在英被捕",
-      "summary_zh": "【英国警方：一美军士兵因涉嫌从事与俄相关间谍活动在英被捕】财联社11月11日电，英国反恐警察表示，一名41岁的美国陆军士兵因涉嫌从事与俄罗斯有关的间谍活动，在英格兰格洛斯特附近被捕"
+      "id": "328bca3f04f1ebb01316af48160409247446f320",
+      "title": "How Democrats could snarl Trump administration stakes in private-sector companies",
+      "summary": "The Trump administration had established some form of equity position in 41 companies as of November, according to the CATO Institute's tally.",
+      "title_zh": "民主党如何给特朗普政府的私营企业持股添麻烦",
+      "summary_zh": "据加图研究所统计，截至 11 月，特朗普政府已在 41 家公司建立了某种形式的股权头寸。"
     },
     {
-      "id": "4d2ff812cbb2b7daf57bc9e638f616ddc91424ec",
-      "title": "Dollar index rises",
-      "summary": "CLS, November 11: the dollar index, which measures the greenback against six major currencies, rose 0.56 percent on the day and closed at 102.230 in late forex trade.",
-      "title_zh": "美元指数10日上涨",
-      "summary_zh": "【美元指数10日上涨】财联社11月11日电，衡量美元对六种主要货币的美元指数当天上涨0.56%，在汇市尾市收于102.230"
+      "id": "b916025acd4650cc21dd0a299f595d1e4c033b74",
+      "title": "Sunflower oil futures list tomorrow: where is the first-day opportunity?",
+      "summary": "The world's fourth-largest vegetable oil now has its own futures price.",
+      "title_zh": "明日挂牌！葵花籽油期货来了 首日机会在哪里？",
+      "summary_zh": "全球第四大植物油——葵花籽油迎来了自己的 期货 价格"
     },
     {
-      "id": "601d691a4356d42eee9600361587b27e616d9667",
-      "title": "CFTC said to delay approval of AI compute futures",
-      "summary": "CLS, November 11: the US Commodity Futures Trading Commission is said to have postponed approval of AI computing power futures trading.",
-      "title_zh": "财联社11月11日电，美国商品期货交易委员会据称推迟批准AI算力期货交易。",
-      "summary_zh": "财联社11月11日电，美国商品期货交易委员会据称推迟批准AI算力期货交易"
+      "id": "79e495fc4ad6336b42b7ca6c66d5ea0149391ca6",
+      "title": "Musk to 'break up' with Huang? SpaceX's latest plan surfaces",
+      "summary": "SpaceX is reportedly trying to remove Nvidia from its rack-level architecture.",
+      "title_zh": "马斯克要和黄仁勋“分手”？SpaceX最新计划遭披露",
+      "summary_zh": "SpaceX 被曝正在尝试机架层“去 英伟达 化”"
     },
     {
-      "id": "5260eb2ba410f42f62130fd4d4a571b2af188f97",
-      "title": "Jim Jordan elected next House Republican leader",
-      "summary": "CLS, November 11: House Republicans voted 106 to 73 to elect Ohio representative Jim Jordan as their next leader, defeating current majority leader Steve Scalise.",
-      "title_zh": "吉姆·乔丹当选美国下一届国会众议院共和党领袖",
-      "summary_zh": "【吉姆·乔丹当选美国下一届国会众议院共和党领袖】财联社11月11日电，美国国会众议院共和党人举行党内投票，以106票对73票选举俄亥俄州共和党籍众议员吉姆·乔丹担任下一届国会众议院共和党领袖，击败现任众议院多数党领袖史蒂夫·斯卡利斯"
+      "id": "6c53ab5b339078fda6a237693c65dc5f662a49d8",
+      "title": "40% odds Huang steps down as market bets on six successors",
+      "summary": "Prediction market Kalshi implies a 40% chance that Huang steps down as Nvidia CEO before next July.",
+      "title_zh": "黄仁勋卸任概率40% 市场押注6位接班人",
+      "summary_zh": "预测平台Kalshi的押注数据显示，黄仁勋在明年7月前卸任 英伟达 CEO的隐含概率为 40%"
     },
     {
-      "id": "a374b33df36c8140aa7386eb059103ee1ed0f77a",
-      "title": "Personnel evacuated after platform fire at Iran's South Pars gas field",
-      "summary": "CLS, November 11: personnel were evacuated after a fire broke out on a platform at Iran's South Pars gas field.",
-      "title_zh": "财联社11月11日电，伊朗南帕尔斯气田一平台起火后人员撤离。",
-      "summary_zh": "财联社11月11日电，伊朗南帕尔斯气田一平台起火后人员撤离"
+      "id": "13d9c579ea0a5277204ded1e27626ce1bac6ba08",
+      "title": "PBoC: support qualified tech firms issuing sci-tech innovation bonds",
+      "summary": "In its Q3 2026 monetary policy report the PBoC said it will improve IP-backed financing, unlock intangible assets and better support R&D, IP, commercialisation and testing services.",
+      "title_zh": "中国央行：支持符合条件的科技企业发行科技创新债券，拓宽直接融资渠道",
+      "summary_zh": "央行发布2026年第三季度中国货币政策执行报告，其中提到，要健全知识产权等质押融资机制，盘活企业无形资产，更好支持研发设计、知识产权、科技成果转化、检验检测认证等专业性较强的生产性服务业发展"
     },
     {
-      "id": "2bcd44916bc53657e77e50b4b8cc25b18f6ad39c",
-      "title": "Ecuador's new curfew ends with more than 2600 arrests and about 2.5 tonnes of drugs seized",
-      "summary": "The ten day curfew in Guayas, Manabi, Los Rios, El Oro and Esmeraldas provinces formally ended at 5am local time on November 10.",
-      "title_zh": "厄瓜多尔新一轮宵禁结束 逮捕逾2600人 查获约2.5吨毒品",
-      "summary_zh": "【厄瓜多尔新一轮宵禁结束 逮捕逾2600人 查获约2.5吨毒品】当地时间11月10日凌晨5时，厄瓜多尔在瓜亚斯省、马纳维省、洛斯里奥斯省、埃尔奥罗省和埃斯梅拉达斯省实施的为期10天的宵禁正式结束"
+      "id": "7237418464bece2a5e1099116d2bf472b80d05e2",
+      "title": "PBoC releases Q3 2026 monetary policy report",
+      "summary": "The report pledges to maintain a moderately loose monetary policy and a suitable financial environment for stable growth and smooth market operation.",
+      "title_zh": "中国人民银行发布2026年第三季度中国货币政策执行报告",
+      "summary_zh": "坚持实施好适度宽松的货币政策，为经济稳定增长、高质量发展和金融市场平稳运行营造适宜的货币金融环境"
     },
     {
-      "id": "9f506075819765f90f6e3b6647986a2ae3e4a495",
-      "title": "US October CPI up 0.4 percent month over month, above expectations, with December hike odds still at 100 percent",
-      "summary": "US October CPI rose 0.4 percent month over month against an estimate of 0.3 and a previous 0.6.",
-      "title_zh": "美国10月CPI环比增长0.4% 高于市场预期 12月加息概率仍维持在100%",
-      "summary_zh": "美国10月消费者价格指数（CPI）环比增长0.4%，预估为0.3%，前值为0.6%"
+      "id": "bdec3be59cdc4675e7a81b2a207f3401ffab9d30",
+      "title": "'Optical ban' fears ease: why optical chips are leading",
+      "summary": "Optical communications surged on Wednesday led by optical chips: Yuanjie Technology hit the 20% limit, Shijia Photons and T&S Communications rose nearly 14%, and Eoptolink gained about 17%.",
+      "title_zh": "“光禁令”担忧缓解！光芯片为何领涨",
+      "summary_zh": "周三光 通信 概念大爆发， 光芯片方向领涨 ， 源杰科技 20CM涨停， 仕佳光子 、 天孚通信 涨近14%， 长光华芯 涨超12%；光模块龙头 新易盛 涨近17%， 中际旭创 涨超15%"
     },
     {
-      "id": "eece112e5e99d97467b7fec11d349365a8eaaccd",
-      "title": "Siemens Energy plans buyback of up to 9 billion euros by the end of 2030",
-      "summary": "CLS, November 11: Siemens Energy plans to repurchase up to 9 billion euros of its own shares by the end of 2030.",
-      "title_zh": "财联社11月11日电，西门子能源计划在2030年底之前回购最高90亿欧元的股票。",
-      "summary_zh": "财联社11月11日电，西门子能源计划在2030年底之前回购最高90亿欧元的股票"
+      "id": "7d4245b292f50e68cf142ef035ecd860e5d06708",
+      "title": "Hot stock doubles as AI agents rebuild robot skill development and embodied AI speeds up",
+      "summary": "News flow around the embodied AI industry has been continuous in recent weeks.",
+      "title_zh": "热门股股价翻倍 AI智能体重构机器人技能开发 具身智能产业化提速",
+      "summary_zh": "近期，具身智能行业消息不断"
     },
     {
-      "id": "c1961b4616b51f2d150ffc18f73238878cb807f5",
-      "title": "Google begins rolling out Google Fi super network to Pixel 9 and newer",
-      "summary": "CLS, November 11: Google said its Google Fi super network feature starts rolling out to Pixel 9 and newer devices today.",
-      "title_zh": "财联社11月11日电，谷歌宣布，Google Fi超级网络功能自今日起在Pixel 9及更新机型上开始推送。",
-      "summary_zh": "财联社11月11日电，谷歌宣布，Google Fi超级网络功能自今日起在Pixel 9及更新机型上开始推送"
-    },
-    {
-      "id": "6392811070b3729f91a2dcc844052ff31a69cc63",
-      "title": "Nscale considers delaying its 35 billion dollar listing after the AI sell-off",
-      "summary": "CLS, November 11: Nscale is considering postponing its 35 billion dollar listing after the sell-off in AI stocks.",
-      "title_zh": "财联社11月11日电，在人工智能股票遭遇抛售后，Nscale正考虑推迟其规模350亿美元的上市计划。",
-      "summary_zh": "财联社11月11日电，在人工智能股票遭遇抛售后，Nscale正考虑推迟其规模350亿美元的上市计划"
-    },
-    {
-      "id": "89a1240f0ab14f5faed0e7618314dbde233604e0",
-      "title": "Hang Seng futures close the night session lower",
-      "summary": "CLS, November 11: Hang Seng Index futures closed the night session down 0.95 percent, and Hang Seng Tech index futures fell 1.22 percent.",
-      "title_zh": "财联社11月11日电，恒生指数主连夜盘收跌0.95%。恒生科技指数主连夜盘收跌1.22%。",
-      "summary_zh": "财联社11月11日电，恒生指数主连夜盘收跌0.95%"
-    },
-    {
-      "id": "36ef6d7c0120244c2951e4e05dcb4fb454436ce6",
-      "title": "OpenAI said to acquire AI travel planning assistant Odessia",
-      "summary": "CLS, November 11: OpenAI is said to have acquired Odessia, an AI travel planning assistant.",
-      "title_zh": "财联社11月11日电，OpenAI据悉收购AI旅游规划助手Odessia。",
-      "summary_zh": "财联社11月11日电，OpenAI据悉收购AI旅游规划助手Odessia"
-    },
-    {
-      "id": "cd892af6502cdcda6aa7a2ca5536ed755114faa1",
-      "title": "Anthropic moves into AI office software as competition with Microsoft and Google heats up before its IPO",
-      "summary": "CLS, November 11: Anthropic rolled out a set of tools that push AI further into daily office work, competing more directly with Microsoft and Google.",
-      "title_zh": "Anthropic进军人工智能办公软件 IPO前与微软谷歌竞争升温",
-      "summary_zh": "【Anthropic进军人工智能办公软件 IPO前与微软谷歌竞争升温】财联社11月11日电，Anthropic推出一系列工具，进一步将人工智能(AI)融入日常办公，与微软和谷歌展开更直接的竞争"
-    },
-    {
-      "id": "e00507c5509682e445b9a7e6c0dcdce1aeaaff07",
-      "title": "Demand for the 10 year Treasury auction falls short despite the highest coupon in 20 years",
-      "summary": "CLS, November 11: the Treasury's 42 billion dollar 10 year note auction cleared at 5.020 percent, above the 5.010 percent when-issued yield at the 1pm New York bid deadline, a sign of weaker than expected demand.",
-      "title_zh": "10年期美债发行认购需求不及预期 尽管票面利率创20年以来最高",
-      "summary_zh": "【10年期美债发行认购需求不及预期 尽管票面利率创20年以来最高】财联社11月11日电，美国财政部发行的420亿美元10年期国债中标收益率5.020%，高于纽约时间下午1点投标截止时5.010%的发行前交易收益率，显示需求不及预期"
-    },
-    {
-      "id": "c94f0595500f2552fd34b23daf72f90643fc707d",
-      "title": "SHFE crude, Shanghai gold and silver fall in night trading",
-      "summary": "CLS, November 11: the SHFE crude oil 2612 contract closed the night session down 0.77 percent at 604.4 yuan per barrel; Shanghai gold fell 2.29 percent and silver 3.41 percent.",
-      "title_zh": "财联社11月11日电，上期所原油期货2612合约夜盘收跌0.77%，报604.4元人民币/桶。沪金夜盘收跌2.29%，沪银收跌3.41%。",
-      "summary_zh": "财联社11月11日电，上期所原油期货2612合约夜盘收跌0.77%，报604.4元人民币/桶"
-    },
-    {
-      "id": "c6f0ae6780924604adc10e061e3cf446441ca750",
-      "title": "Zelensky: first day of Ukraine-US-Russia talks was constructive",
-      "summary": "CLS, November 11: Ukrainian President Volodymyr Zelensky said on social media that the first day of trilateral talks between Ukraine, the United States and Russia in Abu Dhabi was constructive and substantive.",
-      "title_zh": "泽连斯基：乌美俄三方首日会谈具有建设性",
-      "summary_zh": "【泽连斯基：乌美俄三方首日会谈具有建设性】财联社11月11日电，乌克兰总统泽连斯基在社交媒体发文称，乌克兰、美国和俄罗斯代表团在阿联酋阿布扎比举行的首日三方会谈富有建设性，磋商内容充实"
-    },
-    {
-      "id": "aa50a91e2bd7228ad52be37afe0cef50cb78392c",
-      "title": "China October PPI beats while CPI cools, exports strong on high tech, and Hong Kong stocks may offer mean reversion next year: the 1110 macro digest",
-      "summary": "October PPI rose 5.7 percent year on year, beating expectations again, with a 0.7 percent monthly gain as high oil prices and supply consolidation lifted the petrochemical chain.",
-      "title_zh": "中国10月PPI超预期而CPI回落，中国10月出口高增高技术支撑外需，港股明年或具备均值回归空间---1110宏观脱水",
-      "summary_zh": "10月PPI同比5.7%再超预期，环比0.7%，高油价与供给出清推升石化链通胀"
-    },
-    {
-      "id": "af5ce5299c9b37bdb2dc47435037447e21266063",
-      "title": "US 10 year note clears at 5.020 percent with a 5 percent coupon, the highest since 2006",
-      "summary": "CLS, November 11: the US 10 year note cleared at 5.020 percent, above the 5.010 percent when-issued level, and will carry a 5 percent coupon, the highest since 2006.",
-      "title_zh": "财联社11月11日电，美国10年期国债中标收益率为5.020%，高于发行前预发行市场的5.010%。该10年期国债将采用5%的票面利率，为2006年以来的最高水平。",
-      "summary_zh": "财联社11月11日电，美国10年期国债中标收益率为5.020%，高于发行前预发行市场的5.010%"
-    },
-    {
-      "id": "3a92cdb2e0d3e1cf995040b2c1749d4d71b8ef32",
-      "title": "Financial conditions stand in for the Fed: will a one trillion dollar TGA drawdown ease the liquidity worry?",
-      "summary": "Although the Fed paused hikes in October, US financial conditions are still tightening.",
-      "title_zh": "金融条件替美联储，万亿TGA回落难解流动性隐忧？",
-      "summary_zh": "虽然10月份美联储暂停加息，但美国金融条件仍在收紧"
-    },
-    {
-      "id": "4b6e9466a1291eb1748e3a247d784170d1ba278a",
-      "title": "Hike news: Fed Governor Waller backs a 25 basis point increase next month, 50 if needed",
-      "summary": "A look at the latest on the Fed's rate-hike path.",
-      "title_zh": "加息快讯：美联储理事沃勒支持下月加息 25 个基点，必要时加 50 个",
-      "summary_zh": "一览美联储最新加息路径。"
-    },
-    {
-      "id": "5659c8ebe6a181c07419d21c2c2c5ae47b14143a",
-      "title": "Good news lands: Nvidia shares jump on two positive headlines",
-      "summary": "Nvidia shares moved sharply: during the US overnight session in the afternoon of November 10 Beijing time, the stock jumped and was up more than 2% intraday.",
-      "title_zh": "好消息落地：两则正面消息推动英伟达股价大涨",
-      "summary_zh": "英伟达股价剧烈波动：北京时间 11 月 10 日下午的美股夜盘时段，该股跳涨，盘中涨幅超过 2%。"
-    },
-    {
-      "id": "fa81a2385fe7b62be00c28120ffac9c927e5aa0f",
-      "title": "After 51 months, Tesla's China monthly sales fall below 10,000 units again",
-      "summary": "8,817 units: that was Tesla's China sales volume in October.",
-      "title_zh": "时隔 51 个月，特斯拉中国月销量再度跌破 1 万辆",
-      "summary_zh": "8817 辆，这是特斯拉今年 10 月的国内销量。"
-    },
-    {
-      "id": "695e6f95dd24ec8db1cf46a6cc45dd1fc4789e17",
-      "title": "Anthropic and Nvidia launch on the same day: are robots finally getting brains?",
-      "summary": "On November 9 local time, Nvidia and Anthropic released new products back to back, adding fresh fuel to the robotics theme.",
-      "title_zh": "Anthropic 与英伟达同日发布：机器人终于要长脑子了？",
-      "summary_zh": "当地时间 11 月 9 日，英伟达与 Anthropic 接连发布新品，为机器人主题再添燃料。"
-    },
-    {
-      "id": "aabd76d20abadeeb493c341164925bd81b18f5c2",
-      "title": "Huang and Nvidia hit by a shareholder class action; the investigation has erased about 193 billion dollars of market value",
-      "summary": "The Huang affair keeps escalating: on November 8, according to CCTV Finance, the Nvidia board announced an independent investigation into allegations concerning the CEO's personal associations.",
-      "title_zh": "黄仁勋与英伟达遭股东集体诉讼，调查已抹去约 1930 亿美元市值",
-      "summary_zh": "黄仁勋绯闻持续发酵：11 月 8 日，据央视财经报道，英伟达董事会宣布就 CEO 个人交往相关指控展开独立调查。"
-    },
-    {
-      "id": "9c18f06f14a770cbebbe9868a8e03edd6815e0c0",
-      "title": "Aggressive Fed rate hikes are quickly becoming the biggest risk to stocks in 2027, says economist",
-      "summary": "The Fed remains too optimistic on its ability to tame inflation, and markets may be too complacent, economist Neil Dutta warns.",
-      "title_zh": "经济学家：激进加息正迅速成为 2027 年股市最大的风险",
-      "summary_zh": "经济学家 Neil Dutta 警告，美联储对自身压制通胀的能力仍过于乐观，市场可能也过于自满。"
+      "id": "7563ffd04026e89a8fdb07a21b8f7faecfade843",
+      "title": "Nissan CEO breaks down how it plans to fight back against Chinese companies, after second outlook cut in months",
+      "summary": "Intensifying competition in the world's largest auto market forced Nissan to cut its annual sales forecast for a second time in months.",
+      "title_zh": "日产 CEO 详解如何在数月内第二次下调指引后反击中国企业",
+      "summary_zh": "全球最大汽车市场竞争加剧，迫使日产在数月内第二次下调全年销量预期。"
     }
   ],
-  "updated_at": "2026-11-10T22:18:52Z"
+  "updated_at": "2026-11-11T11:37:29Z"
 }
