@@ -1,355 +1,351 @@
 {
   "items": [
     {
-      "id": "b44f39abe75c8b5b5c496975d027816cd395d6ff",
+      "id": "82b5a6220457234af16d07f59b7d7b4399f69855",
+      "title": "Nvidia stock falls 7% as investors await Jensen Huang’s fate",
+      "summary": "Nvidia's board met on Wednesday to discuss whether to oust Jensen Huang as CEO.",
+      "title_zh": "英伟达股价下跌 7%，投资者等待黄仁勋去留结果",
+      "summary_zh": "英伟达董事会周三召开会议，讨论是否罢免首席执行官黄仁勋。"
+    },
+    {
+      "id": "c40999aa4f5b586b14438e4e37b5e75edbd3ff0c",
+      "title": "Nasdaq-100 futures slide as Nvidia sell-off resumes: Live updates",
+      "summary": "Nasdaq-100 futures fell early Thursday as Nvidia shares slumped on the potential ouster of CEO Jensen Huang.",
+      "title_zh": "纳指 100 期货下挫，英伟达抛售重启：实时更新",
+      "summary_zh": "周四早间纳指 100 期货走低，英伟达股价因首席执行官黄仁勋可能被罢免而大幅下挫。"
+    },
+    {
+      "id": "b184a95d6fe0befe6d2f303923ecee5af9dbc9e9",
+      "title": "CXMT speaks out: the computing super-cycle is entering a new layered era as it debuts memory matrices for three AI scenarios",
+      "summary": "The 23rd China International Semiconductor Expo (IC China 2026) opened today, 12 November, where CXMT showed its memory products for three AI scenarios for the first time, presented a portfolio and delivery capability spanning core applications, and again set out its view on industry trends and growth opportunities.",
+      "title_zh": "长鑫科技最新发声！计算超级周期正进入全新的“分层时代” 首展三大AI场景存储矩阵",
+      "summary_zh": "今日（11月12日），第二十三届中国国际 半导体 博览会（IC China 2026）开幕， 长鑫科技 携AI时代三大场景的内存产品首次集中展示，系统呈现了覆盖核心应用领域的内存产品矩阵及交付能力，并对产业趋势和市场成长机会再度发声"
+    },
+    {
+      "id": "418b35d7f9555b6d4d35e194e0cb93ed111b2d70",
+      "title": "US pre-market: Nvidia down about 7%, CoreWeave down about 7%, memory chip and optical names broadly lower",
+      "summary": "In the US pre-market Nvidia is down about 7% after a fresh report of an extramarital affair involving Jensen Huang, with the board moving to remove him.",
+      "title_zh": "美股盘前：英伟达跌约7%，CoreWeave跌约7%，存储芯片股、光通信股普跌",
+      "summary_zh": "美股盘前，英伟达跌约7%，黄仁勋再曝新婚外情，董事会正筹划将其解职"
+    },
+    {
+      "id": "a2784ce4d879b7ea87294fad99025da441318cd3",
+      "title": "AMD, Broadcom and other rivals gain as Nvidia's internal turmoil deepens",
+      "summary": "Nvidia is caught in leadership turmoil, which has driven its shares sharply lower this week.",
+      "title_zh": "英伟达内部动荡之际 AMD、博通等竞争对手股价上涨",
+      "summary_zh": "英伟达 正陷入领导层动荡之中，这也导致该公司股价在本周大幅下跌"
+    },
+    {
+      "id": "793f040c44f32479864b7a0c235f88838ddddb49",
+      "title": "Stifel cuts its Nvidia target price to 205 dollars from 315 dollars",
+      "summary": "Cailian Press, 12 November: Stifel cut its Nvidia target price to 205 dollars from 315 dollars.",
+      "title_zh": "财联社11月12日电，投行Stifel将英伟达目标价从315美元下调至205美元。",
+      "summary_zh": "财联社11月12日电，投行Stifel将英伟达目标价从315美元下调至205美元"
+    },
+    {
+      "id": "44edab9201f944d813875a1638f87ac1078283ff",
+      "title": "BofA Global Research cuts its Nvidia target price to 280 dollars from 350 dollars",
+      "summary": "Cailian Press, 12 November: BofA Global Research cut its Nvidia target price to 280 dollars from 350 dollars.",
+      "title_zh": "财联社11月12日电，美银全球研究将英伟达目标价从350美元下调至280美元。",
+      "summary_zh": "财联社11月12日电，美银全球研究将英伟达目标价从350美元下调至280美元"
+    },
+    {
+      "id": "a2ba058730e568891175cb47506e628a506ce007",
+      "title": "Evercore ISI downgrades Nvidia to Inline with a 186 dollar target price",
+      "summary": "Cailian Press, 12 November: Evercore ISI downgraded Nvidia to Inline, the equivalent of market perform, with a 186 dollar target price.",
+      "title_zh": "财联社11月12日电，投行Evercore ISI将英伟达评级下调至“与大盘持平”（Inline）；目标价186美元。",
+      "summary_zh": "财联社11月12日电，投行Evercore ISI将英伟达评级下调至“与大盘持平”（Inline）；目标价186美元"
+    },
+    {
+      "id": "a4129a85f39dfb3dea2bcd2cbd1e2015099aa06b",
+      "title": "Elon Musk says it would be an 'honor' to hire Nvidia's Jensen Huang",
+      "summary": "The post on X comes amid reports that Nvidia's board is preparing to oust Huang.",
+      "title_zh": "马斯克称若能聘用英伟达的黄仁勋将是一种“荣幸”",
+      "summary_zh": "这条 X 平台帖文发布之际，有报道称英伟达董事会正准备罢免黄仁勋。"
+    },
+    {
+      "id": "ae595f3727baa48c51f76a9f11d1526ebad510c6",
+      "title": "Cramer's stance on Nvidia's stock amid reports that CEO Jensen Huang may be ousted",
+      "summary": "Jim Cramer said Wednesday night that he was saddened by a news report that indicated Nvidia's board of directors is preparing to fire Huang.",
+      "title_zh": "有报道称首席执行官黄仁勋可能被罢免，克莱默对英伟达股票的看法",
+      "summary_zh": "吉姆·克莱默周三晚间表示，一则指称英伟达董事会正准备解雇黄仁勋的报道令他感到难过。"
+    },
+    {
+      "id": "edcdf5490f952d68221547e55e22b87f730a884b",
       "title": "Analysis: Is Nvidia too big to fail? Its AI financing web raises the stakes",
       "summary": "The tech giant's web of ties to other companies is raising the possibility that it could do far-reaching economic and financial damage.",
-      "title_zh": "分析：英伟达是否大到不能倒？其 AI 融资网络推高了赌注",
-      "summary_zh": "这家科技巨头与其他公司交织的关系网，正带来造成影响深远的经济与金融损害的可能性。"
+      "title_zh": "分析：英伟达是否“大到不能倒”？其 AI 融资网络抬高了风险",
+      "summary_zh": "这家科技巨头与其他公司之间错综复杂的关联，使其造成深远经济与金融损害的可能性上升。"
     },
     {
-      "id": "1eb070b3e2441a0f744b9d610e419f379d746a93",
-      "title": "Nvidia shares rebound as Jensen Huang faces scrutiny ahead of earnings",
-      "summary": "Investors are assessing whether CEO Jensen Huang's affair will have spillover effects on Nvidia's business.",
-      "title_zh": "英伟达股价反弹，黄仁勋在财报前承压",
-      "summary_zh": "投资者正在评估首席执行官黄仁勋的婚外情是否会对英伟达业务产生外溢影响。"
+      "id": "6e9d635ed915884781ee8f41d5477c0bffbe1d68",
+      "title": "Jensen Huang affair in D.C.: Resignation calls and moves to tighten Nvidia China exports",
+      "summary": "Huang was notably opposed to strict export controls on AI chips to China, which ruffled feathers with congressional China hawks.",
+      "title_zh": "黄仁勋绯闻在华盛顿发酵：辞职呼声与收紧英伟达对华出口的动议",
+      "summary_zh": "黄仁勋曾明确反对对华 AI 芯片的严格出口管制，这引起了国会对华强硬派的不满。"
     },
     {
-      "id": "c9718bcb52b3d7f8a6be4adb2a4ff418b8951c96",
-      "title": "Nvidia's Huang tries to project 'business as usual' in return to office after affair revelation",
-      "summary": "Nvidia employees described the mood as \"sad\" as CEO Jensen Huang returned to the office after disclosing an affair.",
-      "title_zh": "婚外情曝光后黄仁勋返岗，试图呈现“一切照旧”",
-      "summary_zh": "英伟达员工形容气氛“低落”，此前首席执行官黄仁勋在披露婚外情后回到办公室。"
+      "id": "6c1529a4e63d60501139ffb2545d652b57c96fcd",
+      "title": "Here’s what Megaspeed, the company at the forefront of the Nvidia scandal, is now saying",
+      "summary": "The Singaporean company Megaspeed, at the center of the scandal engulfing Nvidia, on Thursday issued its first public statement since the scandal erupted.",
+      "title_zh": "处于英伟达丑闻风口浪尖的 Megaspeed 现在这么说",
+      "summary_zh": "处于英伟达丑闻中心的新加坡公司 Megaspeed 周四发布了丑闻爆发以来的首份公开声明。"
     },
     {
-      "id": "0dc81969bd96404cea1f1bb5f05990616ecf3d86",
-      "title": "Timing of Williams's exit as New York Fed president sparks internal Fed debate",
-      "summary": "CLS, 12 November: people familiar with the matter said that with the Fed's longest-serving policymaker due to retire, an internal debate has opened over the rules governing term limits for regional Fed presidents.",
-      "title_zh": "威廉姆斯应于何时卸任纽约联储行长的问题在美联储内部引发争论",
-      "summary_zh": "【威廉姆斯应于何时卸任纽约联储行长的问题在美联储内部引发争论】财联社11月12日电，据知情人士透露，随着美联储任职时间最长的政策制定者即将退休，美联储内部围绕地区联储负责人任期限制的规则展开了讨论"
+      "id": "af5d56af88f2550234e910078d116ca3bcb90a26",
+      "title": "Nvidia’s stock drops as the board reportedly prepares to remove CEO Jensen Huang",
+      "summary": "Nvidia’s board of directors reportedly met late Wednesday to determine the CEO’s fate.",
+      "title_zh": "有报道称董事会准备解除黄仁勋首席执行官职务，英伟达股价下跌",
+      "summary_zh": "据报道，英伟达董事会周三晚间召开会议，以决定这位首席执行官的命运。"
     },
     {
-      "id": "61c78b9e2cd630de04a0c562e0e279d76038939b",
-      "title": "Nvidia is spending more than ever on Washington lobbying. It may not stop Congress from limiting China chip sales now.",
-      "summary": "‘There’s no question that Congress is going to push for a complete ban on the sale of advanced semiconductors into China,’ says a former U.S",
-      "title_zh": "英伟达在华盛顿游说上的投入创下新高，但恐难阻止国会限制对华芯片销售",
-      "summary_zh": "“毫无疑问，国会将推动全面禁止向中国销售先进半导体，”一位美国前……"
+      "id": "afca66e74d0e4632fa5583ac6fcb2d0584e8177b",
+      "title": "Jensen Huang built Nvidia into a behemoth. His scandal puts the entire AI boom in jeopardy.",
+      "summary": "Huang fueled his company and the AI ecosystem with advanced chips and creative financing deals across the supply chain",
+      "title_zh": "黄仁勋把英伟达做成巨兽，他的丑闻令整个 AI 热潮陷入险境",
+      "summary_zh": "黄仁勋凭借先进芯片和贯穿供应链的创造性融资安排，推动了自己的公司乃至整个 AI 生态系统。"
     },
     {
-      "id": "be228cf32a84b733fda3e7c5cd1033a1bf81e559",
-      "title": "Has Nvidia flown too close to the sun? One analyst warns of major scrutiny ahead.",
-      "summary": "A Baird analyst no longer recommends buying the chip maker’s stock as its problems mount.",
-      "title_zh": "英伟达是否已飞得离太阳太近？有分析师警告将面临严格审视",
-      "summary_zh": "随着问题累积，Baird 的一位分析师不再建议买入该芯片股。"
-    },
-    {
-      "id": "e74d6b18a8f28e2325b51a0d694d6e5b84884806",
-      "title": "Morgan Stanley warns legacy memory prices are peaking, with supply and demand possibly loosening by 2028",
-      "summary": "The pricing windfall in the legacy memory chip market is gradually coming to an end.",
-      "title_zh": "大摩警告：旧存储价格正在见顶，2028年供需或转向宽松",
-      "summary_zh": "旧存储芯片市场的定价红利正逐步走向终结"
-    },
-    {
-      "id": "885cdc702068ceb6e03822ee67bd3c1eefc23d6d",
-      "title": "US October core CPI beats expectations, data centers become a political flashpoint, traditional domestic industries accelerate clearing - 1111 macro digest",
-      "summary": "Both headline and core US CPI for October came in stronger than expected, with core CPI holding at 0.3% month on month for a third straight month as inflation broadened.",
-      "title_zh": "美10月核心CPI超预期，美国数据中心成政治焦点，国内传统行业加快出清---1111宏观脱水",
-      "summary_zh": "美国10月整体与核心CPI均超预期强劲，核心CPI环比连续三个月维持0.3%，通胀广泛性提升"
-    },
-    {
-      "id": "ffeeb576622c2d52ecf588c88acf4a62c05417ae",
-      "title": "AI trade revives: memory and optical names rally premarket, CoreWeave jumps 17%, oil steadies",
-      "summary": "US AI sentiment recovered markedly, lifting tech futures.",
-      "title_zh": "AI 交易复苏：存储与光通信股盘前走强，CoreWeave 大涨 17%，油价企稳",
-      "summary_zh": "美国 AI 情绪明显回暖，提振科技股期货。"
-    },
-    {
-      "id": "301baaa9e87dce970e673f93fdb738e503917ead",
-      "title": "CLS, 12 November: iHeart said it has no plans to sell its podcast division",
-      "summary": "CLS, 12 November: iHeart said it has no plans to sell its podcast division.",
-      "title_zh": "财联社11月12日电，iHeart表示，它没有出售播客部门的计划。",
-      "summary_zh": "财联社11月12日电，iHeart表示，它没有出售播客部门的计划"
-    },
-    {
-      "id": "478a190f1994319970ab47e95c2aa3a54237ff5c",
-      "title": "CLS, 12 November: Anthropic's underwriters are weighing raising the IPO valuation target to at least 1.5 trillion dollars",
-      "summary": "CLS, 12 November: Anthropic's underwriters are considering raising the valuation target for this IPO to a minimum of 1.5 trillion US dollars.",
-      "title_zh": "财联社11月12日电，Anthropic的承销商正考虑将此次IPO的估值目标上调至最低1.5万亿美元。",
-      "summary_zh": "财联社11月12日电，Anthropic的承销商正考虑将此次IPO的估值目标上调至最低1.5万亿美元"
-    },
-    {
-      "id": "ec8b6e6a6b98a65dc4924cbb7addc426c9d0bbe8",
-      "title": "CLS, 12 November: Morgan Stanley cuts Air China, China Eastern and China Southern A-shares to underweight",
-      "summary": "CLS, 12 November: Morgan Stanley cut Air China's A-shares to underweight with a 4.30 yuan target, China Eastern to underweight at 2.20 yuan, and China Southern to underweight at 3.23 yuan.",
-      "title_zh": "财联社11月12日电，摩根士丹利将中国国航A股评级下调至低配，目标价4.30元；摩根士丹利将东方航空A股评级下调至低配，目标价2.20元；摩根士丹利将南方航空A股评...",
-      "summary_zh": "财联社11月12日电，摩根士丹利将中国国航A股评级下调至低配，目标价4.30元；摩根士丹利将东方航空A股评级下调至低配，目标价2.20元；摩根士丹利将南方航空A股评级下调至低配，目标价3.23元"
-    },
-    {
-      "id": "b85807badea4fefe5321dac02f56249253c7e1d7",
-      "title": "Senior Iranian military official says there are currently no US forces in the Persian Gulf",
-      "summary": "CLS, 12 November: Hedayati, deputy chief of staff of Iran's armed forces, said no US troops are currently present in the Persian Gulf.",
-      "title_zh": "伊朗军方高官称目前波斯湾内没有美军存在",
-      "summary_zh": "【伊朗军方高官称目前波斯湾内没有美军存在】财联社11月12日电，伊朗武装部队副总参谋长海达里表示，目前，波斯湾内没有美军存在"
-    },
-    {
-      "id": "4b0575fa3e341d3ac6ca347a9fc0da57e3f7f93a",
-      "title": "China releases its Mazu all-in-one smart weather warning system globally",
-      "summary": "CLS, 12 November: at the COP31 high-level forum on South-South cooperation on climate change in Antalya, Turkey, China formally released the Mazu all-in-one smart weather early-warning system to the world through a themed film, sharing its disaster prevention and mitigation technology.",
-      "title_zh": "中国气象智能预警方案“妈祖”一体机向全球发布",
-      "summary_zh": "【中国气象智能预警方案“妈祖”一体机向全球发布】财联社11月12日电，在土耳其安塔利亚举行的《联合国气候变化框架公约》第三十一次缔约方大会（COP31）应对气候变化南南合作高级别论坛上，中国以主题宣传片形式向全球正式发布中国气象智能预警方案“妈祖”一体机（以下简称“妈祖”一体机），分享中国气象防灾减灾技术成果"
-    },
-    {
-      "id": "95981d6924e378697f94706b802c092d902dfb12",
-      "title": "About 6,300 Italian public schools receive bomb threat emails",
-      "summary": "CLS, 12 November: education minister Giuseppe Valditara said on 11 November that roughly 6,300 of Italy's 7,476 public schools have received bomb threat emails.",
-      "title_zh": "意大利约6300所公立学校收到炸弹威胁邮件",
-      "summary_zh": "【意大利约6300所公立学校收到炸弹威胁邮件】财联社11月12日电，意大利教育部长朱塞佩·瓦尔迪塔拉11日表示，截至目前，意大利全国7476所公立学校中，约有6300所收到炸弹威胁邮件"
-    },
-    {
-      "id": "695c10be472ef203efdb0da5e441965b433c25c5",
-      "title": "CLS, 12 November: Trump is open to Vice President Vance restarting negotiations with Iran",
-      "summary": "CLS, 12 November: Trump is open to Vice President Vance restarting negotiations with Iran.",
-      "title_zh": "财联社11月12日电，特朗普对副总统万斯重启与伊朗的谈判持开放态度。",
-      "summary_zh": "财联社11月12日电，特朗普对副总统万斯重启与伊朗的谈判持开放态度"
-    },
-    {
-      "id": "79bfa47805212429d92babe1c861bb85382c6904",
-      "title": "After BofA, Morgan Stanley also drops Nvidia from its top-picks list",
-      "summary": "Nvidia is facing a loss of confidence among Wall Street's leading institutions.",
-      "title_zh": "美银之后，大摩也将英伟达移除“首选股”名单！",
-      "summary_zh": "英伟达正面临华尔街顶级机构的信心动摇"
-    },
-    {
-      "id": "524f64c645ea878accd9ba3f26422210c359511a",
-      "title": "CLS, 12 November: the United States has asked Russia to submit a new European security proposal",
-      "summary": "CLS, 12 November: the United States has reportedly asked Russia to submit a new European security proposal.",
-      "title_zh": "财联社11月12日电，据报道，美国要求俄罗斯提交新的欧洲安全提案。",
-      "summary_zh": "财联社11月12日电，据报道，美国要求俄罗斯提交新的欧洲安全提案"
-    },
-    {
-      "id": "72b0124939f1f9e0f9325ae8eec70af87aa4115b",
-      "title": "CLS, 12 November: Zelensky says he will meet Kushner and Witkoff in Dublin on Thursday",
-      "summary": "CLS, 12 November: Zelensky said he will meet Kushner and Witkoff in Dublin on Thursday.",
-      "title_zh": "财联社11月12日电，泽连斯基表示，将于周四在都柏林会见库什纳和威特科夫。",
-      "summary_zh": "财联社11月12日电，泽连斯基表示，将于周四在都柏林会见库什纳和威特科夫"
-    },
-    {
-      "id": "c0a46170446f15a178c06a43d9b5902033b8cfcc",
-      "title": "CLS, 12 November: Hang Seng Index futures closed down 0.70% in the night session",
-      "summary": "CLS, 12 November: Hang Seng Index futures closed down 0.70% and Hang Seng Tech futures down 0.82% in the night session.",
-      "title_zh": "财联社11月12日电，恒生指数主连夜盘收跌0.70%。恒生科技指数主连夜盘收跌0.82%。",
-      "summary_zh": "财联社11月12日电，恒生指数主连夜盘收跌0.70%"
-    },
-    {
-      "id": "2cb108c760c27d655d91d80cba38ce48561d2600",
-      "title": "Sixth Street CEO stays cautious on the AI boom, warning that speculation is rife",
-      "summary": "CLS, 12 November: Sixth Street Partners CEO Alan Waxman said he sees mounting signs of instability in the AI boom, so the firm is largely staying on the sidelines.",
-      "title_zh": "Sixth Street首席执行官对AI热潮保持谨慎 警告称投机行为盛行",
-      "summary_zh": "【Sixth Street首席执行官对AI热潮保持谨慎 警告称投机行为盛行】财联社11月12日电，Sixth Street Partners首席执行官Alan Waxman表示，他看到人工智能热潮中动荡的迹象日益增多，因此该公司基本保持观望"
-    },
-    {
-      "id": "d0f85589eecf4926cf6688b490131cfaa44f7edd",
-      "title": "US Central Command: American forces are strictly enforcing the naval blockade of Iran",
-      "summary": "CLS, 12 November: US Central Command said its forces operate around the clock to keep the Strait of Hormuz open to commercial shipping.",
-      "title_zh": "美中央司令部：美军严格执行对伊朗海上封锁",
-      "summary_zh": "【美中央司令部：美军严格执行对伊朗海上封锁】财联社11月12日电，美国中央司令部表示，美军持续昼夜不停地开展行动，以确保霍尔木兹海峡对商业航运保持开放"
-    },
-    {
-      "id": "a6270807fb8aa7323afee457f93c566f7298272a",
-      "title": "Memory makers mulling another round of price hikes? Reporters check",
-      "summary": "In the afternoon of 11 November, A-share memory chip names rose across the board.",
-      "title_zh": "存储厂商酝酿新一轮涨价？记者求证！",
-      "summary_zh": "11月11日午后，A股 存储芯片 板块普涨"
-    },
-    {
-      "id": "9746515fda03330d19c5528d379e8de2c20e2ba4",
-      "title": "CLS, 12 November: SHFE crude oil 2612 contract closed up 1.54% at 607.30 yuan a barrel in the night session",
-      "summary": "CLS, 12 November: the SHFE crude oil 2612 contract closed up 1.54% at 607.30 yuan a barrel in the night session; Shanghai gold fell 1.3% and Shanghai silver rose 0.22%.",
-      "title_zh": "财联社11月12日电，上期所原油期货2612合约夜盘收涨1.54%，报607.30元人民币/桶。沪金夜盘收跌1.3%，沪银收涨0.22%。",
-      "summary_zh": "财联社11月12日电，上期所原油期货2612合约夜盘收涨1.54%，报607.30元人民币/桶"
-    },
-    {
-      "id": "364f79a8a483ece91234fb60c56bac35a935c40d",
-      "title": "CLS, 12 November: Allianz expects full-year operating profit of about 16.4 to 18.6 billion euros",
-      "summary": "CLS, 12 November: Allianz expects full-year operating profit of about 16.4 to 18.6 billion euros.",
-      "title_zh": "财联社11月12日电，安联保险预计全财年营业利润大约164亿欧元至186亿欧元。",
-      "summary_zh": "财联社11月12日电，安联保险预计全财年营业利润大约164亿欧元至186亿欧元"
-    },
-    {
-      "id": "b6ae8a6c384bf4c536ee3304863bf14e0a161c44",
-      "title": "CLS, 12 November: Nasdaq 100 extends gains to 3% as the Philadelphia Semiconductor Index rises 7.6%",
-      "summary": "CLS, 12 November: the Nasdaq 100 extended its gain to 3% while the Philadelphia Semiconductor Index was up 7.6%.",
-      "title_zh": "财联社11月12日电，纳斯达克100指数涨幅扩大至3%，费城半导体指数现涨7.6%。",
-      "summary_zh": "财联社11月12日电，纳斯达克100指数涨幅扩大至3%，费城半导体指数现涨7.6%"
-    },
-    {
-      "id": "1b097dbc4da422368bcf7d33084608f716cfa19e",
-      "title": "CLS, 12 November: iHeartMedia is reportedly exploring a sale of its podcast business",
-      "summary": "CLS, 12 November: iHeartMedia is reportedly exploring a sale of its podcast business.",
-      "title_zh": "财联社11月12日电，iHeartMedia据悉正在探索出售播客业务。",
-      "summary_zh": "财联社11月12日电，iHeartMedia据悉正在探索出售播客业务"
-    },
-    {
-      "id": "709fbe68703c286e5bb6a2283e58adf4536bb2b0",
-      "title": "CLS, 12 November: SpaceXAI says Grok Voice 3.0 is live in its speech-to-speech API at 0.08 dollars a minute",
-      "summary": "CLS, 12 November: SpaceXAI said Grok Voice 3.0 is now live in its speech-to-speech API, priced at 0.08 dollars per minute.",
-      "title_zh": "财联社11月12日电，SpaceXAI表示，Grok Voice 3.0已在语音转语音API中上线，该API定价为每分钟0.08美元。",
-      "summary_zh": "财联社11月12日电，SpaceXAI表示，Grok Voice 3.0已在语音转语音API中上线，该API定价为每分钟0.08美元"
-    },
-    {
-      "id": "8722590e61b02de4bfd9c9078dc6badec27cb3d8",
-      "title": "CLS, 12 November: United Airlines is reportedly barring AI bots from booking flights for customers",
-      "summary": "CLS, 12 November: United Airlines is reportedly barring AI bots from booking flights on customers' behalf; Expedia extended gains to 3.5%.",
-      "title_zh": "财联社11月12日电，美联航据悉正在禁止AI机器人代客预订航班。Expedia涨幅扩大至3.5%。",
-      "summary_zh": "财联社11月12日电，美联航据悉正在禁止AI机器人代客预订航班"
-    },
-    {
-      "id": "6c8748865d816f5dd69bf805282e37dc79a400e4",
-      "title": "LME copper closes 138 dollars higher",
-      "summary": "CLS, 12 November: LME copper rose 138 dollars to 13,817 dollars a tonne.",
-      "title_zh": "LME期铜收涨138美元",
-      "summary_zh": "【LME期铜收涨138美元】财联社11月12日电，LME期铜收涨138美元，报13817美元/吨"
-    },
-    {
-      "id": "52476978d24c4d1919cdaaa6e11f3749a556d363",
-      "title": "Shengyi Technology denies Nvidia cancelled M9 orders over quality issues",
-      "summary": "Asked by an investor about reports that its M9 product lost Nvidia orders over quality problems, the company said it has received no notice of any end-customer cancellation.",
-      "title_zh": "生益科技否认因品质问题被英伟达取消 M9 订单",
-      "summary_zh": "有投资者询问有关其 M9 产品因质量问题失去英伟达订单的报道，公司表示未接到任何终端客户取消订单的通知。"
-    },
-    {
-      "id": "57a11f45be1a270ae13f6bef696b2f2761d9fade",
+      "id": "572199b820f31904ea2eafc604c9de6ee2871f41",
       "title": "Inflation and jobs deliver a double blow: 25 or 50 basis points in December?",
       "summary": "On 10 November the US Bureau of Labor Statistics reported October headline CPI up 0.4% month on month against a 0.30% expectation, with core CPI up 0.30% against 0.20% expected.",
-      "title_zh": "通胀就业双重暴击！12月到底加25还是50bp？",
-      "summary_zh": "11月10日，美国劳工统计局（BLS）公布CPI数据显示，10月份美国整体CPI环比上涨0.4%（预期0.30%），核心CPI环比上涨0.30%（预期0.20%）"
+      "title_zh": "通胀与就业双重打击：12 月是 25 还是 50 个基点？",
+      "summary_zh": "11 月 10 日，美国劳工统计局公布 10 月整体 CPI 环比上涨 0.4%，高于 0.30% 的预期；核心 CPI 环比上涨 0.30%，高于 0.20% 的预期。"
     },
     {
-      "id": "a950946bfef5095c8262471c7da959aac3cc90e2",
-      "title": "Huang fallout continues? Broker says Nvidia looks 'absurdly cheap' and the buy window is open",
-      "summary": "Mizuho technology analyst Jordan Klein said that despite near-term uncertainty around CEO Jensen Huang, the stock may be 'absurdly cheap' and offers an attractive entry point.",
-      "title_zh": "黄仁勋风波持续发酵？投行称英伟达“便宜得离谱”，买入窗口已开",
-      "summary_zh": "瑞穗科技分析师 Jordan Klein 表示，尽管围绕首席执行官黄仁勋存在短期不确定性，该股可能“便宜得离谱”，提供了有吸引力的介入点。"
+      "id": "3552f0d7a4cdfdd7841aacb34e77d8bcc36e6c6a",
+      "title": "Nasdaq futures fall as Nvidia sinks 8% after hours on report board may oust Huang",
+      "summary": "Stock futures were sliding Wednesday evening as a selloff in shares of Nvidia after the closing bell weighed on the Nasdaq-100 and dragged down shares of other ",
+      "title_zh": "有报道称董事会可能罢免黄仁勋，英伟达盘后跌 8%，纳指期货走低",
+      "summary_zh": "周三晚间股指期货走低，英伟达收盘后的抛售拖累纳斯达克 100 指数，并带动其他公司股价下行。"
     },
     {
-      "id": "9982fa3bbbcc502e2126c5717aa39743bf8fd795",
-      "title": "Memory bullish: super-cycle seen running to 2028, but two houses diverge sharply on pricing",
-      "summary": "BofA, citing TrendForce senior analyst Avril Wu, said the memory industry can sustain the current upcycle into 2027 and avoid a downturn in 2028.",
-      "title_zh": "看多存储：超级周期有望延续至 2028 年，但两家机构对价格判断分歧巨大",
-      "summary_zh": "美国银行援引集邦科技资深分析师 Avril Wu 称，存储行业可将当前上行周期延续至 2027 年，并在 2028 年避免进入下行周期。"
+      "id": "ce2a15f938c13f82d0aed2c6be3530bdc802bf6f",
+      "title": "Lutnick should ban Chinese memory maker CXMT from U.S., Sen. Cotton says",
+      "title_zh": "参议员科顿称，卢特尼克应禁止中国存储芯片厂商长鑫存储进入美国"
     },
     {
-      "id": "f7da0aff7a1a607356295c859d814b2a1eaff2fd",
-      "title": "Costco is giving shareholders a big, early holiday gift. How to make sure you get it",
-      "summary": "Costco announced a special dividend, and it's not too late to get in on the action.",
-      "title_zh": "好市多向股东派发丰厚的提前假日礼物，如何确保拿到",
-      "summary_zh": "好市多宣布派发特别股息，现在参与依然不算晚。"
+      "id": "1a007cf37c6c9cc51286f4d43c6bb51eb58c8395",
+      "title": "Musk leads business leaders in opposing a hasty dismissal of Nvidia's Jensen Huang",
+      "summary": "Musk and several business leaders publicly urged Nvidia's board not to dismiss Huang before the investigation concludes, and to leave the decision to shareholders.",
+      "title_zh": "马斯克带头、商界大佬集体发声，反对英伟达董事会仓促解雇黄仁勋",
+      "summary_zh": "马斯克与多位商界领袖公开呼吁英伟达董事会不要在调查结束前解雇黄仁勋，并要求把去留决定交给股东"
     },
     {
-      "id": "c050838b0609e67f7b845088914a4d969df34b11",
-      "title": "JetBlue unveils new first-class seats to bring back profits",
-      "summary": "JetBlue will give reporters a look at its new first-class seats on Wednesday.",
-      "title_zh": "捷蓝航空推出新头等舱座椅，力图恢复盈利",
-      "summary_zh": "捷蓝航空将于周三向记者展示其新的头等舱座椅。"
+      "id": "2054b320fa6b87bf6c7b24b6710f61db9af331b8",
+      "title": "Report: some Nvidia directors favour CFO Kress as interim CEO",
+      "summary": "Nvidia's board is preparing to remove founder and CEO Jensen Huang, with some directors favouring CFO Colette Kress as interim CEO while the company has engaged an external search firm to find a new chief executive.",
+      "title_zh": "报道：英伟达部分董事倾向由CFO Kress担任过渡期CEO",
+      "summary_zh": "英伟达董事会正准备罢免创始人兼CEO黄仁勋，部分董事倾向由首席财务官Colette Kress出任过渡期CEO，同时公司已委托外部猎头机构启动新CEO搜寻工作"
     },
     {
-      "id": "16249b727633664fb261ef33d733eb20840045f9",
-      "title": "Canada’s ambassador warns Trump tariffs are driving up costs, threatening U.S. investment",
-      "summary": "U.S.-Canada trade tensions persist as Trump's tariffs drive up costs, threaten investment and complicate negotiations between the two countries.",
-      "title_zh": "加拿大大使警告特朗普关税推高成本、威胁美国投资",
-      "summary_zh": "随着特朗普关税推高成本、威胁投资并使两国谈判复杂化，美加贸易紧张持续。"
+      "id": "042713c3e5cdf7816109d2ee72c01507a1952fba",
+      "title": "Nvidia slumps on the affair scandal; the Big Short investor calls it a great short-term trade but stays bearish long term",
+      "summary": "Nvidia is mired in the CEO affair scandal and its shares remain under pressure, with the market value wiped out exceeding the entire market capitalisation of Meta.",
+      "title_zh": "婚外情风波下、英伟达股价重挫，“大空头”：短期或是“绝佳交易”但长期仍看空",
+      "summary_zh": "英伟达深陷CEO婚外情丑闻，股价持续承压，市值蒸发规模已超越Meta整体市值"
     },
     {
-      "id": "a641231fe9b36dfcfa081775cfb7dac63fb5fe05",
-      "title": "Insiders are starting to buy this retail turnaround story, so I am too",
-      "summary": "Now that corporate insiders are starting to buy in, I believe the turnaround has some legs.",
-      "title_zh": "内部人士开始买入这家零售反转故事，我也跟着买",
-      "summary_zh": "既然公司内部人士开始买入，我认为这轮反转还有后劲。"
+      "id": "51e9fe4552c952ea9b8fbae1c9782aa14deaf36a",
+      "title": "Nvidia's board weighs Huang's future as his 33 year tenure reaches the edge",
+      "summary": "Looking at Nvidia's ownership structure, co-founder and CEO Huang holds about 871 million shares, less than 4% of the company.",
+      "title_zh": "英伟达董事会讨论黄仁勋去留问题 33年掌舵生涯来到悬崖边",
+      "summary_zh": "从 英伟达 的股权结构看，黄仁勋虽然是公司联合创始人兼CEO，但其持股比例约为8.71亿股，占比不足4%"
     },
     {
-      "id": "5abe717debdf65ce2c0031e4e946062eb909365d",
-      "title": "United Airlines moves to block AI agents from its platform over security concerns",
-      "summary": "Companies across industries ⁠are ‌taking divergent approaches to the ⁠rapid rise of AI agents capable of carrying out tasks on behalf of users.",
-      "title_zh": "美联航出于安全考虑阻止 AI 代理接入其平台",
-      "summary_zh": "面对能替用户执行任务的 AI 代理迅速崛起，各行业公司正采取分化路线。"
+      "id": "fe76f915d11ac9cdcb856544fdf2c3242f47fc7b",
+      "title": "NEA official attends high-level event of the Global Grid Accelerator initiative",
+      "summary": "Cailian Press, 12 November, citing the National Energy Administration: the high-level event of the Global Grid Accelerator initiative was held in Antalya, Turkey on 12 November, with nearly 100 representatives from member governments, UN bodies, multilateral development banks, international organisations and the private sector.",
+      "title_zh": "国家能源局负责人出席“全球电网加速器”倡议高级别活动",
+      "summary_zh": "【国家能源局负责人出席“全球电网加速器”倡议高级别活动】财联社11月12日电，据国家能源局消息，11月12日，“全球电网加速器”倡议高级别活动在土耳其安塔利亚举行，来自成员国政府高级别代表、联合国有关机构、多边开发银行、国际组织负责人、私营部门等近百名代表参加活动"
     },
     {
-      "id": "46ab62fb49da83f35f631460e2263a0d5bac1bbd",
-      "title": "Stick with high-quality AI bonds as debt worries persist, says Morgan Stanley",
-      "summary": "Morgan Stanley sees a more attractive entry point in high-quality hyperscaler bonds as investors remain wary of the debt funding the AI build-out.",
-      "title_zh": "摩根士丹利：债务担忧未消，应坚守高质量 AI 债券",
-      "summary_zh": "摩根士丹利认为，在投资者仍对支撑 AI 建设的债务融资保持警惕之际，高质量超大规模云厂商债券提供了更具吸引力的介入点。"
+      "id": "006613cc8f8575ca5a5d2b38602d3daf5f479957",
+      "title": "BofA Global Research raises its 2030 US server CPU total addressable market forecast to 240 billion dollars from 210 billion dollars",
+      "summary": "Cailian Press, 12 November: BofA Global Research raised its 2030 US server CPU total addressable market forecast to 240 billion dollars from 210 billion dollars.",
+      "title_zh": "财联社11月12日电，美银全球研究将2030年底美国服务器CPU潜在市场规模（TAM）从2100亿美元上调至2400亿美元。",
+      "summary_zh": "财联社11月12日电，美银全球研究将2030年底美国服务器CPU潜在市场规模（TAM）从2100亿美元上调至2400亿美元"
     },
     {
-      "id": "a4374ad2abc5bb643b26cb8049ed50191775231f",
-      "title": "Mississippi Senate: Scott Colom lead over Hyde-Smith pops to more than 4,400 votes",
-      "summary": "Tuesday was the deadline for provisional ballots to be resolved in Mississippi, and the deadline for the receipt of mail-in absentee ballots.",
-      "title_zh": "密西西比州参议院：斯科特·科洛姆对海德-史密斯的领先优势扩大至 4,400 多票",
-      "summary_zh": "周二是密西西比州临时选票处理完毕的截止日，也是邮寄缺席选票接收的截止日。"
+      "id": "5a37fd2e5f529e5d1e207cb98d02005622de6076",
+      "title": "Hengyi Petrochemical to buy 51% of Shaoxing Hengming for 1.201 billion yuan",
+      "summary": "Cailian Press, 12 November: Hengyi Petrochemical (000703.SZ) said its wholly owned unit Hengyi Limited plans to buy a 51% stake in Shaoxing Hengming from Fujian Kunyu for 1.201 billion yuan in cash, a related party transaction.",
+      "title_zh": "恒逸石化：拟12.01亿元收购绍兴恒鸣51%股权",
+      "summary_zh": "【恒逸石化：拟12.01亿元收购绍兴恒鸣51%股权】财联社11月12日电，恒逸石化(000703.SZ)公告称，公司全资子公司恒逸有限拟以现金12.01亿元收购福建坤舆持有的绍兴恒鸣51%股权，构成关联交易"
     },
     {
-      "id": "503eea1030217e6e9c72f7d6d6d94659d0356d76",
-      "title": "Social Security could pay full benefits until 2059 if taxable payroll kept pace with GDP: AARP report",
-      "summary": "An aging work force is not the only reason Social Security's trust funds now have a looming shortfall, according to AARP Public Policy Institute research.",
-      "title_zh": "AARP 报告：若应税工资与 GDP 同步增长，社保可全额支付至 2059 年",
-      "summary_zh": "AARP 公共政策研究所的研究显示，劳动力老龄化并非社保信托基金缺口临近的唯一原因。"
+      "id": "15a662a660391c394adbd47290a0abcb49e0f0be",
+      "title": "Alphabet issues 16 billion Hong Kong dollars and 2.28 billion Singapore dollars of bonds",
+      "summary": "Cailian Press, 12 November: Google parent Alphabet launched a three tranche 16 billion Hong Kong dollar bond sale and a four tranche 2.28 billion Singapore dollar sale.",
+      "title_zh": "Alphabet发行160亿港元及22.8亿新元债券",
+      "summary_zh": "【Alphabet发行160亿港元及22.8亿新元债券】财联社11月12日电，据报道，谷歌母公司Alphabet启动160亿港元三期债券发行及22.8亿新元四期债券发行"
     },
     {
-      "id": "47be4f71d8cca645c1e90cae31a400e20f22b3c2",
-      "title": "US stocks rise, Nasdaq up nearly 2% and the Philadelphia Semiconductor Index up more than 6%",
-      "summary": "On Wednesday US time the three main US indices moved mixed; as of publication the Dow was up 0.45%, the S&P 500 up 1.41% and the Nasdaq Composite up 1.86%.",
-      "title_zh": "美股三大指数集体上涨 纳指涨近2% 费城半导体指数涨逾6%",
-      "summary_zh": "美东时间周三，美股三大指数涨跌不一，截至发稿，道琼斯指数涨0.45%，标普500指数涨1.41%， 纳斯达克 综合 指数涨1.86%"
+      "id": "c3b1167c1ff0841f4ca79085a7e85c1dfd216116",
+      "title": "Hong Kong IPO: Ningbo Jiangfeng Electronic Materials files with the Hong Kong exchange",
+      "summary": "Cailian Press, 12 November, citing Livermore Securities: Ningbo Jiangfeng Electronic Materials has submitted a listing application to the Hong Kong Stock Exchange, with CMS International as sole sponsor.",
+      "title_zh": "港股IPO：宁波江丰电子材料股份有限公司递表港交所",
+      "summary_zh": "【港股IPO：宁波江丰电子材料股份有限公司递表港交所】财联社11月12日电，利弗莫尔证券显示，宁波江丰电子材料股份有限公司向港交所提交上市申请书，独家保荐人为招商证券国际"
     },
     {
-      "id": "ba51078de0a94006ce1495b6496b95af20589bc8",
-      "title": "Prediction markets tied to clinical trials and drug approvals draw lawmakers' ire",
-      "summary": "Sens",
-      "title_zh": "与临床试验和药品审批挂钩的预测市场引发议员不满",
-      "summary_zh": "参议员……"
+      "id": "5716f22c7e0029f9418f8845db13203af2413fe6",
+      "title": "Serbia's central bank raises its key rate 25 basis points to 6%, against expectations of a hold at 5.75%",
+      "summary": "Cailian Press, 12 November: Serbia's central bank raised its key rate 25 basis points to 6%, while the market had expected it to stay at 5.75%.",
+      "title_zh": "财联社11月12日电，塞尔维亚央行将关键利率上调25个基点至6%，市场预期维持在5.75%。",
+      "summary_zh": "财联社11月12日电，塞尔维亚央行将关键利率上调25个基点至6%，市场预期维持在5.75%"
     },
     {
-      "id": "34f829d0c3938f8536f081ae7651d5f5cd324036",
-      "title": "Meta head of infrastructure will leave and be succeeded by former AWS cloud exec",
-      "summary": "Meta's head of infrastructure and co-head of engineering Santosh Janardhan will leave in 2027, with former AWS senior vice president David Brown taking over.",
-      "title_zh": "Meta 基础设施负责人将离职，由前 AWS 云业务高管接任",
-      "summary_zh": "Meta 基础设施负责人兼工程联席主管桑托什·贾纳尔丹将于 2027 年离职，由前 AWS 高级副总裁戴维·布朗接任。"
+      "id": "d7aa196debc0f937aaf84415e762c272444f8714",
+      "title": "Lingyi iTech to inject 816 million yuan into its liquid cooling unit Liminda",
+      "summary": "Cailian Press, 12 November: Lingyi iTech (002600.SZ) said it plans to inject 816 million yuan in cash into its controlled subsidiary Dongguan Liminda Electronic Technology.",
+      "title_zh": "领益智造：拟向液冷子公司立敏达增资8.16亿元",
+      "summary_zh": "【领益智造：拟向液冷子公司立敏达增资8.16亿元】财联社11月12日电，领益智造(002600.SZ)公告称，公司拟以现金方式向控股子公司东莞市立敏达电子科技有限公司增资8.16亿元"
     },
     {
-      "id": "06ebbe630d3bfa114c3d1e11bfd7924de3ca2f7c",
-      "title": "How Democrats could snarl Trump administration stakes in private sector companies",
-      "summary": "The Trump administration had established some form of equity position in 41 companies as of November, according to the CATO Institute's tally.",
-      "title_zh": "民主党如何搅动特朗普政府在私营企业的持股",
-      "summary_zh": "据加图研究所统计，截至 11 月，特朗普政府已在 41 家公司建立了某种形式的股权头寸。"
+      "id": "3303a9802431c9feb6c63555407d43d4537211ae",
+      "title": "BofA Global Research cuts its Intel target price to 80 dollars from 100 dollars",
+      "summary": "Cailian Press, 12 November: BofA Global Research cut its Intel target price to 80 dollars from 100 dollars.",
+      "title_zh": "财联社11月12日电，美银全球研究将英特尔目标价从100美元下调至80美元。",
+      "summary_zh": "财联社11月12日电，美银全球研究将英特尔目标价从100美元下调至80美元"
     },
     {
-      "id": "740f443131e564e6ae43752829afc939cd1386b9",
-      "title": "Stocks making the biggest moves Wednesday: Corning, CoreWeave, Sandisk, Coherent & more",
-      "summary": "Follow below as CNBC covers the biggest stock market moves of the day.",
-      "title_zh": "周三波动最大的股票：康宁、CoreWeave、闪迪、Coherent 等",
-      "summary_zh": "以下为 CNBC 对当日美股最大波动的追踪报道。"
+      "id": "bef8363e2908d1e718b212680d58c7a86a284071",
+      "title": "Tinci Materials to buy back 50 million to 100 million yuan of shares for cancellation",
+      "summary": "Cailian Press, 12 November: Tinci Materials (002709.SZ) plans to repurchase shares with its own and raised funds, including dedicated commercial bank buyback loans, for a total of no less than 50 million and no more than 100 million yuan, at no more than 45 yuan per share.",
+      "title_zh": "天赐材料：拟5000万元至1亿元回购股份用于注销",
+      "summary_zh": "【天赐材料：拟5000万元至1亿元回购股份用于注销】财联社11月12日电，天赐材料(002709.SZ)公告称，公司拟以自有资金和自筹资金(含商业银行回购专项贷款等)回购公司股份，回购资金总额不低于5000万元且不超过1亿元，回购价格不超过45元/股"
     },
     {
-      "id": "1bab1bd45fc9457205df9e0da6a9751ef3d9471b",
-      "title": "Bouncing Wynn Shares might be primed for the 'wheel strategy'",
-      "summary": "From a valuation standpoint, WYNN is trading very close to its five-year historical averages across key metrics",
-      "title_zh": "反弹中的永利度假村股票或适合“轮动策略”",
-      "summary_zh": "从估值角度看，永利度假村在关键指标上已非常接近其五年历史均值。"
+      "id": "07ffc0cc3e76ee1e8cdc68b383ffd7674c40ab15",
+      "title": "Merz: an EU budget deal before year end is fairly likely, and Europe needs a seat at the Ukraine talks",
+      "summary": "Cailian Press, 12 November: German Chancellor Merz said backing Ukraine is a shared European responsibility and in Europe's own interest, that concluding the EU budget negotiations before year end is fairly likely, and that Europeans need to take part in the Ukraine talks.",
+      "title_zh": "默茨：年底前结束欧盟预算谈判的可能性较大 欧洲需要参与乌克兰问题谈判",
+      "summary_zh": "【默茨：年底前结束欧盟预算谈判的可能性较大 欧洲需要参与乌克兰问题谈判】财联社11月12日电，德国总理默茨表示，支持乌克兰是欧洲的共同责任，支持乌克兰符合欧洲自身利益，年底前结束欧盟预算谈判的可能性较大，欧洲人需要参与乌克兰问题谈判"
     },
     {
-      "id": "bb1a16372fb81ba264b5bb9a5af79ea28fd5edac",
-      "title": "General strikes to paralyze Spain as protestors clash with police ahead of election campaign",
-      "summary": "Spanish workers are expected to turn out in their millions on Wednesday for the country's first general strike in 14 years.",
-      "title_zh": "西班牙大罢工致全国瘫痪，抗议者在选战前与警方冲突",
-      "summary_zh": "预计周三将有数百万西班牙工人参与该国 14 年来首次大罢工。"
+      "id": "bd7ccd240107799b601bfd3ff4b1991a7044d57e",
+      "title": "Russia's defence ministry says it is continuing strikes on Ukrainian military industrial and energy facilities",
+      "summary": "Cailian Press, 12 November: Russia's defence ministry said in a 12 November statement that its forces kept striking military industrial and energy facilities in Ukraine with ground launched precision weapons and long range attack drones.",
+      "title_zh": "俄国防部称继续打击乌克兰军工和能源设施",
+      "summary_zh": "【俄国防部称继续打击乌克兰军工和能源设施】财联社11月12日电，俄罗斯国防部12日发布通报说，俄军使用陆基高精度武器和远程攻击型无人机继续打击乌克兰境内军工和能源设施"
     },
     {
-      "id": "4f8b47ac39c2fdfc04401c424f457150df3fec76",
-      "title": "CoreWeave soars 26% as CEO reaffirms AI compute demand after strong Q3 report",
-      "summary": "Neoclouds such as CoreWeave, Nebius and IREN have come under scrutiny this month as investors assessed the sustainability of the AI trade.",
-      "title_zh": "CoreWeave 大涨 26%，CEO 在强劲三季度后重申 AI 算力需求",
-      "summary_zh": "本月随着投资者评估 AI 行情的可持续性，CoreWeave、Nebius 与 IREN 等新型云厂商受到审视。"
+      "id": "8ea61f33ece49057e29da80255c2729dd66e400e",
+      "title": "Tinci Materials unit to invest up to 5 billion yuan in a 500,000 tonne electrolyte project",
+      "summary": "Cailian Press, 12 November: Tinci Materials (002709.SZ) said its Chizhou Tinci Advanced Materials unit or its subsidiary plans to build a 500,000 tonne per year electrolyte and supporting materials project with raised funds, over a 24 month construction period and a total investment of no more than 5 billion yuan.",
+      "title_zh": "天赐材料：子公司拟投资不超50亿元建设年产50万吨电解液及配套材料项目",
+      "summary_zh": "【天赐材料：子公司拟投资不超50亿元建设年产50万吨电解液及配套材料项目】财联社11月12日电，天赐材料(002709.SZ)公告称，公司子公司池州天赐高新材料有限公司或其子公司拟使用自筹资金投资建设“年产50万吨电解液及配套材料项目”，项目建设周期24个月，总投资不超过50亿元"
+    },
+    {
+      "id": "276776b5b6ecb3abc0da97ee33bb3c96a598912d",
+      "title": "Ukraine's general staff says its forces struck the Omsk refinery in Russia",
+      "summary": "Cailian Press, 12 November: Ukraine's general staff said its forces struck the Omsk refinery in Russia.",
+      "title_zh": "财联社11月12日电，乌克兰武装部队总参谋部表示，乌军袭击了俄罗斯鄂木斯克炼油厂。",
+      "summary_zh": "财联社11月12日电，乌克兰武装部队总参谋部表示，乌军袭击了俄罗斯鄂木斯克炼油厂"
+    },
+    {
+      "id": "de049e3bf2b7aec1940b7fcca909ee133f11f841",
+      "title": "The Global Chip LOF (501225) will be suspended from the 13 November 2026 open until 10:30 that day",
+      "summary": "Cailian Press, 12 November: the Global Chip LOF (501225) will be suspended from the 13 November 2026 open until 10:30 that day.",
+      "title_zh": "财联社11月12日电，全球芯片LOF(501225)将于2026年11月13日开市起至当日10:30停牌。",
+      "summary_zh": "财联社11月12日电，全球芯片LOF(501225)将于2026年11月13日开市起至当日10:30停牌"
+    },
+    {
+      "id": "ffce0c41c2a8b34f8db56cf57841be6729b762bb",
+      "title": "The Guotai Nasdaq ETF (513100) will be suspended from the 13 November 2026 open until 10:30 that day",
+      "summary": "Cailian Press, 12 November: the Guotai Nasdaq ETF (513100) will be suspended from the 13 November 2026 open until 10:30 that day.",
+      "title_zh": "财联社11月12日电，纳指ETF国泰(513100)将于2026年11月13日开市起至当日10:30停牌。",
+      "summary_zh": "财联社11月12日电，纳指ETF国泰(513100)将于2026年11月13日开市起至当日10:30停牌"
+    },
+    {
+      "id": "d6f2bb8093c5b74fa0c7063ed72cc1fd59936cd2",
+      "title": "The Fullgoal Nasdaq ETF (513870) will be suspended from the 13 November 2026 open until 10:30 that day",
+      "summary": "Cailian Press, 12 November: the Fullgoal Nasdaq ETF (513870) will be suspended from the 13 November 2026 open until 10:30 that day.",
+      "title_zh": "财联社11月12日电，纳指ETF富国(513870)将于2026年11月13日开市起至当日10:30停牌。",
+      "summary_zh": "财联社11月12日电，纳指ETF富国(513870)将于2026年11月13日开市起至当日10:30停牌"
+    },
+    {
+      "id": "9dbb9f34c39ae01b943dcd1a6547e8b1d3220aba",
+      "title": "The Bosera Nasdaq 100 ETF (513390) will be suspended from the 13 November 2026 open until 10:30 that day",
+      "summary": "Cailian Press, 12 November: the Bosera Nasdaq 100 ETF (513390) will be suspended from the 13 November 2026 open until 10:30 that day.",
+      "title_zh": "财联社11月12日电，纳指100ETF博时(513390)将于2026年11月13日开市起至当日10:30停牌。",
+      "summary_zh": "财联社11月12日电，纳指100ETF博时(513390)将于2026年11月13日开市起至当日10:30停牌"
+    },
+    {
+      "id": "4f2cd4f3e4b43e84799eb441ea414bb3d6f1ffa1",
+      "title": "From cheerleading cuts to a 50 basis point hike? Inside the Fed's flip-flopping Waller",
+      "summary": "Fed Chair Kevin Warsh's disdain for rate forward guidance is plain to see.",
+      "title_zh": "从“鼓吹降息”到“加息50基点”？起底美联储“变脸王”沃勒！",
+      "summary_zh": "美联储主席凯文·沃什对利率“前瞻性指引”的唾弃是显而易见"
+    },
+    {
+      "id": "850599a9c7c16e7ae5ed2f72a04c2f893fa34172",
+      "title": "Hawkish Fed chatter pushes gold below the 4,000 dollar mark as banks warn of further downside",
+      "summary": "International gold prices have broken below the key level of 4,000 dollars an ounce.",
+      "title_zh": "美联储鹰声不断 黄金失守4000美元大关！投行警告进一步下行风险",
+      "summary_zh": "国际金价已跌破每盎司4000美元的关键水平"
+    },
+    {
+      "id": "9b25d6bf5bf69f07e8a29d63632c8a38553fe481",
+      "title": "SpaceX is said to be designing its own AI racks, sourcing most peripheral components itself",
+      "summary": "According to research firm SemiAnalysis, SpaceX is developing its own AI rack design that would let the rocket and satellite company buy Nvidia chips directly while sourcing most peripheral components itself.",
+      "title_zh": "绕过英伟达采购其他周边组件！SpaceX据悉正在自研AI机架",
+      "summary_zh": "据市场研究公司SemiAnalysis称， SpaceX 正在开发自己的AI机架设计，该设计将使这家火箭和卫星公司能够直接购买 英伟达 的芯片，同时自行采购大部分周边组件"
+    },
+    {
+      "id": "b2aa6c34fcdee0ff2dc2e2235c0e1315139c95b1",
+      "title": "Feds arrest top official of healthcare company, alleging illegal drug importation",
+      "title_zh": "联邦执法人员逮捕一家医疗保健公司高管，指控其非法进口药品"
+    },
+    {
+      "id": "6275a76e09153d84402249bbdfc767c46c3514c6",
+      "title": "Ukraine warns of fresh Starshield disruptions as U.S. envoys arrive in Moscow for talks with Putin",
+      "summary": "Starshield is SpaceX's military-grade satellite network designed for government and national security use, building on the technology developed for Starlink.",
+      "title_zh": "美国特使抵达莫斯科与普京会谈之际，乌克兰警告星盾服务再度中断",
+      "summary_zh": "星盾是 SpaceX 的军用级卫星网络，基于星链开发的技术，面向政府与国家安全用途。"
+    },
+    {
+      "id": "ce84a44d919609fa511dff76e5aca0a2ebc39907",
+      "title": "The sourcing arithmetic behind Sam's Club 399 yuan down jacket",
+      "summary": "On 11 November a down jacket priced at 399.9 yuan with 300 grams of fill put Sam's Club back on Weibo's trending list.",
+      "title_zh": "山姆399元羽绒服的采购账",
+      "summary_zh": "11月11日，一款售价399.9元、充绒量300克的羽绒服，让山姆再次登上微博热搜"
+    },
+    {
+      "id": "dea6c70c32a690776c4a30aaa8330eba71d2dc28",
+      "title": "The robotics bubble deflates in the old economy stock market",
+      "summary": "At the height of the embodied AI frenzy investors had to scramble for allocation in the next round.",
+      "title_zh": "机器人泡沫在老股市场漏了气",
+      "summary_zh": "具身智能最热的时候，投资人得抢着进下一轮"
+    },
+    {
+      "id": "d3cbc317291be9280085262ab4062830ba831c74",
+      "title": "Shanghai Stock Exchange issues regulatory letters to Ruri Dongfang and Da Dongfang",
+      "summary": "The Shanghai Stock Exchange issued Ruri Dongfang a regulatory letter concerning share price volatility at Ruri Dongfang Holding.",
+      "title_zh": "上交所向日出东方、大东方下发监管工作函",
+      "summary_zh": "上交所向 日出东方 下发关于 日出东方 控股股份有限公司有关股价波动事项的监管工作函"
+    },
+    {
+      "id": "e3e3dec479074aed4584b5b210acb19d72cc2d6e",
+      "title": "Baijiu names buck the trend as Double 11 premium liquor data show turnover up 25% year on year",
+      "summary": "On 12 November the A-share market rallied then faded and all three main indices closed lower, while the baijiu sector bucked the trend to close up 0.74%, among the best performing industry groups.",
+      "title_zh": "白酒股逆势走强！双11名酒战报出炉 成交同比增25%",
+      "summary_zh": "11月12日，A股冲高回落，三大指数集体收跌， 白酒 板块逆势走强 ，收涨0.74%，涨幅居行业板块前列"
+    },
+    {
+      "id": "a201af6896a3b90f94ba29794b27bcadf3386627",
+      "title": "World Computing Conference countdown begins as several profitable computing power names look oversold",
+      "summary": "Domestic computing power demand is being released faster and, driven by continued increases in capital expenditure, the supply chain is entering a period of earnings delivery.",
+      "title_zh": "世界计算大会进入倒计时 多只绩优算力概念股“超跌”",
+      "summary_zh": "国产算力需求加速释放，在资本开支持续加码的驱动下，产业链正迈入业绩兑现期"
+    },
+    {
+      "id": "6aaeee5f1e29f6c4c7e75c8e6276f24fbeb7e576",
+      "title": "Shanghai Stock Exchange issues a regulatory letter to Da Dongfang",
+      "summary": "The Shanghai Stock Exchange issued Da Dongfang a regulatory letter concerning share price volatility at Wuxi Commercial Mansion Da Dongfang.",
+      "title_zh": "上交所向大东方下发监管工作函",
+      "summary_zh": "上交所向 大东方 下发关于无锡商业大厦 大东方 股份有限公司有关股价波动事项的监管工作函"
     }
   ],
-  "updated_at": "2026-11-11T21:37:17Z"
+  "updated_at": "2026-11-12T12:37:33Z"
 }
