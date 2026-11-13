@@ -113,13 +113,6 @@
       "summary_zh": "英伟达正面临其 33 年历史上最大的危机，创始人黄仁勋辞去 CEO 职务。"
     },
     {
-      "id": "46bf11051a52e615c3c910da02ce7cd4ad38d521",
-      "title": "S&P 500, Nasdaq end lower as Nvidia uncertainty weighs on tech shares",
-      "title_zh": "英伟达不确定性拖累科技股，标普 500 与纳指收低",
-      "summary": null,
-      "summary_zh": null
-    },
-    {
       "id": "d5c7ed47d4f65b4db0cde81e6afbcd186517713b",
       "title": "Jensen Huang was a ‘China salesman’ for Nvidia. His exit is weighing on Chinese tech stocks.",
       "title_zh": "黄仁勋曾是英伟达的“中国推销员”，他的离任正拖累中国科技股",
@@ -167,6 +160,20 @@
       "title_zh": "景林资产三季度瞄准巨头：新进英伟达、阿里，大幅增持台积电",
       "summary": "The well-known private fund Greenwoods made large changes to its US holdings in the third quarter, opening positions in Nvidia and China ADR Alibaba while adding TSMC, Atour and Huazhu; Alphabet and Intel were added among top holdings, Full Truck Alliance was trimmed, and Trip.com and Qifu Technology were exited.",
       "summary_zh": "知名私募景林资产三季度大举调整美股持仓，新建仓英伟达和中概阿里巴巴，同时增持台积电、亚朵和华住，重仓股中谷歌母公司Alphabet和英特尔获增持，减持满帮集团，并清仓携程和奇富科技"
+    },
+    {
+      "id": "7f3b1dbc59ed7b5b74820c67b3959cddd34255ef",
+      "title": "National Weather Service says it is experiencing nationwide internet and communications problems",
+      "title_zh": "财联社11月14日电，美国国家气象局表示，该机构正遭遇全国范围的互联网与通信问题，技术人员正在积极处理，以尽快恢复。",
+      "summary": "CLS, 14 November: the National Weather Service said it is experiencing nationwide internet and communications problems and that technicians are working to restore service as quickly as possible.",
+      "summary_zh": "财联社11月14日电，美国国家气象局表示，该机构正遭遇全国范围的互联网与通信问题，技术人员正在积极处理，以尽快恢复"
+    },
+    {
+      "id": "a9aa9f97f3a669a6c6ef694601e9f5f1d674cfb2",
+      "title": "Goldman Sachs expects the dollar to weaken in 2027",
+      "title_zh": "高盛预计美元在2027年走软",
+      "summary": "CLS, 14 November: Goldman Sachs strategists expect the dollar to weaken in 2027 after a strong but divergent 2026.",
+      "summary_zh": "【高盛预计美元在2027年走软】财联社11月14日电，高盛策略师预计，在2026年“强劲但分化”的表现之后，美元将在2027年走软"
     },
     {
       "id": "d41c4af9bd0e9015d680599a26f269ab5c425be3",
@@ -309,20 +316,6 @@
       "summary_zh": "11月10日，美国劳工统计局（BLS）公布CPI数据显示，10月份美国整体CPI环比上涨0.4%（预期0.30%），核心CPI环比上涨0.30%（预期0.20%）"
     },
     {
-      "id": "6d2a9268eec016101d6f8d5de57261179aa1e0aa",
-      "title": "UK maritime agency: security incidents linked to the US-Iran conflict rise to 163",
-      "title_zh": "英国海事机构：美伊冲突相关海上安全事件增至163起",
-      "summary": "CLS, 14 November: the UK Maritime Trade Operations (UKMTO) said in its latest weekly maritime security report that 163 incidents linked to the Iran-US conflict have been recorded in its monitoring area this year, 8 more than reported on 6 November.",
-      "summary_zh": "【英国海事机构：美伊冲突相关海上安全事件增至163起】财联社11月14日电，英国海上贸易行动办公室（UKMTO）发布最新一期海上安全周报称，今年以来，其监测区域内与伊朗和美国冲突相关的海上安全事件累计达163起，较11月6日公布的数据增加8起"
-    },
-    {
-      "id": "bad5e53a78684f65113266fe181d07c48fe8e3e1",
-      "title": "Microsoft says it cannot yet give a timeline for full recovery",
-      "title_zh": "财联社11月14日电，微软表示，目前尚无法给出全面恢复的时间安排。",
-      "summary": "CLS, 14 November: Microsoft said it cannot yet provide a schedule for full recovery.",
-      "summary_zh": "财联社11月14日电，微软表示，目前尚无法给出全面恢复的时间安排"
-    },
-    {
       "id": "972503b4f2dd4bdcbc768420dc64516b5aea44a5",
       "title": "Up premarket! Heavy inflows — who is bottom-fishing Nvidia?",
       "title_zh": "盘前上涨！大量资金涌入 谁在抄底英伟达？",
@@ -349,7 +342,14 @@
       "title_zh": "美联储公布 2027 年联邦公开市场委员会会议的修订版暂定日程",
       "summary": "Federal Reserve announces revised tentative schedule of Federal Open Market Committee meetings in 2027",
       "summary_zh": "美联储公布 2027 年联邦公开市场委员会会议的修订版暂定日程。"
+    },
+    {
+      "id": "e67570afe7688e4d3eda01e6918645d31b001905",
+      "title": "Overseas token revenue no longer keeps up with surging memory costs",
+      "title_zh": "Token出海赚的钱，跟不上飙升的存储成本了",
+      "summary": "Menlo Ventures' 2026 State of Enterprise AI report shows that 89% of US enterprise spending on open-source models went to Chinese models.",
+      "summary_zh": "硅谷知名风险投资机构门罗风投（Menlo Ventures）发布的《2026年企业AI现状报告》显示，美国企业用于开源模型的支出中，89%付给了中国模型"
     }
   ],
-  "updated_at": "2026-11-13T22:06:10Z"
+  "updated_at": "2026-11-13T22:09:21Z"
 }
