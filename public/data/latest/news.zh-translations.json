@@ -1,25 +1,80 @@
 {
   "items": [
     {
-      "id": "1b0bc4058fcf2260c3341e03762c2418666a4801",
-      "title": "Nasdaq falters as Nvidia shares fall on CEO exit, oil prices rise: Live updates",
-      "summary": "The Nasdaq Composite fluctuated on Thursday as investors weighed the departure of Nvidia CEO Jensen Huang.",
-      "title_zh": "纳指走软，英伟达因 CEO 离任下跌，油价上涨：实时更新",
-      "summary_zh": "周四纳斯达克综合指数震荡，投资者在权衡英伟达 CEO 黄仁勋离任的影响。"
+      "id": "1f7e978690051a87cc95d6081b6f974512430e1f",
+      "title": "Demingli plans a 400 million yuan investment in memory chip startup Hongqixin",
+      "summary": "CLS, 13 November: Demingli (001309.SZ) announced it will invest alongside related parties in Shenzhen Hongqixin Technology Co., Ltd., with a 400 million yuan investment giving it a 7.06 percent post-investment stake.",
+      "title_zh": "德明利：拟4亿元投资新型存储芯片企业宏祺芯",
+      "summary_zh": "【德明利：拟4亿元投资新型存储芯片企业宏祺芯】财联社11月13日电，德明利(001309.SZ)公告称，公司拟与关联方共同投资深圳市宏祺芯科技有限责任公司，公司投资额为4亿元，投后持股7.06%"
     },
     {
-      "id": "733b117447c8646f961ce0593132149847b59972",
-      "title": "Nvidia live updates: Jensen Huang had ‘intimate relationship’ with second employee, Reuters reports",
-      "summary": "Nvidia CFO Colette Kress has been named interim CEO during the search for Huang’s replacement.",
-      "title_zh": "英伟达实时更新：路透报道黄仁勋与第二名员工存在“亲密关系”",
-      "summary_zh": "在寻找黄仁勋继任者期间，英伟达首席财务官科莱特·克雷斯被任命为临时 CEO。"
+      "id": "6101ada50f5fc6cb09d499675d7ef0a93182b699",
+      "title": "Nvidia scandal draws in Commerce Secretary Lutnick, who reportedly agrees to testify about China chip sales",
+      "summary": "Commerce Secretary Lutnick will testify before the Senate Banking Committee following revelations about Jensen Huang's affair with an alleged Chinese spy.",
+      "title_zh": "英伟达丑闻牵出商务部长卢特尼克，据报同意就中国芯片销售作证",
+      "summary_zh": "在黄仁勋与一名疑似中国间谍存在婚外情的消息曝光后，美国商务部长卢特尼克将赴参议院银行委员会作证。"
     },
     {
-      "id": "c40704ef91fec9972cbd25b7b6e09c6f8e970ea2",
+      "id": "4477dee6209c1ac1f4583f4abe4a1452f8583168",
+      "title": "Nvidia stock inches higher as investors continue to weigh Jensen Huang’s departure",
+      "summary": "Jensen Huang resigned as CEO of Nvidia on Thursday after coming under scrutiny for two extramarital affairs.",
+      "title_zh": "投资者继续权衡黄仁勋离任，英伟达股价小幅走高",
+      "summary_zh": "黄仁勋因两段婚外情受到审视，于周四辞去英伟达 CEO 职务。"
+    },
+    {
+      "id": "161ad133918204808b48d5309fa9f4e40b5b66a3",
+      "title": "Nvidia’s turmoil is prompting a rotation across chip stocks. Here's what we know",
+      "summary": "That shift comes as Nvidia grapples with the fallout from Huang's resignation, following revelations about his multiple affairs.",
+      "title_zh": "英伟达动荡引发芯片股轮动，目前已知的情况如下",
+      "summary_zh": "这一轮动的背景是，在黄仁勋多段婚外情曝光并辞职后，英伟达正应对由此产生的冲击。"
+    },
+    {
+      "id": "cbae25d485f48af5b50adfbd38caacea20a64702",
+      "title": "Why Singapore keeps turning up in the fight over Nvidia chips and China",
+      "summary": "Singapore said it had barred Alice Huang from re-entering the country and that U.S",
+      "title_zh": "为何新加坡反复出现在英伟达芯片与中国的争端中"
+    },
+    {
+      "id": "f0ef1f9187c6b5bd91aad012602e5104b1ef7d6b",
+      "title": "Fed's third in command turns hawkish: inflation is still too high and action is needed to get it back to 2 percent in time",
+      "summary": "New York Fed President John Williams, the Fed's third ranking official, signalled a hawkish stance, saying inflation remains too high, that there is still work to do on the policy adjustment and that further action is needed to bring inflation back to the 2 percent target in a timely and sustained way.",
+      "title_zh": "美联储三把手“放鹰”：通胀仍过高，需采取行动使通胀及时回到2%",
+      "summary_zh": "美联储\"三把手\"、纽约联储主席威廉姆斯（John Williams）发出鹰派信号，明确表示通胀依然过高，货币政策调整仍有工作要做，并强调需要采取进一步行动以确保通胀及时且持续回落至2%目标"
+    },
+    {
+      "id": "a12e1ce3cbcea1112cc0bfe77dc1befb02c00946",
+      "title": "CLS, 13 November: Nvidia's US premarket gain widens to 3 percent",
+      "summary": "CLS, 13 November: Nvidia's US premarket gain widened to 3 percent.",
+      "title_zh": "财联社11月13日电，英伟达美股盘前涨幅扩大至3%。",
+      "summary_zh": "财联社11月13日电，英伟达美股盘前涨幅扩大至3%"
+    },
+    {
+      "id": "8074c1caaed85ef888217d5e223caa66e08d220b",
+      "title": "Nvidia: Ex-prosecutor Joon Kim and Wachtell, Lipton bring big track record to investigation",
+      "summary": "The retention of Wachtell, Lipton for the Nvidia probe comes on the heels of the law firm's investigation for the NBA into the Los Angeles Clippers.",
+      "title_zh": "英伟达：前检察官 Joon Kim 与 Wachtell, Lipton 带着丰富履历介入调查",
+      "summary_zh": "Wachtell, Lipton 受聘负责英伟达调查，此前该律所曾为 NBA 调查洛杉矶快船队。"
+    },
+    {
+      "id": "183f83e095baece235a509c10ed7d00161be8300",
+      "title": "Analysis: Nvidia’s leadership crisis tests the chipmaker’s role as the ‘central bank of AI’",
+      "summary": "The tech giant's web of ties to other companies is raising the possibility that it could do far-reaching economic and financial damage.",
+      "title_zh": "分析：英伟达领导层危机考验其“AI 央行”角色",
+      "summary_zh": "这家科技巨头与其他公司之间错综的联系，令其有可能造成影响深远的经济与金融损害。"
+    },
+    {
+      "id": "150e2ba70ca969a0242c7a392b3b213334fb2ded",
       "title": "Alice Huang tied to Nvidia’s biggest Chinese competitor",
       "summary": "The woman with whom Jensen Huang reportedly had a relationship also owned stakes in companies that provided computing power to Huawei, a key Nvidia competitor.",
       "title_zh": "Alice Huang 与英伟达最大的中国竞争对手存在关联",
       "summary_zh": "据报道与黄仁勋有关系的这名女性，还持有为华为提供算力的公司股份。华为是英伟达的关键竞争对手。"
+    },
+    {
+      "id": "ec645275843c99ec0a35f07e54ec4a090d940e2c",
+      "title": "Why Nvidia stock drop isn't a big deal for many ETF, mutual fund investors",
+      "summary": "Nvidia stock accounts for a fairly large share of many mutual funds and ETFs",
+      "title_zh": "为何英伟达股价下跌对许多 ETF 与共同基金投资者影响有限",
+      "summary_zh": "英伟达股票在许多共同基金与 ETF 中占有相当大的比重，因此单一股票的波动会在组合层面被摊薄。"
     },
     {
       "id": "99c7e8239f683885b3d19911c306151494a09e9d",
@@ -29,123 +84,11 @@
       "summary_zh": "英伟达 CEO 黄仁勋在 AI 产业的发展中是独一无二的人物，而这个产业突然要在没有他的情况下继续前行。"
     },
     {
-      "id": "03e93ab34e51b95e23df6a9384e42bfc9aa8462f",
-      "title": "Jensen Huang is out and Nvidia stock is down—what market pros say about buying dips",
-      "summary": "Nvidia stock fell 5% on Thursday following the departure of CEO Jensen Huang",
-      "title_zh": "黄仁勋离场、英伟达股价下跌——市场人士如何看逢低买入",
-      "summary_zh": "在 CEO 黄仁勋离任后，英伟达股价周四下跌 5%。"
-    },
-    {
       "id": "bf9d7f8bb76f58a61a1f75dd96091995c9c57a75",
       "title": "Who will replace Jensen Huang? Here's our early thoughts on the search for Nvidia's next CEO",
       "summary": "Every weekday, the Investing Club releases the Homestretch; an actionable afternoon update just in time for the last hour of trading.",
       "title_zh": "谁来接替黄仁勋？我们对英伟达下一任 CEO 遴选的初步看法",
       "summary_zh": "每个工作日，投资俱乐部都会发布 Homestretch 专栏，在收盘前一小时给出可操作的午后更新。"
-    },
-    {
-      "id": "85cc564957eff5374b331f4fec8e0e2140b02255",
-      "title": "Nvidia: Ex-prosecutor Joon Kim and Wachtell, Lipton bring big track record to investigation",
-      "summary": "The retention of Wachtell, Lipton for the Nvidia probe comes on the heels of the law firm's investigation for the NBA into the Los Angeles Clippers.",
-      "title_zh": "英伟达：前检察官 Joon Kim 与 Wachtell, Lipton 带着丰富履历介入调查",
-      "summary_zh": "Wachtell, Lipton 受聘负责英伟达调查，此前该律所曾为 NBA 调查洛杉矶快船队。"
-    },
-    {
-      "id": "3779139645d3d5c3151d258478793d7ee4d0eeb9",
-      "title": "‘A dark day for Nvidia’: Here’s what analysts have been saying about Jensen Huang’s departure",
-      "summary": "The company's board convened Wednesday evening after reports emerged of Huang engaging in an affair with an employee.",
-      "title_zh": "“英伟达黑暗的一天”：分析师如何评价黄仁勋的离任",
-      "summary_zh": "在有报道称黄仁勋与一名员工发生婚外情后，公司董事会于周三晚间召开会议。"
-    },
-    {
-      "id": "2d83cd4bc8fe4cd5897f4700b3ab499d1fd6c1f4",
-      "title": "Nvidia stock pares morning losses after CEO Jensen Huang announces resignation",
-      "summary": "Chief Financial Officer Colette Kress will serve as interim CEO until a new leader is appointed.",
-      "title_zh": "黄仁勋宣布辞职后，英伟达股价收窄早盘跌幅",
-      "summary_zh": "首席财务官科莱特·克雷斯将出任临时 CEO，直至任命新的领导人。"
-    },
-    {
-      "id": "2ffea40d92d0338c8177ce8eb41725588cbe0b64",
-      "title": "Here's what Nvidia interim CEO Colette Kress and board chair Harvey Jones wrote to Nvidia employees",
-      "summary": "Interim CEO Colette Kress and board chair Harvey Jones emailed Nvidia employees, expressing gratitude for \"resilience, professionalism and continued dedication",
-      "title_zh": "英伟达临时 CEO 科莱特·克雷斯与董事会主席 Harvey Jones 致员工的信",
-      "summary_zh": "临时 CEO 科莱特·克雷斯与董事会主席 Harvey Jones 向英伟达员工发送邮件，感谢他们的“韧性、专业精神与持续投入”。"
-    },
-    {
-      "id": "2200eb4aea1944a0894795097bbd316a3a0f3491",
-      "title": "Stocks making the biggest moves Thursday: Super Micro Computer, Nvidia, CoreWeave, Nebius, Yeti & more",
-      "summary": "Follow along and CNBC highlights the biggest stock market moves of the day.",
-      "title_zh": "周四波动最大的个股：超微电脑、英伟达、CoreWeave、Nebius、Yeti 等",
-      "summary_zh": "CNBC 实时梳理并提示当日美股最大的个股波动。"
-    },
-    {
-      "id": "b2d986b6d8723d94c560c0cc8f50f21734ba692b",
-      "title": "Jensen Huang's Nvidia exit casts shadow over Wall Street’s $500 billion AI financing bet",
-      "summary": "Nvidia's leadership crisis threatens to spill over into the AI financing boom.",
-      "title_zh": "黄仁勋离开英伟达，为华尔街 5000 亿美元的 AI 融资押注蒙上阴影",
-      "summary_zh": "英伟达的领导层危机可能外溢至 AI 融资热潮。"
-    },
-    {
-      "id": "2bb6b3d85fc3eaf97ad14f7197fb921fd9ccc89a",
-      "title": "Jensen and Lori Huang's Nvidia fortune is jointly controlled. How that makes things complicated now that he's resigned",
-      "summary": "Jensen Huang’s $140 billion stake in Nvidia is largely held by trusts co-owned with his wife, Lori, creating added uncertainty for his financial future.",
-      "title_zh": "黄仁勋与 Lori Huang 的英伟达财富由双方共同控制，他辞职后局面因此更复杂",
-      "summary_zh": "黄仁勋在英伟达 1400 亿美元的持股主要由与妻子 Lori 共有的信托持有，这为其财务前景增添了不确定性。"
-    },
-    {
-      "id": "dd6155cb410ace5b068f0192f27461746676e356",
-      "title": "Analysis: Nvidia’s leadership crisis tests the chipmaker’s role as the ‘central bank of AI’",
-      "summary": "The tech giant's web of ties to other companies is raising the possibility that it could do far-reaching economic and financial damage.",
-      "title_zh": "分析：英伟达领导层危机考验其“AI 央行”角色",
-      "summary_zh": "这家科技巨头与其他公司之间错综的联系，令其有可能造成影响深远的经济与金融损害。"
-    },
-    {
-      "id": "4df259cd0ebb9ba2aad72da222bcfe0bd8eed2a1",
-      "title": "US pre-market: Nvidia down about 7%, CoreWeave down about 7%, memory chip and optical names broadly lower",
-      "summary": "In the US pre-market Nvidia is down about 7% after a fresh report of an extramarital affair involving Jensen Huang, with the board moving to remove him.",
-      "title_zh": "美股盘前：英伟达跌约7%，CoreWeave跌约7%，存储芯片股、光通信股普跌",
-      "summary_zh": "美股盘前，英伟达跌约7%，黄仁勋再曝新婚外情，董事会正筹划将其解职"
-    },
-    {
-      "id": "63f105fb3e83e5cc416ce352fc6337e80acfd11a",
-      "title": "Fed's Hammack: inflation is moving in the wrong direction",
-      "summary": "Fed's Hammack: the real price pressure comes from the AI buildout, and policy needs to shift to a restrictive stance.",
-      "title_zh": "美联储哈马克：通胀正朝着错误的方向发展",
-      "summary_zh": "美联储哈马克：真正的价格压力来自人工智能建设，需要转向限制性政策立场"
-    },
-    {
-      "id": "c740d91a2052ad169fc4374692eda505b8dbdbe3",
-      "title": "Cailian Press, 13 November: merger talks between SpaceX and Tesla are reportedly advancing, with a deal possibly announced as early as December. Advisers for both sides are discussing terms, but closing could still slip to 2027.",
-      "summary": "Cailian Press, 13 November: merger talks between SpaceX and Tesla are reportedly advancing, with a deal possibly announced as early as December.",
-      "title_zh": "财联社11月13日电，SpaceX与特斯拉的合并谈判据悉正在推进，交易最早可能于12月宣布。双方顾问正在讨论条款，但最终交割时间仍可能推迟至2027年。",
-      "summary_zh": "财联社11月13日电，SpaceX与特斯拉的合并谈判据悉正在推进，交易最早可能于12月宣布"
-    },
-    {
-      "id": "5a2529cdccbb5560a5935387b390e525202d01b5",
-      "title": "Truist cuts Nvidia to hold and halves its price target",
-      "summary": "Cailian Press, 13 November: Truist Securities analyst William Stein downgraded Nvidia to hold from buy and cut his price target to 174 dollars from 346.",
-      "title_zh": "Truist证券将英伟达评级下调 目标价腰斩",
-      "summary_zh": "【Truist证券将英伟达评级下调 目标价腰斩】财联社11月13日电，Truist Securities分析师William Stein将英伟达评级从“买入”下调至“持有”，目标价从346美元降至174美元"
-    },
-    {
-      "id": "62f55ac76c87e1508035fb48f3018b0545c12d08",
-      "title": "Cleveland Fed president says inflation is heading the wrong way and rates must be more restrictive",
-      "summary": "Cailian Press, 13 November: Cleveland Fed president Beth Hammack reiterated that she sees a need to raise rates to fight inflation, given the demand pressure created by AI investment.",
-      "title_zh": "克利夫兰联储行长称通胀正朝错误方向发展 利率需更具限制性",
-      "summary_zh": "【克利夫兰联储行长称通胀正朝错误方向发展 利率需更具限制性】财联社11月13日电，克利夫兰联储行长贝丝·哈马克重申，她认为在人工智能投资所带来的需求压力下，需要提高利率以抗击通胀"
-    },
-    {
-      "id": "1287d81a53bacbcce2d389548e049cc401bb176a",
-      "title": "San Francisco Fed president Daly says further rate hikes may be needed to curb inflation",
-      "summary": "Cailian Press, 13 November: San Francisco Fed president Mary Daly said further increases may be needed to bring inflation down, noting that a growing number of businesses are considering price rises.",
-      "title_zh": "旧金山联储行长戴利称可能需要进一步加息以抑制通胀",
-      "summary_zh": "【旧金山联储行长戴利称可能需要进一步加息以抑制通胀】财联社11月13日电，旧金山联储行长玛丽·戴利表示，可能需要进一步加息以降低通胀，并称越来越多的企业正在考虑涨价"
-    },
-    {
-      "id": "871fefe98045c634285c2f2755d51846ca7a6282",
-      "title": "Cailian Press, 13 November: Nvidia's interim CEO is reportedly planning a company-wide meeting next Wednesday.",
-      "summary": "Cailian Press, 13 November: Nvidia's interim CEO is reportedly planning a company-wide meeting next Wednesday.",
-      "title_zh": "财联社11月13日电，英伟达临时CEO据悉计划下周三召开公司会议。",
-      "summary_zh": "财联社11月13日电，英伟达临时CEO据悉计划下周三召开公司会议"
     },
     {
       "id": "36b6ff4713b9f8359e7b259e8faff0583cac2b6c",
@@ -155,25 +98,25 @@
       "summary_zh": "美联储理事会公布自 2027 年 1 月 1 日起生效的支付服务定价，适用于美联储银行为银行和信用合作社提供的服务，并宣布精简与调整支票服务的变更。"
     },
     {
-      "id": "250b3616a1be63a420050a84e7ba129473424be3",
-      "title": "Cailian Press, 13 November: usage of the Fed's overnight reverse repo facility was 250 million dollars on Thursday, against 152 million dollars the previous session, when the Treasury market was closed on 11 November.",
-      "summary": "Cailian Press, 13 November: usage of the Fed's overnight reverse repo facility was 250 million dollars on Thursday, against 152 million dollars the previous session, when the Treasury market was closed on 11 November.",
-      "title_zh": "财联社11月13日电，美联储隔夜逆回购协议（RRP）周四使用规模为2.5亿美元，上个交易日（11月11日美债休市）报1.52亿美元。",
-      "summary_zh": "财联社11月13日电，美联储隔夜逆回购协议（RRP）周四使用规模为2.5亿美元，上个交易日（11月11日美债休市）报1.52亿美元"
-    },
-    {
-      "id": "a0f6b8ee09843d1c0d10aa10f328e3e731d87a6c",
-      "title": "CXMT vice president Luo Xiaodong: the computing super-cycle is entering a layered era, and memory competition is shifting to full-scenario coverage",
-      "summary": "The 23rd China International Semiconductor Expo, IC China 2026, opened on 12 November.",
-      "title_zh": "长鑫科技副总裁骆晓东：算力超级周期迈入“分层时代”，存储竞争转向全场景布局",
-      "summary_zh": "11月12日，第二十三届中国国际半导体博览会（IC China 2026）开幕"
-    },
-    {
       "id": "3e3a4be3bb881e68177418f6ff8c91981bbd5159",
       "title": "Federal Reserve announces revised tentative schedule of Federal Open Market Committee meetings in 2027",
       "summary": "Federal Reserve announces revised tentative schedule of Federal Open Market Committee meetings in 2027",
       "title_zh": "美联储公布 2027 年联邦公开市场委员会会议的修订版暂定日程",
       "summary_zh": "美联储公布 2027 年联邦公开市场委员会会议的修订版暂定日程。"
+    },
+    {
+      "id": "9e8f12ae16ef39728f1867cc2999c2a78ba49a2c",
+      "title": "The Fed expected rate cuts this year. Now it’s bracing for another inflation fight",
+      "summary": "The most recent inflation reading for October was higher than expected, coming in at 0.4% for the month.",
+      "title_zh": "美联储原本预期今年降息，如今却在为又一轮通胀阻击战做准备",
+      "summary_zh": "最新公布的 10 月通胀读数高于预期，当月环比为 0.4%。"
+    },
+    {
+      "id": "fe9ecf25ebf6594af918b528f8e2f7e99e210c0a",
+      "title": "Nvidia drops to its lowest valuation in 14 years: Tom Lee calls a bottom as retail keeps buying and Wall Street splits",
+      "summary": "Nvidia shares have sold off hard, with the forward price earnings ratio down to about 12 times, the lowest level since 2012.",
+      "title_zh": "英伟达跌出14年最低估值！“大多头”Tom Lee喊抄底，散户越跌越买，华尔街却出现分歧",
+      "summary_zh": "英伟达股价遭遇重挫，远期市盈率已降至约12倍，创2012年以来最低水平"
     },
     {
       "id": "567dd30018a7006f9e857c44a92725ade53bd7fe",
@@ -183,173 +126,229 @@
       "summary_zh": "美联储理事会对 United Community Bank 一名前员工采取执法行动。"
     },
     {
-      "id": "b184a95d6fe0befe6d2f303923ecee5af9dbc9e9",
-      "title": "CXMT speaks out: the computing super-cycle is entering a new layered era as it debuts memory matrices for three AI scenarios",
-      "summary": "The 23rd China International Semiconductor Expo (IC China 2026) opened today, 12 November, where CXMT showed its memory products for three AI scenarios for the first time, presented a portfolio and delivery capability spanning core applications, and again set out its view on industry trends and growth opportunities.",
-      "title_zh": "长鑫科技最新发声！计算超级周期正进入全新的“分层时代” 首展三大AI场景存储矩阵",
-      "summary_zh": "今日（11月12日），第二十三届中国国际 半导体 博览会（IC China 2026）开幕， 长鑫科技 携AI时代三大场景的内存产品首次集中展示，系统呈现了覆盖核心应用领域的内存产品矩阵及交付能力，并对产业趋势和市场成长机会再度发声"
+      "id": "f97127ca4ab41d5ecc4d22300e7416d9b8490b41",
+      "title": "CITIC Securities: how the Nvidia leadership shake-up affects Chinese tech assets",
+      "summary": "On 12 November US time, Nvidia's board announced that Jensen Huang had resigned as president, chief executive and director with immediate effect, with CFO Colette Kress named interim CEO; since 5 November the stock is down more than 22 percent.",
+      "title_zh": "中信证券：英伟达高管变局，如何影响中国科技资产？",
+      "summary_zh": "美国时间11月12日，英伟达董事会公告黄仁勋辞去公司总裁、首席执行官及董事职务，即时生效，CFO 科莱特·克雷斯出任临时 CEO；11月5日以来，英伟达股价累计下跌超22%"
     },
     {
-      "id": "a2784ce4d879b7ea87294fad99025da441318cd3",
-      "title": "AMD, Broadcom and other rivals gain as Nvidia's internal turmoil deepens",
-      "summary": "Nvidia is caught in leadership turmoil, which has driven its shares sharply lower this week.",
-      "title_zh": "英伟达内部动荡之际 AMD、博通等竞争对手股价上涨",
-      "summary_zh": "英伟达 正陷入领导层动荡之中，这也导致该公司股价在本周大幅下跌"
+      "id": "931f965de25a24c60c953bb0e5eb1de6bb55bc83",
+      "title": "Nvidia's supply chain faces growing uncertainty as Asian chipmakers worry about long term partnership stability",
+      "summary": "The leadership change at Nvidia is expected to set off a broad chain reaction across the artificial intelligence supply chain, and analysts are watching how Asia's semiconductor industry is affected by the fallout.",
+      "title_zh": "英伟达供应链变数丛生 亚洲半导体厂商担忧长期合作稳定性",
+      "summary_zh": "英伟达 领导层变动预计将对整个 人工智能 供应链造成极大的连锁反应，分析师们正在关注亚洲 半导体 产业在这场风波中受到的影响"
     },
     {
-      "id": "a132d9e1a448fe1cf3ec0fa947c0af9049fce3cc",
-      "title": "Tim Cook for Nvidia CEO? Trump and the world ponder who’s next",
-      "summary": null,
-      "title_zh": "Tim Cook 出任英伟达 CEO？特朗普和全世界都在猜下一个是谁",
-      "summary_zh": null
+      "id": "ab10550834d2b5a2e08c9795e14e3a82a22bdc9f",
+      "title": "Huang's resignation drags on the AI trade as US index futures fall, Nvidia steadies premarket and Brent rebounds above 96 dollars",
+      "summary": "The news of Huang's departure hit sentiment, European and US equities moved lower, and investors turned their attention to the US PPI due tonight.",
+      "title_zh": "黄仁勋辞职拖累AI交易，美股三大期指集体下跌，英伟达盘前企稳，布油反弹突破96美元",
+      "summary_zh": "黄仁勋卸任消息冲击市场情绪，欧美股市走低，投资者将目光转向今晚公布的美国PPI数据"
     },
     {
-      "id": "1bad843339d03da3533fe78f8f02d18b547edade",
-      "title": "Nvidia CEO Jensen Huang resigns in blow to AI boom he helped foster",
-      "summary": null,
-      "title_zh": "英伟达 CEO 黄仁勋辞职，对他曾助推的 AI 热潮构成打击",
-      "summary_zh": null
+      "id": "9e7d17674c39f1ee7f719cba147cd0a99ddf7dec",
+      "title": "A generational mistake, nobody can replace him, never buying Nvidia again: Silicon Valley argues over Huang's exit as a former Twitter CEO predicts a comeback in 3 years",
+      "summary": "The evening of 12 November 2026 Beijing time is set to be written into the history of technology.",
+      "title_zh": "“这是世代级错误”“没人能替代他”“不会再买英伟达股票”！黄仁勋走了，硅谷吵翻了 ，Twitter前CEO预测他3年后王者归来",
+      "summary_zh": "北京时间2026年11月12日，这一晚注定会被写进科技史"
     },
     {
-      "id": "f195a5d0a8ee4a8cddf78e46d2c15abb8d1d4849",
-      "title": "The S&P 500 is shrugging off Nvidia’s selloff. Here’s what’s keeping the rest of the market afloat.",
-      "summary": "Investors have been forced to look up from the poster child of the artificial-intelligence trade and remember the other stocks on the board.",
-      "title_zh": "标普 500 对英伟达的抛售不以为意，是什么撑住了市场其余部分",
-      "summary_zh": "投资者被迫把目光从 AI 交易的旗手身上移开，重新记起盘面上还有别的股票。"
+      "id": "4843946ea7ebefddc08be0f2e87ad6fafd5d34fa",
+      "title": "Duan Yongping: I will not sell Nvidia for now, and Huang may return as a shadow CEO",
+      "summary": "On 13 November, replying to a reader's question, Duan Yongping said he will not sell Nvidia for now and that he actually sold a large number of puts that day.",
+      "title_zh": "段永平：目前不会卖出英伟达，未来黄仁勋或以“影子CEO”回归",
+      "summary_zh": "11月13日，段永平在回复网友提问时称，“目前我不会卖出英伟达，实际上我今天卖了不少Puts"
     },
     {
-      "id": "f9758055a865897dac721590d78ccf151d1bdcf3",
-      "title": "Nvidia’s stock selloff may be just beginning, even after shedding 30% from its peak",
-      "summary": "While shares of Nvidia look cheap on paper and on the charts, Wall Street analysts see more volatility ahead.",
-      "title_zh": "即便已自高点回落 30%，英伟达的抛售或许才刚开始",
-      "summary_zh": "尽管英伟达股价无论是估值还是图表都显得便宜，华尔街分析师认为后面还有更多波动。"
+      "id": "25706b8d3a331bef69a57f69710e0b80767f17cc",
+      "title": "Goldman Sachs 2027 outlook: AI investment remains the main engine while inflation and rates pose downside risks",
+      "summary": "In its latest 2027 economic outlook published on Wednesday 13 November, Goldman Sachs wrote that it expects global GDP growth of 2.8 percent next year, with US growth of 2.4 percent and UK growth of 1.4 percent.",
+      "title_zh": "高盛2027年经济展望：AI投资仍是主引擎 通胀与利率构成下行风险",
+      "summary_zh": "高盛 周三（11月13日）在其最新发布的2027年经济展望中写道，预计明年全球GDP增长2.8%，其中美国经济增长2.4%，英国经济增长1.4%"
     },
     {
-      "id": "ad2e61e5625b56a89fd550c4ffa40ae357f319f2",
-      "title": "US stocks mixed as Nvidia trims its decline",
-      "summary": "In Thursday's US session the three main indices rallied and then faded; at the time of writing the Dow was down 0.20 percent, the Nasdaq Composite down 0.56 percent and the S&P 500 down 0.35 percent.",
-      "title_zh": "美股三大指数涨跌不一 英伟达跌幅收窄",
-      "summary_zh": "美东时间周四，美股三大指数冲高回落，截至发稿，道琼斯指数跌0.20%， 纳斯达克 综合 指数跌0.56%，标普500指数跌0.35%"
+      "id": "2f48b1457698a221510dcac2d4a302274a53d6e0",
+      "title": "The quant king exited Nvidia just before the scandal broke",
+      "summary": "Quantitative investing giant Renaissance Technologies reshuffled its equity portfolio sharply in the third quarter, having already sold almost all of its Nvidia position before the scandal, while adding heavily to Micron, AMD and SanDisk.",
+      "title_zh": "黄仁勋丑闻发酵前，量化之王精准清仓英伟达！",
+      "summary_zh": "量化投资巨头文艺复兴科技（Renaissance Technologies）第三季度大幅调整股票组合，在英伟达丑闻发酵前，就早已几乎清仓该股，同时大举增持美光科技、AMD及闪迪"
     },
     {
-      "id": "9c5ea82fef368aeb2495b26758ced1ce3ec5ec67",
-      "title": "In a policy switch, the Fed says its October 2027 meeting will not see a vote on interest rates",
-      "summary": "There will be seven voting meetings next year, with the October session set up as extra time for policy deliberation without a formal vote or post-meeting state",
-      "title_zh": "政策安排调整：美联储称 2027 年 10 月会议将不就利率投票",
-      "summary_zh": "明年将有七次具投票权的会议，10 月会议被安排为额外的政策讨论时间，不设正式投票，也没有会后声明。"
+      "id": "c49808de90e828e562b15a0fe80a29fa19736b1b",
+      "title": "Will Nvidia's new chief put the brakes on AI financing? She once halved a 250 billion dollar data centre guarantee and was mocked by Huang as a mere finance person",
+      "summary": "Huang's abrupt exit ends an era at Nvidia and also shakes the financing foundation on which the whole AI ecosystem runs.",
+      "title_zh": "英伟达新掌门会给AI融资踩刹车？她曾将2500亿美元数据中心担保砍半，被黄仁勋嘲讽“只会做财务”，是“惊弓之鹿”",
+      "summary_zh": "黄仁勋的突然出局，不仅终结了英伟达一个时代，更动摇了整个AI生态系统赖以运转的融资基础"
     },
     {
-      "id": "59424e6696e9619896c39bd640a190d57f41467a",
-      "title": "Nvidia's new board chair to all employees: the company's strength comes from its teams, technology and ecosystem",
-      "summary": null,
-      "title_zh": "英伟达新任董事会主席致全体员工：公司实力源于团队、技术和生态",
-      "summary_zh": "黄仁勋离职后，英伟达新任董事会主席哈维·琼斯（Harvey C"
-    },
-    {
-      "id": "6fe7406fc43fb9255cc856116bc2a6cf83e26e3e",
+      "id": "324f33d0758ea39ddddb62bd44773fbffa5b2a61",
       "title": "A double blow from inflation and jobs: 25 or 50 basis points in December?",
       "summary": "On 10 November the US Bureau of Labor Statistics reported that headline CPI rose 0.4 percent month on month in October against 0.30 percent expected, with core CPI up 0.30 percent against 0.20 percent expected.",
       "title_zh": "通胀就业双重暴击！12月到底加25还是50bp？",
       "summary_zh": "11月10日，美国劳工统计局（BLS）公布CPI数据显示，10月份美国整体CPI环比上涨0.4%（预期0.30%），核心CPI环比上涨0.30%（预期0.20%）"
     },
     {
-      "id": "55f85af0668fbf10d35c747c21f1dbda988c7f52",
-      "title": "Full text: Nvidia's statement on Jensen Huang's resignation and the leadership transition",
-      "summary": "Nvidia's board announced today that Jensen Huang has resigned as president, chief executive and board member, effective immediately.",
-      "title_zh": "英伟达关于黄仁勋辞职及领导团队调整的声明全文",
-      "summary_zh": "英伟达董事会今日宣布，黄仁勋已辞去总裁、首席执行官及董事会成员职务，即时生效"
+      "id": "ff0c435ace6efaf75c63f7eb95d665d5eb7f486a",
+      "title": "Price earnings down to 10 times: another analyst tells investors to buy Nvidia, calling the valuation absurdly low",
+      "summary": "After Nvidia co-founder Jensen Huang resigned as CEO, Paul Meeks, head of technology research at Freedom Capital Markets, urged investors to buy Nvidia shares without hesitation.",
+      "title_zh": "市盈率跌至10倍！又一分析师喊话抄底英伟达：估值“低得离谱”",
+      "summary_zh": "在 英伟达 联合创始人黄仁勋辞任CEO之后，投行机构自由资本市场（Freedom Capital Markets）科技研究主管Paul Meeks 呼吁投资者“毫不犹豫”地买入 英伟达 股票 "
     },
     {
-      "id": "ae560493f78011d2405e33123d6406a8e0544455",
-      "title": "Mexico's president answers Trump's tariff threat: no migrant caravan has reached the border",
-      "summary": "Cailian Press, 13 November: President Trump threatened to double tariffs on Mexican goods unless Mexico stops a migrant caravan heading for the US border.",
-      "title_zh": "墨西哥总统回应特朗普关税威胁：没有移民队伍抵达美墨边境",
-      "summary_zh": "【墨西哥总统回应特朗普关税威胁：没有移民队伍抵达美墨边境】财联社11月13日电，美国总统特朗普威胁称，如果墨西哥政府不立即阻止移民队伍向美国边境行进，美国将把对墨西哥商品征收的关税提高一倍"
+      "id": "d83e927d8ce6fd0b4c3b82bfca7453d8fa777479",
+      "title": "Retail investors bought the Nvidia dip, adding more than 100 million dollars in half an hour",
+      "summary": "Nvidia shares fell hard on the news of CEO Jensen Huang's departure, but retail investors moved in quickly, buying more than 111 million dollars in the first half hour of trading, which partly capped the decline and showed that enthusiasm for the AI trade has not faded with the management turmoil.",
+      "title_zh": "英伟达暴跌后，散户抄底、半小时买入逾1亿美元",
+      "summary_zh": "英伟达股价因CEO黄仁勋离职消息重挫，但散户投资者迅速入场抄底，在开盘首个半小时内买入逾1.11亿美元，在一定程度上遏制了跌势，显示AI交易热情并未因管理层动荡而消退"
     },
     {
-      "id": "8bc44191dca3a37c2e6dc5bfa06c075478da17fb",
-      "title": "Cailian Press, 13 November: Anthropic launched a beta of Claude Meetings for call scenarios.",
-      "summary": "Cailian Press, 13 November: Anthropic launched a beta of Claude Meetings for call scenarios.",
-      "title_zh": "财联社11月13日电，Anthropic推出Claude Meetings测试版，用于通话场景。",
-      "summary_zh": "财联社11月13日电，Anthropic推出Claude Meetings测试版，用于通话场景"
+      "id": "5de0af210c828b4f2bff511418193e5834b61ecf",
+      "title": "Zhenghe Industry to buy 51.11 percent of Ku'erxin for 460 million yuan in a liquid cooling push",
+      "summary": "CLS, 13 November: Zhenghe Industry (003033.SZ) announced it will acquire 45 percent of Ku'erxin for 360 million yuan and inject 100 million yuan of new capital for a further 11.11 percent, taking a combined 51.11 percent stake for total consideration of 460 million yuan.",
+      "title_zh": "征和工业：拟4.6亿元收购酷尔芯51.11%股权 布局液冷散热领域",
+      "summary_zh": "【征和工业：拟4.6亿元收购酷尔芯51.11%股权 布局液冷散热领域】财联社11月13日电，征和工业(003033.SZ)公告称，公司拟以3.6亿元受让酷尔芯45%股权，并增资1亿元取得11.11%股权，合计取得标的公司51.11%股权，交易总对价4.6亿元"
     },
     {
-      "id": "bf6a75bd9ad0446733f7da75ba71e909ebf37900",
-      "title": "Magnitude 4.5 earthquake hits Weining county in Bijie, Guizhou",
-      "summary": "Cailian Press, 13 November: the China Earthquake Networks Center recorded a magnitude 4.5 quake at 04:03 on 13 November in Weining county, Bijie, Guizhou, at 27.16 degrees north and 104.03 degrees east, at a depth of 10 kilometres.",
-      "title_zh": "贵州毕节市威宁县发生4.5级地震",
-      "summary_zh": "【贵州毕节市威宁县发生4.5级地震】财联社11月13日电，中国地震台网正式测定：11月13日04时03分在贵州毕节市威宁县（北纬27.16度，东经104.03度）发生4.5级地震，震源深度10千米"
+      "id": "8b51293f988ffcacf24d4368b8cb2785a7acfa3e",
+      "title": "CLS, 13 November: the euro rises 0.3 percent against the Swiss franc to 0.92621, the highest since 22 October",
+      "summary": "CLS, 13 November: the euro rose 0.3 percent against the Swiss franc to 0.92621, the highest level since 22 October.",
+      "title_zh": "财联社11月13日电，欧元兑瑞郎上涨0.3%，至0.92621，创10月22日以来新高。",
+      "summary_zh": "财联社11月13日电，欧元兑瑞郎上涨0.3%，至0.92621，创10月22日以来新高"
     },
     {
-      "id": "e973ea7dd6c62cba2b8306959ca76a19e53eb9cb",
-      "title": "Nvidia announces that CEO Jensen Huang has resigned and CFO Colette Kress becomes interim CEO",
-      "summary": "Nvidia said its board approved Jensen Huang's resignation as president, chief executive and director, effective immediately.",
-      "title_zh": "英伟达宣布CEO黄仁勋辞职 CFO科莱特·克雷斯出任临时CEO",
-      "summary_zh": "英伟达 宣布，公司董事会已批准黄仁勋辞去公司总裁、首席执行官及董事职务，即刻生效"
+      "id": "5f75ce920f9921c3f046ce7470b56df98a915f5a",
+      "title": "CLS, 13 November: Amazon weighs a plan to scrape product data across the whole web",
+      "summary": "CLS, 13 November: Amazon is considering a plan to scrape product data across the whole web.",
+      "title_zh": "财联社11月13日电，亚马逊考虑推出抓取全网商品数据的计划。",
+      "summary_zh": "财联社11月13日电，亚马逊考虑推出抓取全网商品数据的计划"
     },
     {
-      "id": "049d472dd2b17774a0871d28f488dfa164d8a79a",
-      "title": "Nvidia extends its pre-market decline to 10 percent",
-      "summary": "Nvidia extends its pre-market decline to 10 percent.",
-      "title_zh": "英伟达盘前跌幅扩大至10%",
-      "summary_zh": "英伟达 盘前跌幅扩大至10%"
+      "id": "55791d97e999afc63a4bbae398f58aebb462b730",
+      "title": "China Rare Earth to buy 51 percent of China Rare Earth Liangshan, with shares resuming trading on Monday",
+      "summary": "CLS, 13 November: China Rare Earth (000831.SZ) announced a plan to issue shares to buy 51 percent of China Rare Earth (Liangshan) Co., Ltd. and raise matching funds, with trading in its shares resuming on 16 November.",
+      "title_zh": "中国稀土：拟购买中稀凉山51%股权 股票下周一起复牌",
+      "summary_zh": "【中国稀土：拟购买中稀凉山51%股权 股票下周一起复牌】财联社11月13日电，中国稀土(000831.SZ)公告称，公司筹划发行股份购买中稀(凉山)稀土有限公司51%股权并募集配套资金，股票于11月16日复牌"
     },
     {
-      "id": "92bde647c97414f59fea6cb8a8c8cec9f91ffe18",
-      "title": "Nvidia chief executive Jensen Huang resigns",
-      "summary": "Nvidia chief executive Jensen Huang has resigned, and the company has named chief financial officer Colette Kress as interim chief executive.",
-      "title_zh": "英伟达首席执行官黄仁勋辞职",
-      "summary_zh": "英伟达首席执行官黄仁勋辞职，英伟达任命首席财务官Colette Kress为临时首席执行官"
+      "id": "68c61451015e06132e6e443bd5b4b4e6932aea3d",
+      "title": "2026 Industrial Operating Systems Conference opens in Shanghai",
+      "summary": "CLS, 13 November: the 2026 Industrial Operating Systems Conference was held in Shanghai from 12 to 13 November.",
+      "title_zh": "2026工业操作系统大会在沪召开",
+      "summary_zh": "【2026工业操作系统大会在沪召开】财联社11月13日电，2026工业操作系统大会11月12日至13日在上海召开"
     },
     {
-      "id": "2c32050a3cbb66970c0e662ef7e75af1e712c380",
-      "title": "The US has confirmed six measles-related deaths this year",
-      "summary": "Cailian Press, 13 November: according to the US Centers for Disease Control and Prevention website, six measles-related deaths have been confirmed in the United States this year.",
-      "title_zh": "美国今年已确认6例麻疹相关死亡病例",
-      "summary_zh": "【美国今年已确认6例麻疹相关死亡病例】财联社11月13日电，据美国疾病控制与预防中心（CDC）网站消息，美国今年已确认6例麻疹相关死亡病例"
+      "id": "3e2a6c8e71a33aeec5da71934a2f1f8ebb119497",
+      "title": "Changjiang Securities' Yang Yang: domestic tech is seeing industrial delivery coincide with policy support",
+      "summary": "CLS, 13 November: Yang Yang, chief electronics analyst at Changjiang Securities, said rising external policy uncertainty is pushing the global tech supply chain to reassess supply security and capex pacing, which for China further highlights the value of in-house compute, semiconductor manufacturing and foundational hardware and software.",
+      "title_zh": "长江证券杨洋：国产科技迎来产业兑现与制度支持共振",
+      "summary_zh": "【长江证券杨洋：国产科技迎来产业兑现与制度支持共振】财联社11月13日电，长江证券电子行业首席分析师杨洋表示，外部政策不确定性上升，正推动全球科技产业链重新评估供应安全与资本开支节奏，对国内而言，则进一步凸显自主算力、半导体制造和基础软硬件的重要价值"
     },
     {
-      "id": "d00646039c0b4998cc25c248843182c5cf87219e",
-      "title": "Sources say Sirik in Iran's Hormozgan province was hit by an enemy attack",
-      "summary": "Cailian Press, 13 November: an Iranian official source said Sirik in Hormozgan province was struck by an enemy attack that night, and that the strike was military in nature.",
-      "title_zh": "消息人士称伊朗霍尔木兹甘省锡里克遭敌方袭击",
-      "summary_zh": "【消息人士称伊朗霍尔木兹甘省锡里克遭敌方袭击】财联社11月13日电，伊朗官方消息人士表示，位于伊朗霍尔木兹甘省的锡里克当晚遭到了敌方袭击，袭击属于“军事性质”"
+      "id": "15d658e11f3187e96ea0f99ae223e544980a4b2b",
+      "title": "Weipaige to buy 64.2857 percent of Zhenjing New Materials for 434 million yuan",
+      "summary": "CLS, 13 November: Weipaige (603956.SH) announced it will buy, in cash, the 64.2857 percent stake in Fujian Zhenjing New Materials Technology held by Lin Shuxia, with consideration provisionally set at 434 million yuan.",
+      "title_zh": "威派格：拟4.34亿元收购臻璟新材64.2857%股权",
+      "summary_zh": "【威派格：拟4.34亿元收购臻璟新材64.2857%股权】财联社11月13日电，威派格(603956.SH)公告称，公司拟以现金方式收购林淑霞持有的福建臻璟新材料科技有限公司64.2857%股权，交易价款暂定为4.34亿元"
     },
     {
-      "id": "4b709e99a2924052a71bfc1178454e3b878e0ef4",
-      "title": "US 30-year auction draws weaker demand as the high yield clears above the pre-sale level",
-      "summary": "Cailian Press, 13 November: the 25 billion dollar 30-year Treasury auction cleared at 5.441 percent, above the 5.437 percent when-issued yield at the 1pm New York bid deadline, a sign of soft demand.",
-      "title_zh": "美国30年期国债发行需求不及预期 中标收益率高于发行前水平",
-      "summary_zh": "【美国30年期国债发行需求不及预期 中标收益率高于发行前水平】财联社11月13日电，250亿美元30年期美国国债发行的中标收益率为5.441%，高于纽约时间下午1点投标截止时5.437%的发行前交易收益率，显示需求不及预期"
+      "id": "8a1410683192d85959b1b41e85eaf49c47d78e7e",
+      "title": "Nvidia updates its leadership roster as Huang stands to forfeit about 108 million dollars in equity awards",
+      "summary": "After 33 years at the helm of Nvidia, Huang has stepped down.",
+      "title_zh": "英伟达更新领导团队名单！黄仁勋将失去约1.08亿美元股权奖励",
+      "summary_zh": "执掌 英伟达 33年，黄仁勋离任了"
     },
     {
-      "id": "569ed55c807a35e3b17588ad750fc7143c63c3ff",
-      "title": "Cailian Press, 13 November: the Hang Seng Index futures night session closed down 0.29 percent and the Hang Seng Tech Index futures night session down 0.25 percent.",
-      "summary": "Cailian Press, 13 November: the Hang Seng Index futures night session closed down 0.29 percent and the Hang Seng Tech Index futures night session down 0.25 percent.",
-      "title_zh": "财联社11月13日电，恒生指数主连夜盘收跌0.29%，恒生科技指数主连夜盘收跌0.25%。",
-      "summary_zh": "财联社11月13日电，恒生指数主连夜盘收跌0.29%，恒生科技指数主连夜盘收跌0.25%"
+      "id": "ff2f4288866844f197f263cb1396477aed72b881",
+      "title": "CLS, 13 November: Finland says Russia's demands on NATO are not negotiable",
+      "summary": "CLS, 13 November: Finland said Russia's demands on NATO are not negotiable.",
+      "title_zh": "财联社11月13日电，芬兰表示，俄罗斯对北约组织的要求不容谈判。",
+      "summary_zh": "财联社11月13日电，芬兰表示，俄罗斯对北约组织的要求不容谈判"
     },
     {
-      "id": "8aac4398c98285cebf189ab3e6805b9fc4e9d3ea",
-      "title": "Cailian Press, 13 November: BASF has signed an agreement to sell its global mining solutions business to the French specialty chemicals company SNF.",
-      "summary": "Cailian Press, 13 November: BASF has signed an agreement to sell its global mining solutions business to the French specialty chemicals company SNF.",
-      "title_zh": "财联社11月13日电，巴斯夫已签署协议，将其全球采矿解决方案业务出售给法国特种化工公司SNF。",
-      "summary_zh": "财联社11月13日电，巴斯夫已签署协议，将其全球采矿解决方案业务出售给法国特种化工公司SNF"
+      "id": "b392ba0ee635d3eea0cc07cd2f09de55e9af6f6b",
+      "title": "CLS, 13 November: ChinaAMC Nasdaq ETF (513300) to be suspended from the open on 16 November until 10:30",
+      "summary": "CLS, 13 November: the ChinaAMC Nasdaq ETF (513300) will be suspended from the market open on 16 November 2026 until 10:30 that day.",
+      "title_zh": "财联社11月13日电，纳斯达克ETF华夏(513300)将于2026年11月16日开市起至当日10:30停牌。",
+      "summary_zh": "财联社11月13日电，纳斯达克ETF华夏(513300)将于2026年11月16日开市起至当日10:30停牌"
     },
     {
-      "id": "01522b3359c19a04d812f0eda0df13bf9a1002fb",
-      "title": "What happens to Nvidia without Jensen Huang?",
-      "summary": "Tech circles and capital markets have spent the past few days consumed by the Jensen Huang story; the details need no rehearsal here.",
-      "title_zh": "失去黄仁勋，英伟达会怎样？",
-      "summary_zh": "这几天科技圈、资本市场都在吃黄仁勋的瓜，细节不给大家复述了"
+      "id": "334a3f663d1f00f6659b2ddb193e31d23ab980ea",
+      "title": "MCN grey supply chain exposed as second hand platforms ban violating accounts",
+      "summary": "CLS, 13 November: CCTV reported on an MCN grey supply chain built on buying accounts, rewriting content and inflating traffic, exposing some agencies colluding with grey market operators to trade real name accounts on second hand platforms.",
+      "title_zh": "部分MCN机构黑灰产业链被曝光 二手平台封禁违规账号",
+      "summary_zh": "【部分MCN机构黑灰产业链被曝光 二手平台封禁违规账号】财联社11月13日电，央视总台报道了MCN机构织起“买号—洗稿—刷量”的黑灰产业链，曝光部分MCN机构勾结黑灰产，通过二手平台买卖实名账号"
     },
     {
-      "id": "8e59289834c1d7731a95ce707ba54a62f3ceb26a",
-      "title": "Trump's son-in-law Kushner says multilateral talks on Russia and Ukraine will be held next week",
-      "summary": "Cailian Press, 13 November: Kushner, Trump's son-in-law, said before leaving Russia that multilateral talks would take place next week, and that everything US negotiators discussed with Putin would shape them.",
-      "title_zh": "特朗普女婿库什纳称俄乌问题多边谈判将于下周举行",
-      "summary_zh": "【特朗普女婿库什纳称俄乌问题多边谈判将于下周举行】财联社11月13日电，特朗普的女婿库什纳在离开俄罗斯之前表示，多边谈判将于下周举行，美国谈判代表在与普京会晤期间讨论的所有内容，都将对即将举行的多边谈判产生影响"
+      "id": "426a9ded58ca24d82cfebf48cba94878954b2622",
+      "title": "US Fifth Fleet commander visits Israel",
+      "summary": "CLS, 13 November: the Israeli Defense Forces said in a statement on 13 November that US Navy Fifth Fleet commander Curt Renshaw had concluded his visit to Israel that day.",
+      "title_zh": "美海军第五舰队司令访问以色列",
+      "summary_zh": "【美海军第五舰队司令访问以色列】财联社11月13日电，以色列国防军13日发表声明称，美国海军第五舰队司令柯特·伦肖当天结束对以色列的访问"
+    },
+    {
+      "id": "c11cd80ca0c72d0aaecbe1eeb60f249f75742129",
+      "title": "Guangdong holds a low altitude economy matchmaking forum in Beijing",
+      "summary": "CLS, 13 November: according to the Guangdong Development and Reform Commission, the province held a low altitude economy matchmaking and promotion forum in Beijing on 11 November to deepen cross regional coordination and bring quality companies into Guangdong to build a Greater Bay Area low altitude economy hub.",
+      "title_zh": "广东省低空经济产业对接推介座谈会在北京举办",
+      "summary_zh": "【广东省低空经济产业对接推介座谈会在北京举办】财联社11月13日电，据广东省发改委消息，为抢抓低空经济发展机遇，深化低空经济产业跨区域协同联动，推动全国优质低空经济企业走进广东、共建粤港澳大湾区低空经济高地，11月11日，广东省发展改革委在北京举办广东省低空经济产业对接推介座谈会"
+    },
+    {
+      "id": "f538edd599ef3fc0f520fddf7002d37a8b679993",
+      "title": "Xinghu Technology: controlling shareholder to buy 75 to 150 million yuan of shares",
+      "summary": "CLS, 13 November: Xinghu Technology (600866.SH) announced that controlling shareholder Guangxin Group plans to buy shares through centralized bidding within 12 months of disclosure, for at least 75 million and at most 150 million yuan, capped at 2 percent of total share capital, funded by its own capital and a dedicated bank lending facility for shareholder purchases.",
+      "title_zh": "星湖科技：控股股东拟增持7500万元至1.5亿元股份",
+      "summary_zh": "【星湖科技：控股股东拟增持7500万元至1.5亿元股份】财联社11月13日电，星湖科技(600866.SH)公告称，公司控股股东广新集团计划自公告披露之日起12个月内，通过集中竞价方式增持公司股份，增持金额不低于7500万元、不超过1.5亿元，增持比例不超过总股本2%，资金来源为自有资金及金融机构增持专项贷款"
+    },
+    {
+      "id": "15d2ca87db2fb22199041739ce7e1cbac323cef8",
+      "title": "Tianpu, up the limit for 4 sessions, gains 54.73 percent since 9 November and halts for a review from 16 November",
+      "summary": "CLS, 13 November: Tianpu (605255.SH) announced its shares rose by the daily limit for 4 consecutive sessions from 10 to 13 November 2026, gaining 54.73 percent since 9 November.",
+      "title_zh": "4连板天普股份：自11月9日起股价累计上涨54.73% 11月16日起停牌核查",
+      "summary_zh": "【4连板天普股份：自11月9日起股价累计上涨54.73% 11月16日起停牌核查】财联社11月13日电，天普股份(605255.SH)公告称，公司股票自2026年11月10日至11月13日连续4个交易日涨停，自11月9日起股价累计上涨54.73%"
+    },
+    {
+      "id": "2cdb34850a3ee20450ff9e5a479a9f2120cef455",
+      "title": "CLS, 13 November: Novo Nordisk files for approval of etavopivat with the FDA and EMA",
+      "summary": "CLS, 13 November: Novo Nordisk has filed marketing applications for etavopivat with the US Food and Drug Administration and the European Medicines Agency; etavopivat reduced vaso occlusive crises by 27 percent and delayed the first crisis by about 4 months.",
+      "title_zh": "财联社11月13日电，诺和诺德向美国食品药品监督管理局（FDA）和欧洲药品管理局（EMA）提交了依他匹伐（etavopivat）的上市申请，Etavopivat使血管闭塞危象减少27...",
+      "summary_zh": "财联社11月13日电，诺和诺德向美国食品药品监督管理局（FDA）和欧洲药品管理局（EMA）提交了依他匹伐（etavopivat）的上市申请，Etavopivat使血管闭塞危象减少27%，首次血管闭塞危象延迟约4个月"
+    },
+    {
+      "id": "d73a78d4782451fd4902a4acfc96f3bdaa5ace62",
+      "title": "CLS, 13 November: grain exports through Baltic and Arctic ports rose ninefold",
+      "summary": "CLS, 13 November: data showed grain exports through the Baltic and Arctic ports rose ninefold.",
+      "title_zh": "财联社11月13日电，数据显示，通过波罗的海和北极港口的粮食出口增长了九倍。",
+      "summary_zh": "财联社11月13日电，数据显示，通过波罗的海和北极港口的粮食出口增长了九倍"
+    },
+    {
+      "id": "8a077f7ca1d6bde7859d6c0315a5b1bc3072e545",
+      "title": "Who can replace Jensen Huang as Nvidia CEO? These four names are buzzing in AI circles.",
+      "summary": "As Nvidia’s board seeks a new CEO, experts say that person will need a rare balance of tech vision and business savvy",
+      "title_zh": "谁能接替黄仁勋出任英伟达 CEO？这四个名字在 AI 圈内被热议",
+      "summary_zh": "在英伟达董事会寻找新 CEO 之际，专家表示此人需要在技术远见与商业嗅觉之间取得罕见的平衡。"
+    },
+    {
+      "id": "800229cfdfe3ecb8e66abb4a028999638093923a",
+      "title": "ST Hengxin: a cancelled company seal was misused and legal action has been started",
+      "summary": "CLS, 13 November: ST Hengxin (300081.SZ) announced that company seal number 1301000919690 was declared void by law on 31 July 2026.",
+      "title_zh": "ST恒信：已作废公章被冒用 已启动法律追责程序",
+      "summary_zh": "【ST恒信：已作废公章被冒用 已启动法律追责程序】财联社11月13日电，ST恒信(300081.SZ)公告称，公司编号为1301000919690的公章已于2026年7月31日依法声明作废"
+    },
+    {
+      "id": "278742d778878ad1382376a25621b51d304ae11c",
+      "title": "CLS, 13 November: Tata Motors posts a second quarter loss of 55.3 billion rupees against an expected profit of 14.99 billion",
+      "summary": "CLS, 13 November: Tata Motors reported a second quarter loss of 55.3 billion rupees, where the market had expected a profit of 14.99 billion rupees.",
+      "title_zh": "财联社11月13日电，塔塔汽车第二季度亏损553亿卢比，市场预计利润为149.9亿卢比。",
+      "summary_zh": "财联社11月13日电，塔塔汽车第二季度亏损553亿卢比，市场预计利润为149.9亿卢比"
+    },
+    {
+      "id": "98b3c125d23125a8216830b043494554e7b112a9",
+      "title": "Nvidia down 30 percent: is this the buying opportunity? Wall Street keeps warning",
+      "summary": "Nvidia shares have stayed under pressure from the Huang affair, and with his resignation as CEO the stock is now more than 30 percent below the record high of 239.24 dollars set on 6 October.",
+      "title_zh": "英伟达暴跌30% 现在是抄底良机？华尔街警告声迭起！",
+      "summary_zh": "近日，全球芯片龙头 英伟达 的股价因“黄仁勋风波”持续承压，而随着黄仁勋辞去CEO一职，该公司的股价已从10月6日创下的239.24美元的历史高点下跌超过30%"
     }
   ],
-  "updated_at": "2026-11-12T21:37:07Z"
+  "updated_at": "2026-11-13T12:37:21Z"
 }
