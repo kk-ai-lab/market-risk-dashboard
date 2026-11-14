@@ -5,7 +5,7 @@
  * ISO 8601 UTC timestamps, freshness enum, data_quality range, risk score ranges,
  * duplicate news ids, history slice row structure.
  *
- * Full validation (including Pydantic Schema + AI bilingual consistency) lives in pipeline/validation/ci_checks.py,
+ * Full production validation (including Pydantic schemas) lives in pipeline/validation/ci_checks.py,
  * executed by validate-data.yml / scripts/validate_data.sh. This script is the lightweight gate for frontend CI.
  *
  * Usage: node scripts/validate-json.mjs [--data-dir public/data]
@@ -41,6 +41,7 @@ const CONTRACTS = JSON.parse(
 const FRESHNESS = new Set(CONTRACTS.freshness_status);
 const REASON_CODES = new Set(CONTRACTS.reason_codes);
 const CANONICAL_KEYS = CONTRACTS.canonical_dataset_keys;
+const LEGACY_AI_KEYS = new Set(CONTRACTS.legacy_ai_dataset_keys);
 
 /** filename → dataset spec, for every published file. */
 const SPEC_BY_FILENAME = new Map();
@@ -64,6 +65,8 @@ function checkLatest() {
     return;
   }
   for (const name of readdirSync(latestDir).filter((f) => f.endsWith(".json"))) {
+    const spec = SPEC_BY_FILENAME.get(name);
+    if (spec && LEGACY_AI_KEYS.has(spec.key)) continue;
     const p = join(latestDir, name);
     let data;
     try {
@@ -73,7 +76,6 @@ function checkLatest() {
       errors.push(`${name}: cannot parse JSON (contains NaN/Infinity?): ${e.message}`);
       continue;
     }
-    const spec = SPEC_BY_FILENAME.get(name);
     if (!spec) {
       warnings.push(`${name}: unregistered dataset file (unknown schema)`);
       continue;
@@ -258,8 +260,9 @@ function checkMetadata() {
   } else {
     filesChecked += 1;
     for (const key of CANONICAL_KEYS) {
+      if (LEGACY_AI_KEYS.has(key)) continue;
       if (!(key in datasets)) {
-        // Every registered dataset reports on every run, including the failed ones —
+        // Every production dataset reports on every run, including the failed ones —
         // an absent key used to read as "healthy, nothing to report".
         errors.push(`metadata/freshness.json: registered dataset ${key} has no entry`);
       }

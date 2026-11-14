@@ -118,6 +118,12 @@ export function displayEventTitle(title: string, locale: DisplayLocale): string 
     "Consumer Price Index": "consumerPriceIndex",
     "Producer Price Index": "producerPriceIndex",
     "Advance Retail Sales": "advanceRetailSales",
+    "Personal Income and Outlays": "personalIncomeAndOutlays",
+    "Gross Domestic Product": "grossDomesticProduct",
+    "Employment Situation": "employmentSituation",
+    "Job Openings and Labor Turnover Survey": "jobOpenings",
+    "FOMC Meeting": "fomcMeeting",
+    "FOMC Meeting (press conference)": "fomcMeetingPressConference",
   };
   return known[title]
     ? translate(locale, "calendar", `display.events.${known[title]}`)

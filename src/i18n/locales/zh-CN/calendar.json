@@ -1,6 +1,6 @@
 {
   "title": "日历",
-  "subtitle": "经济日历 + 财报日历（未来 7 天）",
+  "subtitle": "经济与财报日历",
   "type": {
     "economic": "经济",
     "earnings": "财报"
@@ -28,7 +28,13 @@
     "events": {
       "consumerPriceIndex": "消费者价格指数",
       "producerPriceIndex": "生产者价格指数",
-      "advanceRetailSales": "零售销售初值"
+      "advanceRetailSales": "零售销售初值",
+      "personalIncomeAndOutlays": "个人收入和支出",
+      "grossDomesticProduct": "国内生产总值",
+      "employmentSituation": "就业状况报告",
+      "jobOpenings": "职位空缺和劳动力流动调查",
+      "fomcMeeting": "联邦公开市场委员会会议",
+      "fomcMeetingPressConference": "联邦公开市场委员会会议及新闻发布会"
     }
   }
 }

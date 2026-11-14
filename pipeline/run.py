@@ -5,16 +5,14 @@ Commands:
   --market-only   Quotes/crypto/A-shares only
   --macro-only    Macro only (FRED + FedWatch)
   --news-only     News only
-  --analysis-only AI analysis file validation / Chinese translation merge only (no collection)
+  --analysis-only Legacy AI artifact validation / translation merge only (no collection)
   --fact-layer    Rebuild fact layer only (no collection)
   --backfill      Warm-up backfill of 30-90 days of history (except FedWatch)
   --dry-run       Dry run without writing to disk
   --locale        Analysis language
 
 Fix round additions/revisions:
-- P0-4: when AI analysis is missing, metadata/freshness.json analysis domain = degraded (architecture §1.5)
 - P1-5: --full produces latest/dashboard.json (homepage aggregation)
-- P1-6: Chinese translation merge records to metadata/translations.json
 - P1-7: unified freshness determination after writing (validation/freshness.finalize_freshness) before persisting
 - P2-9: writer.read_history public method replaces private _read_json
 """
@@ -30,11 +28,6 @@ from pathlib import Path
 from typing import Any
 
 from pipeline import __version__
-from pipeline.analysis_pair import (  # analysis-pair lifecycle (#192 extraction)
-    AI_PRODUCED_DATASETS,
-    record_ai_outcomes,
-    write_analysis_only_report,
-)
 from pipeline.collectors import CalendarCollector, MacroCollector, MarketCollector, NewsCollector
 from pipeline.factlayer import FactLayerBuilder
 from pipeline.indicators.derived_series import derive_report
@@ -106,7 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--market-only", action="store_true", help="quotes/crypto/A-shares only")
     mode.add_argument("--macro-only", action="store_true", help="macro only (FRED + FedWatch)")
     mode.add_argument("--news-only", action="store_true", help="news collection only")
-    mode.add_argument("--analysis-only", action="store_true", help="AI analysis file validation/merge only (no collection)")
+    mode.add_argument("--analysis-only", action="store_true", help="legacy AI artifact validation/merge only (no collection)")
     mode.add_argument("--fact-layer", action="store_true", help="rebuild fact layer only (no collection)")
     parser.add_argument("--locale", choices=["zh-CN", "en"], default=None, help="analysis language (default bilingual)")
     parser.add_argument("--dry-run", action="store_true", help="dry run: validate config and arguments, no write to disk")
@@ -127,18 +120,10 @@ def _resolve_command(args: argparse.Namespace) -> str:
 # ============================================================
 
 def _run_scope(command: str) -> set[str]:
-    """Datasets this command *observes* — a wider question than the one COMMAND_DATASETS answers.
-
-    A ``--macro-only`` run does not produce the AI brief, but it does read it back and record
-    what it found, so the brief is in scope: leaving it out would make the outcome record
-    carry forward a stale entry the run had just disproved. The distinction cuts the other way
-    too — a dataset in neither set keeps its previous entry rather than being reported
-    ``missing`` by a run that never intended to touch it.
-    """
-    scope = set(COMMAND_DATASETS.get(command, FULL_RUN_DATASETS))
-    if command in {"full", "macro-only", "fact-layer", "analysis-only"}:
-        scope |= set(AI_PRODUCED_DATASETS)
-    return scope
+    """Production commands observe data only; the legacy command owns old AI artifacts."""
+    if command == "analysis-only":
+        return set(dataset_registry.LEGACY_AI_DATASET_KEYS)
+    return set(COMMAND_DATASETS.get(command, FULL_RUN_DATASETS))
 
 #: metadata/freshness.json status meaning the dataset produced nothing at all.
 FAILED_FRESHNESS_STATUSES: frozenset[str] = frozenset({"missing"})
@@ -380,6 +365,8 @@ def _publish_metadata(
     writer: StorageWriter,
     outcomes: RunOutcomes,
     provider_status: dict[str, Any] | None = None,
+    *,
+    include_legacy_ai: bool = False,
 ) -> None:
     """Render both metadata files from the one outcome record (#89).
 
@@ -393,7 +380,11 @@ def _publish_metadata(
     ``--analysis-only``); rewriting provider health from a run that contacted no provider
     would replace real information with an empty guess.
     """
-    writer.write_freshness_metadata(outcomes.freshness_projection(writer.read_freshness_raw()))
+    freshness = outcomes.freshness_projection(writer.read_freshness_raw())
+    if not include_legacy_ai:
+        for key in dataset_registry.LEGACY_AI_DATASET_KEYS:
+            freshness["datasets"].pop(key, None)
+    writer.write_freshness_metadata(freshness)
     if provider_status is not None:
         writer.write_sources_metadata(
             outcomes.sources_projection(provider_status, writer.read_sources_raw())
@@ -478,7 +469,6 @@ def _run_collection(command: str) -> dict[str, Any]:
     started = time.monotonic()
     registry = build_registry(settings)
     universe = AssetUniverse.load(settings)
-    writer = StorageWriter(settings.data_dir)
 
     results = _empty_results()
 
@@ -531,10 +521,6 @@ def _run_collection(command: str) -> dict[str, Any]:
         t0 = time.monotonic()
         ncc = NewsCollector(registry, settings)
         news, news_meta = ncc.collect()
-        # Merge AI Chinese translations (if present) + record merge status (P1-6)
-        merged = _merge_news_translations(writer, ncc, news, settings.data_dir / "latest" / TRANSLATIONS_FILENAME)
-        if merged is not None:
-            news = merged
         results["news"] = news
         results["news_meta"] = news_meta
         results["news_degraded"] = bool(news_meta["degraded"])
@@ -620,7 +606,8 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
             if risk_model.derived_history_enabled
             else None
         )
-        prev_score, prev_dims, risk_history = read_prev_risk(writer)
+        today = now_utc()[:10]
+        prev_score, prev_dims, risk_history = read_prev_risk(writer, as_of_date=today)
         # #99 (verified end to end): _assemble returns AssembledDataset (the #101 single
         # assembly path); the risk context and the fact layer operate on ENVELOPES.
         ctx = build_risk_context(
@@ -774,11 +761,7 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
             ),
         )
 
-        # AI analysis freshness (P0-4)
-        record_ai_outcomes(writer, outcomes)
-
         # History slices
-        today = now_utc()[:10]
         risk_row = {
             "date": today,
             "total_score": risk_result.total_score,
@@ -840,30 +823,6 @@ def _write_failure_report(command: str, results: dict[str, Any], error: str) -> 
     )
 
 
-def _ai_report_reasons(writer: StorageWriter, health: dict[str, list[str]]) -> list[str]:
-    """Add bounded AI freshness reasons to collection run reports.
-
-    Collection reports already carry provider notes. AI outputs are out-of-band, so their
-    lineage result exists only in freshness metadata; repeat that closed-code explanation
-    when the command observed an unhealthy AI dataset.
-    """
-    raw = writer.read_freshness_raw()
-    unhealthy = set(health["failed"]) | set(health["degraded"])
-    notes: list[str] = []
-    for key in AI_PRODUCED_DATASETS:
-        if key not in unhealthy:
-            continue
-        entry = raw.get("datasets", {}).get(key, {})
-        reason = entry.get("reason", {}) if isinstance(entry, dict) else {}
-        if not isinstance(reason, dict):
-            continue
-        code = reason.get("code")
-        detail = reason.get("detail", "")
-        if code:
-            notes.append(f"{key}: {code} — {str(detail)[:200]}"[:240])
-    return notes
-
-
 def _finish_run(command: str, results: dict[str, Any], elapsed: float, health: dict[str, list[str]]) -> int:
     """Write the run report for a successful command and print the summary.
 
@@ -872,7 +831,6 @@ def _finish_run(command: str, results: dict[str, Any], elapsed: float, health: d
     that skipped datasets is never clean — that is the point of the skipped list.
     """
     report_degraded = list(results.get("degraded", []))
-    report_degraded.extend(_ai_report_reasons(StorageWriter(settings.data_dir), health))
     write_run_report(
         settings.artifacts_dir,
         command=command,
@@ -1023,7 +981,6 @@ def main(argv: list[str] | None = None) -> int:
                                     **_provider_kwargs(macro_meta, None, default="fred"),
                                     data_quality=macro_meta.get("data_quality", 1.0),
                                     source_updated_at=macro_meta.get("source_updated_at"))
-                record_ai_outcomes(writer, outcomes)
                 _publish_metadata(writer, outcomes, results["provider_status"])
             health = dataset_health(StorageWriter(settings.data_dir), command, run_started_at=run_started_at)
             return _finish_run(command, results, time.monotonic() - started, health)
@@ -1131,7 +1088,6 @@ def _run_fact_layer_only() -> tuple[bool, str | None]:
         ),
         provider="fact_layer",
     )
-    record_ai_outcomes(writer, outcomes)
     # No provider was contacted, so provider health is deliberately left as the last real run
     # left it rather than being overwritten with an empty map.
     _publish_metadata(writer, outcomes)
@@ -1144,10 +1100,9 @@ def _merge_news_translations(
     news: Any,
     translations_path: Path,
 ) -> Any:
-    """Merge news.zh-translations.json into a NEWS PAYLOAD and record the outcome (P1-6).
+    """Merge historical translations for the explicit legacy --analysis-only command.
 
-    Shared by the full-refresh and --analysis-only call sites (#81: the second hand-rolled
-    copy passed a NewsEnvelope where this takes the payload — one block cannot drift).
+    The helper takes a payload, not its envelope, to preserve the #81 call-site fix.
     Returns the merged payload, or None when no translations file exists ("missing" is
     recorded here and the caller keeps its dataset unchanged).
     """
@@ -1178,12 +1133,14 @@ def _merge_news_translations(
 
 
 def _run_analysis_only() -> int:
-    """AI analysis file validation + Chinese translation merge (architecture §1.5 steps 3/4)."""
+    """Legacy AI artifact validation and translation merge, outside production collection."""
+    from pipeline.analysis_pair import record_ai_outcomes, write_analysis_only_report
+
     writer = StorageWriter(settings.data_dir)
     outcomes = RunOutcomes(scope=_run_scope("analysis-only"))
     analysis_valid = record_ai_outcomes(writer, outcomes)
     if not analysis_valid:
-        _publish_metadata(writer, outcomes)
+        _publish_metadata(writer, outcomes, include_legacy_ai=True)
         write_analysis_only_report(writer, outcomes)
         print("[pipeline] analysis-only: AI pair was not promoted; freshness recorded as degraded", file=sys.stderr)
         return 0
@@ -1207,7 +1164,7 @@ def _run_analysis_only() -> int:
 
     outcomes = RunOutcomes(scope=_run_scope("analysis-only"))
     record_ai_outcomes(writer, outcomes)
-    _publish_metadata(writer, outcomes)
+    _publish_metadata(writer, outcomes, include_legacy_ai=True)
     write_analysis_only_report(writer, outcomes)
     print("[pipeline] analysis-only: validation passed ✓")
     return 0

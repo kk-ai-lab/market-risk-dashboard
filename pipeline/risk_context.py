@@ -4,6 +4,7 @@ from typing import Any
 
 from pipeline.schemas import registry as dataset_registry
 from pipeline.storage import StorageWriter
+from pipeline.utils import now_utc
 
 #: One source for the gated set (#192): was restated as two literals that could drift.
 GATED_SIGNALS = frozenset({"cyclicals_defensives_relative", "hy_treasury_relative"})
@@ -193,9 +194,11 @@ def _cross_asset_signal(
     }
 
 
-def read_prev_risk(writer: StorageWriter) -> tuple[float | None, dict[str, float] | None, list[dict[str, Any]]]:
+def read_prev_risk(writer: StorageWriter, *, as_of_date: str | None = None) -> tuple[float | None, dict[str, float] | None, list[dict[str, Any]]]:
     """Read risk history: previous day total score / previous day dimension scores / all prior rows (P2-9 public read_history)."""
-    rows = writer.read_history("risk", "daily")
+    cutoff = as_of_date or now_utc()[:10]
+    rows = [row for row in writer.read_history("risk", "daily")
+            if isinstance(row.get("date"), str) and row["date"] < cutoff]
     if not rows:
         return None, None, []
     last = rows[-1]

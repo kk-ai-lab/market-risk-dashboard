@@ -33,7 +33,8 @@ describe("StatusPage", () => {
   it("renders the meta cards from validated metadata", async () => {
     renderPage();
     expect(await screen.findByText("1.0.0")).toBeInTheDocument(); // schema version card
-    expect(await screen.findByText("11")).toBeInTheDocument(); // 11 canonical datasets
+    expect(await screen.findByText("10")).toBeInTheDocument();
+    expect(screen.queryByText("智能简报")).not.toBeInTheDocument();
   });
 
   it("renders translated codes and localized safe reason details", async () => {

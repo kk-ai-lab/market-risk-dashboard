@@ -2,7 +2,7 @@
 # Local one-click data validation (Architecture §5#1 / PRD §20.2).
 # Equivalent to the checks in .github/workflows/validate-data.yml, for local Scheduled Tasks / dev machines:
 #   Schema validation / required fields / timestamps / data quality / risk score ranges / NaN·Infinity /
-#   duplicate news / stale data / unknown language key / missing zh-CN/en files / AI bilingual conclusion mismatch.
+#   duplicate news / stale data / source-language news checks. Historical AI output is not required.
 #
 # Usage:
 #   scripts/validate_data.sh [--data-dir <public/data>]

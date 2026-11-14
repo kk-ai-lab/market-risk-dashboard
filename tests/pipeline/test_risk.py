@@ -8,6 +8,8 @@ import pytest
 
 from pipeline.risk import confidence as conf_mod
 from pipeline.risk import regime as regime_mod
+from pipeline.risk_context import read_prev_risk
+from pipeline.storage import StorageWriter
 from pipeline.risk.model import RiskModel
 from pipeline.risk.model import _parse_thresholds
 from pipeline.risk.scoring import (
@@ -74,6 +76,37 @@ def test_regime_crisis_on_vix_40() -> None:
     regime, evidence = regime_mod.infer_regime({"vix": 45.0, "hy_oas": 3.0})
     assert regime == "crisis"
     assert evidence
+
+
+def test_intraday_refresh_compares_risk_with_the_previous_day(tmp_path, monkeypatch) -> None:
+    writer = StorageWriter(tmp_path / "data")
+    yesterday = {"date": "2026-11-12", "total_score": 60, "dim_scores": {"macro": 40}}
+    today = {"date": "2026-11-13", "total_score": 65, "dim_scores": {"macro": 45}}
+    writer.write_slices("risk", [yesterday, today])
+    previous, dimensions, history = read_prev_risk(writer, as_of_date="2026-11-13")
+    assert previous == 60
+    assert dimensions == {"macro": 40.0}
+    assert history == [yesterday]
+    writer.write_slices("risk", [{**today, "total_score": 68}])
+    assert read_prev_risk(writer, as_of_date="2026-11-13")[0] == 60
+    assert read_prev_risk(writer, as_of_date="2026-11-14")[0] == 68
+    monkeypatch.setattr("pipeline.risk_context.now_utc", lambda: "2026-11-13T12:00:00Z")
+    assert read_prev_risk(writer)[0] == 60
+
+
+@pytest.mark.parametrize(
+    ("context", "expected"),
+    [
+        ({"vix": 17.49, "breadth_above_ma200": 0.3484}, ["Breadth=0.3484 ≤ 0.35"]),
+        ({"vix": 28, "breadth_above_ma200": 0.7}, ["VIX=28.0 ≥ 28"]),
+        ({"vix": 28, "breadth_above_ma200": 0.35}, ["VIX=28.0 ≥ 28", "Breadth=0.3500 ≤ 0.35"]),
+        ({"breadth_above_ma200": 0.35}, ["Breadth=0.3500 ≤ 0.35"]),
+    ],
+)
+def test_risk_off_evidence_contains_only_triggered_conditions(context, expected) -> None:
+    regime, evidence = regime_mod.infer_regime(context)
+    assert regime == "risk_off"
+    assert evidence == expected
 
 
 def test_regime_goldilocks() -> None:

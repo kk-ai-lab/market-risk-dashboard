@@ -78,7 +78,7 @@ async function fetchWithTimeout(url: string, externalSignal?: AbortSignal): Prom
   }
 
   try {
-    return await fetch(url, { signal: controller.signal });
+    return await fetch(url, { signal: controller.signal, cache: "no-cache" });
   } catch (error) {
     if (timedOut) throw new Error(`Data request timed out: ${url}`);
     throw error;

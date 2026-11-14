@@ -37,6 +37,9 @@ export function useDataset<T>(
     queryKey,
     queryFn: ({ signal }) => datasetClient.fetch<T>(key, opts, schema, signal),
     staleTime: staleTimeFor(key),
+    refetchInterval: staleTimeFor(key),
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
     retry: 1,
   });
 }

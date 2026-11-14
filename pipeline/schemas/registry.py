@@ -45,9 +45,8 @@ class DatasetSpec:
     other datasets rather than fetched. It is what lets ``freshness.json`` (keyed by dataset)
     and ``sources.json`` (keyed by domain) be rendered as two projections of one record.
 
-    ``required`` means "a full run must produce this". ``analysis`` and ``news_translations``
-    are produced by the AI automations rather than the collection run, so their absence is a
-    degraded mode, not a failure.
+    ``required`` means "a full run must produce this". Historical ``analysis`` and
+    ``news_translations`` contracts remain optional for archival tools.
 
     ``row_counted`` marks datasets whose payload has a meaningful row cardinality. Derived
     datasets like ``risk`` and ``dashboard`` are always a single object, so asking whether they
@@ -207,6 +206,9 @@ BY_FILENAME: dict[str, DatasetSpec] = {
 NON_DATASET_SUFFIXES: tuple[str, ...] = (".gz", ".br")
 
 CANONICAL_KEYS: tuple[str, ...] = tuple(spec.key for spec in DATASETS)
+
+# Historical contracts remain readable, but data collection no longer produces or requires them.
+LEGACY_AI_DATASET_KEYS: frozenset[str] = frozenset({"analysis", "news_translations"})
 
 #: dataset key → provider domain, for the datasets that are actually fetched.
 DATASET_DOMAIN: dict[str, str] = {

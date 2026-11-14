@@ -5,6 +5,7 @@ test drives _finalize_and_write + _build_dashboard over synthetic factory payloa
 (frozen generated_at) and asserts a SHA256 manifest of every file StorageWriter
 published - any accidental semantic drift breaks it. The manifest was recorded
 against the PRE-refactor tree; regenerate only via scripts/record_golden.py.
+The data-only pipeline deliberately removes the two retired AI freshness entries.
 """
 
 from __future__ import annotations

@@ -1,0 +1,22 @@
+[
+  {
+    "lang": "zh",
+    "title": "OpenAI 发布新模型，NVDA 股价上涨",
+    "summary": "OpenAI 更新产品后，市场关注 AI 基础设施需求。",
+    "title_zh": null,
+    "summary_zh": null,
+    "source": "Test",
+    "url": "https://example.com/news/chinese",
+    "published_at": "2026-08-03T10:00:00Z"
+  },
+  {
+    "lang": "en",
+    "title": "Treasury yields fall after payrolls",
+    "summary": "Bond yields eased as hiring slowed.",
+    "title_zh": null,
+    "summary_zh": null,
+    "source": "Test",
+    "url": "https://example.com/news/english",
+    "published_at": "2026-08-03T10:00:00Z"
+  }
+]

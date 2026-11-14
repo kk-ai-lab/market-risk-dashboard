@@ -24,11 +24,18 @@ export function NewsCard({ item }: NewsCardProps) {
   const { t, i18n } = useTranslation("news");
   const locale = i18n.language;
   const zh = locale.toLowerCase().startsWith("zh");
-  // The active locale is the only source for human-readable prose. Missing translations
-  // must be visible as a localized state rather than silently switching languages.
-  const title = safeDisplayText(zh ? item.title_zh : item.title, locale, t("translationUnavailable"));
-  const rawSummary = zh ? item.summary_zh : item.summary;
-  const summary = rawSummary && safeDisplayText(rawSummary, locale, t("translationUnavailable"));
+  const unavailable = t("translationUnavailable");
+  function newsText(field: "title" | "summary"): string {
+    const original = item[field];
+    const chinese = field === "title" ? item.title_zh : item.summary_zh;
+    if (item.lang === "zh" && !chinese?.trim()) {
+      return zh ? original.trim() || unavailable : unavailable;
+    }
+    return safeDisplayText(zh ? chinese : original, locale, unavailable);
+  }
+  const title = newsText("title");
+  const rawSummary = zh ? item.summary_zh || (item.lang === "zh" ? item.summary : null) : item.summary;
+  const summary = rawSummary && newsText("summary");
 
   return (
     <Card data-testid="news-card">

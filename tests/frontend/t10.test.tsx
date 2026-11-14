@@ -1,7 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "@/i18n";
-import { EvidenceLink } from "@/components/ai/EvidenceLink";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 
 const { init, chart } = vi.hoisted(() => {
@@ -19,27 +18,6 @@ afterEach(() => {
 });
 
 describe("T10 frontend hardening", () => {
-  it("EvidenceLink expands an adversarial path without selector errors", () => {
-    render(
-      <EvidenceLink
-        refs={[
-          {
-            dataset: "risk",
-            path: 'payload[0]"\\\\bad',
-            metric: "total_score",
-            value: 52.3,
-            updated_at: null,
-          },
-        ]}
-      />,
-    );
-
-    expect(() => fireEvent.click(screen.getByRole("button"))).not.toThrow();
-    expect(screen.getByRole("button")).toHaveAttribute("aria-pressed", "true");
-    fireEvent.keyDown(screen.getByRole("button"), { key: "Enter" });
-    expect(screen.getByRole("button")).toHaveAttribute("aria-pressed", "false");
-  });
-
   it("reuses the ECharts instance when trend data changes in place", async () => {
     vi.stubGlobal("navigator", { userAgent: "Chrome" });
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(

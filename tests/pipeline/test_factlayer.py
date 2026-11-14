@@ -127,11 +127,10 @@ def test_fact_layer_rebuild_writes_facts_and_freshness(fact_layer_env: Path) -> 
     assert entry["reason"]["code"] == "ok"
     assert entry["reason"]["detail"] == "rebuilt from latest/*.json"
 
-    # Every registered dataset appears, always. An absent key used to be indistinguishable
-    # from a healthy one.
+    # Production health excludes the retired AI artifacts.
     from pipeline.schemas import registry
 
-    assert set(freshness["datasets"]) == set(registry.CANONICAL_KEYS)
+    assert set(freshness["datasets"]) == set(registry.CANONICAL_KEYS) - registry.LEGACY_AI_DATASET_KEYS
 
 
 def test_fact_layer_rebuild_without_sectors_still_succeeds(

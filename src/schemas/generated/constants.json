@@ -178,6 +178,10 @@
       "has_schema_version": false
     }
   },
+  "legacy_ai_dataset_keys": [
+    "analysis",
+    "news_translations"
+  ],
   "domain_datasets": {
     "calendar": [
       "calendar"

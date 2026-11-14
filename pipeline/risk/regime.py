@@ -36,10 +36,10 @@ def infer_regime(ctx: dict[str, Any]) -> tuple[str, list[str]]:
         evidence.append(f"HY OAS={hy_oas:.2f} ≥ 7.0")
         return "crisis", evidence
     if (vix is not None and vix >= 28) or (breadth is not None and breadth <= 0.35):
-        if vix is not None:
+        if vix is not None and vix >= 28:
             evidence.append(f"VIX={vix:.1f} ≥ 28")
-        if breadth is not None:
-            evidence.append(f"Breadth={breadth:.2f} ≤ 0.35")
+        if breadth is not None and breadth <= 0.35:
+            evidence.append(f"Breadth={breadth:.4f} ≤ 0.35")
         return "risk_off", evidence
 
     # Liquidity stress

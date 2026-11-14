@@ -42,7 +42,7 @@ export default function StatusPage() {
   const freshnessQ = useDataset<z.infer<typeof FreshnessDocument>>("freshness", {}, FreshnessDocument);
   const schemaQ = useDataset<z.infer<typeof SchemaVersion>>("schema-version", {}, SchemaVersion);
 
-  const datasets = freshnessQ.data?.datasets ?? {};
+  const datasets = Object.entries(freshnessQ.data?.datasets ?? {}).filter(([key]) => key !== "analysis");
 
   return (
     <div className="flex flex-col gap-4">
@@ -88,7 +88,7 @@ export default function StatusPage() {
             <CardTitle>{t("meta.datasetCount")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-lg font-semibold tabular-nums">{Object.keys(datasets).length}</p>
+            <p className="text-lg font-semibold tabular-nums">{datasets.length}</p>
           </CardContent>
         </Card>
       </div>
@@ -100,7 +100,7 @@ export default function StatusPage() {
           <Skeleton className="h-40 w-full" />
         ) : freshnessQ.isError ? (
           <ErrorState onRetry={freshnessQ.refetch} />
-        ) : Object.keys(datasets).length > 0 ? (
+        ) : datasets.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] text-left text-xs">
               <thead>
@@ -112,7 +112,7 @@ export default function StatusPage() {
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(datasets).map(([key, info]) => {
+                {datasets.map(([key, info]) => {
                   const status = info.status;
                   const reasonCode = info.reason?.code;
                   return (

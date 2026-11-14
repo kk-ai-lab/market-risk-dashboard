@@ -46,7 +46,7 @@ afterEach(() => {
 });
 
 describe("route rendering (fixtures data)", () => {
-  it("overview renders risk conclusion + AI brief", async () => {
+  it("overview renders market data and risk without generated analysis", async () => {
     const metrics = installFixtureFetch();
     renderApp();
     await screen.findByTestId("page-title");
@@ -61,10 +61,11 @@ describe("route rendering (fixtures data)", () => {
     expect(within(sectorPerformance).getByText("半导体龙头")).toBeInTheDocument(); // sectors.semis
     expect(within(sectorPerformance).getByText("存储")).toBeInTheDocument(); // themes.memory
     expect(within(sectorPerformance).getByText("网络安全")).toBeInTheDocument(); // themes.cybersecurity
-    expect(await screen.findByTestId("ai-brief")).toBeInTheDocument();
+    expect(screen.queryByTestId("ai-brief")).not.toBeInTheDocument();
 
     const dataRequests = metrics.requests.filter((url) => url.includes("/data/"));
-    expect(dataRequests).toHaveLength(7);
+    expect(dataRequests).toHaveLength(4);
+    expect(dataRequests.some((url) => /\/(?:analysis\.[^/]+|facts)\.json$/.test(url))).toBe(false);
     expect(dataRequests.filter((url) => url.endsWith("/latest/dashboard.json"))).toHaveLength(1);
     for (const removedDataset of ["crypto", "equities", "sectors", "calendar", "risk.json"]) {
       expect(dataRequests.some((url) => url.endsWith(`/latest/${removedDataset}.json`))).toBe(false);
@@ -88,7 +89,7 @@ describe("route rendering (fixtures data)", () => {
   it("keeps dashboard and targeted datasets in distinct stable query identities", async () => {
     installFixtureFetch();
     const { queryClient } = renderApp();
-    await screen.findByTestId("ai-brief");
+    await screen.findByTestId("risk-score");
 
     const queryKeys = queryClient.getQueryCache().getAll().map((query) => query.queryKey);
     expect(queryKeys).toContainEqual(["dashboard", "none", "latest", "default"]);
@@ -99,7 +100,7 @@ describe("route rendering (fixtures data)", () => {
   it("renders the homepage in the specified read-model section order", async () => {
     installFixtureFetch();
     const { container } = renderApp();
-    await screen.findByTestId("ai-brief");
+    await screen.findByTestId("risk-score");
 
     const sectionIds = [
       "risk-conclusion",
@@ -107,7 +108,6 @@ describe("route rendering (fixtures data)", () => {
       "cross-asset-section",
       "drivers-catalysts-section",
       "sectors-news-section",
-      "ai-brief-section",
     ];
     const positions = sectionIds.map((id) => {
       const element = container.querySelector(`[data-testid="${id}"]`);
@@ -157,7 +157,7 @@ describe("route rendering (fixtures data)", () => {
   it("keeps homepage ordinary text at the readable minimum", async () => {
     installFixtureFetch();
     renderApp();
-    await screen.findByTestId("ai-brief");
+    await screen.findByTestId("risk-score");
     const undersized = [...document.querySelectorAll<HTMLElement>("[class]")].filter((element) =>
       /\btext-\[(?:9|10|11)px\]/.test(element.className),
     );
@@ -167,7 +167,7 @@ describe("route rendering (fixtures data)", () => {
   it("keeps homepage landmarks, status meaning, and controls accessible", async () => {
     installFixtureFetch();
     renderApp();
-    await screen.findByTestId("ai-brief");
+    await screen.findByTestId("risk-score");
 
     expect(screen.getAllByRole("banner").length).toBeGreaterThan(0);
     expect(screen.getByRole("main")).toBeInTheDocument();
@@ -181,11 +181,12 @@ describe("route rendering (fixtures data)", () => {
     expect(document.activeElement).toBe(languageSwitch);
   });
 
-  it("overview renders the validated brief on both locale routes", async () => {
+  it("overview keeps market data and risk available on both locale routes", async () => {
     installFixtureFetch();
     renderApp();
-    expect(await screen.findByTestId("ai-brief")).toBeInTheDocument();
-    expect(screen.getByText("智能市场简报")).toBeInTheDocument();
+    expect(await screen.findByTestId("risk-score")).toBeInTheDocument();
+    expect(screen.queryByTestId("ai-brief-section")).not.toBeInTheDocument();
+    expect(screen.queryByText("智能市场简报")).not.toBeInTheDocument();
     expect(screen.getAllByText("主要风险驱动").length).toBeGreaterThan(0);
     expect(screen.getByText("英文")).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("Top 风险驱动");
@@ -195,8 +196,9 @@ describe("route rendering (fixtures data)", () => {
     fireEvent.click(screen.getByTestId("lang-switch"));
 
     await waitFor(() => expect(window.location.hash).toBe("#/en/overview"));
-    expect(await screen.findByTestId("ai-brief")).toBeInTheDocument();
-    expect(screen.getByText("AI Market Brief")).toBeInTheDocument();
+    expect(await screen.findByTestId("risk-score")).toBeInTheDocument();
+    expect(screen.queryByTestId("ai-brief-section")).not.toBeInTheDocument();
+    expect(screen.queryByText("AI Market Brief")).not.toBeInTheDocument();
   });
 
   it.each([

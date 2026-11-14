@@ -449,6 +449,7 @@ def build_constants(named_enums: dict[tuple[str, ...], str]) -> dict[str, Any]:
             }
             for spec in registry.DATASETS
         },
+        "legacy_ai_dataset_keys": sorted(registry.LEGACY_AI_DATASET_KEYS),
         "domain_datasets": {d: list(k) for d, k in registry.DOMAIN_DATASETS.items()},
         "non_dataset_suffixes": list(registry.NON_DATASET_SUFFIXES),
     }

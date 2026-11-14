@@ -3,7 +3,7 @@ import type { MarketRegime, RiskDimensionKey, RiskEvidenceState, RiskLevel, Risk
 /**
  * Risk enum → i18n key mapping (architecture §8.7: terminology follows the glossary; no hardcoded UI copy).
  * Keys are **namespace-relative paths** (default risk namespace, used with useTranslation("risk");
- * cross-namespace usages like AIBrief use the explicit `risk:${key}` prefix, which also works).
+ * cross-namespace usages use the explicit `risk:${key}` prefix, which also works).
  * RISK_TREND_KEYS belong to the common namespace and carry an explicit `common:` prefix.
  */
 

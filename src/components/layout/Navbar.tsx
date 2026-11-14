@@ -73,7 +73,7 @@ export function Navbar() {
           <span className="hidden text-sm font-semibold sm:inline">{t("app.nameShort")}</span>
         </Link>
 
-        <nav className="order-last flex basis-full items-center gap-0 sm:order-none sm:min-w-0 sm:flex-1 sm:basis-auto sm:gap-1" aria-label={t("nav.aria")}>
+        <nav className="order-last flex basis-full items-center justify-between gap-0 sm:order-none sm:min-w-0 sm:flex-1 sm:basis-auto sm:justify-start sm:gap-1" aria-label={t("nav.aria")}>
           {PAGE_KEYS.map((page) => (
             <NavLink
               key={page}
@@ -81,7 +81,7 @@ export function Navbar() {
               aria-label={t(`nav.${page}`)}
               className={({ isActive }) =>
                 cn(
-                  "flex min-h-11 shrink-0 items-center gap-1 rounded-md px-1 py-2 text-xs font-medium transition-colors sm:min-h-0 sm:gap-1.5 sm:px-2.5 sm:py-1.5 sm:text-xs",
+                  "flex min-h-11 flex-1 shrink-0 flex-col justify-center gap-0.5 rounded-md px-1 py-2 text-xs font-medium transition-colors sm:min-h-0 sm:flex-none sm:flex-row sm:items-center sm:gap-1.5 sm:px-2.5 sm:py-1.5",
                   !directPages.has(page) && "hidden sm:flex",
                   isActive
                     ? "bg-primary/10 text-primary"
@@ -93,14 +93,14 @@ export function Navbar() {
                 const Icon = PAGE_ICONS[page];
                 return <Icon className="h-3.5 w-3.5" aria-hidden />;
               })()}
-              <span className="hidden sm:inline">{t(`nav.${page}`)}</span>
+              <span>{t(`nav.${page}`)}</span>
             </NavLink>
           ))}
-          <div ref={moreRef} className="relative sm:hidden">
+          <div ref={moreRef} className="relative flex-1 sm:hidden">
             <button
               type="button"
               className={cn(
-                "flex min-h-11 items-center gap-1 rounded-md px-1 py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground",
+                "flex min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-md px-1 py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground",
                 moreActive && "bg-primary/10 text-primary",
               )}
               aria-expanded={moreOpen}
@@ -110,9 +110,9 @@ export function Navbar() {
               onClick={() => setMoreOpen((open) => !open)}
             >
               <MoreHorizontal className="h-4 w-4" aria-hidden />
-              <span className="hidden sm:inline">{t("nav.more")}</span>
+              <span>{t("nav.more")}</span>
             </button>
-            {moreOpen ? <div className="absolute left-0 top-full z-50 mt-1 min-w-40 rounded-md border border-border bg-surface-2 p-1 shadow-lg" role="menu">
+            {moreOpen ? <div className="absolute right-0 top-full z-50 mt-1 min-w-40 rounded-md border border-border bg-surface-2 p-1 shadow-lg" role="menu">
               {morePages.map((page) => {
                 const Icon = PAGE_ICONS[page];
                 return (

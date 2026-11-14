@@ -179,7 +179,9 @@ export function RiskDimensionBreakdown({ result }: RiskDimensionBreakdownProps) 
                             </span>
                           </td>
                           <td className="py-1.5 text-right">
-                            <StatusBadge status={ind.status} />
+                            {ind.status === "fresh" && !ind.updated_at ? (
+                              <span className="text-muted-foreground">{t("indicator.freshnessUnknown")}</span>
+                            ) : <StatusBadge status={ind.status} />}
                           </td>
                         </tr>
                       ))}

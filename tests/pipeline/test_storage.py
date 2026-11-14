@@ -256,7 +256,10 @@ def test_validate_all_generated_documents_pass(tmp_path: Path) -> None:
     # factory should fail loudly here rather than silently lower the count.
     from pipeline.schemas import registry
 
-    expected = sum(len(spec.filenames) for spec in registry.DATASETS)
+    expected = sum(
+        len(spec.filenames) for spec in registry.DATASETS
+        if spec.key not in registry.LEGACY_AI_DATASET_KEYS
+    )
     assert report.files_checked == expected
 
 

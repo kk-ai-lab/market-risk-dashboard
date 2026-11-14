@@ -11,10 +11,8 @@ Covered checks (equivalent to validate-data.yml / scripts/validate_data.sh):
 8. Stale data: check generated_at against the expected frequency using the six-state freshness
    (stale is a WARNING, it does not block publishing — data is a static snapshot, and a code PR
    should not fail because of data timestamps).
-9. Unknown language key: the language of analysis.*.json must be a supported language (zh-CN/en).
-10. Bilingual missing: analysis.zh-CN.json and analysis.en.json must exist as a pair (error if one
-    is missing); if both are missing, treat as AI degraded mode (WARNING).
-11. AI bilingual conclusion mismatch: reuses pipeline/analysis/validate.compare_bilingual.
+9. News source-language checks preserve Chinese originals without requiring translations.
+10. Historical AI contracts are checked only with --include-legacy-ai.
 
 Exit code: 0 = pass (WARNING allowed); 1 = ERROR present.
 """
@@ -44,7 +42,7 @@ ENVELOPE_MODELS: dict[str, tuple[Any, str]] = {
 }
 
 # Self-describing contract files (no envelope): must pass validation if present; presence not required.
-# facts.json is produced on every pipeline run; analysis.*.json is produced by AI automation (missing = degraded mode).
+# facts.json is produced on every pipeline run. Historical AI contracts remain available explicitly.
 STANDALONE_MODELS: dict[str, Any] = {
     name: spec.model for name, spec in registry.standalone_specs().items()
 }
@@ -103,7 +101,9 @@ def load_json_strict(path: Path) -> Any:
     return json.loads(text, parse_constant=_reject_constant)
 
 
-def check_latest(latest_dir: Path, report: CheckReport, now: datetime) -> None:
+def check_latest(
+    latest_dir: Path, report: CheckReport, now: datetime, *, include_legacy_ai: bool = False,
+) -> None:
     """Validate all known files under latest/."""
     if not latest_dir.exists():
         report.error(f"latest directory missing: {latest_dir}")
@@ -125,6 +125,8 @@ def check_latest(latest_dir: Path, report: CheckReport, now: datetime) -> None:
 
     # Self-describing contract files (validate if present; missing handled per semantics)
     for name, model in STANDALONE_MODELS.items():
+        if registry.BY_FILENAME[name].key in registry.LEGACY_AI_DATASET_KEYS and not include_legacy_ai:
+            continue
         path = latest_dir / name
         if not path.exists():
             if registry.BY_FILENAME[name].required:
@@ -149,7 +151,10 @@ def check_latest(latest_dir: Path, report: CheckReport, now: datetime) -> None:
         ):
             report.error(f"{path.name}: unregistered file under latest/ (not validated)")
 
-    # Bilingual pair: if one exists, both must exist; both missing → AI degraded mode (WARNING)
+    if not include_legacy_ai:
+        return
+
+    # Historical bilingual contracts are checked only when explicitly requested.
     zh = latest_dir / "analysis.zh-CN.json"
     en = latest_dir / "analysis.en.json"
     if zh.exists() != en.exists():
@@ -327,13 +332,8 @@ def check_news_duplicates(latest_dir: Path, report: CheckReport) -> None:
             report.error(f"news.json: duplicate news (title+source+published_at) {sig[0]!r} (appears {count} times)")
 
 
-def check_news_language(latest_dir: Path, report: CheckReport) -> None:
-    """Language isolation for news (architecture §3.4 / displayLanguage.safeDisplayText).
-
-    ``news.json`` is the canonical store; the English UI reads ``title``/``summary`` directly, so
-    those fields MUST be English. ``news.zh-translations.json`` carries the Chinese side
-    (``title_zh``/``summary_zh``); if those lack Chinese the translation is suspicious.
-    """
+def check_news_language(latest_dir: Path, report: CheckReport, *, include_legacy_ai: bool = True) -> None:
+    """Check news against its source language, with optional historical translation checks."""
     path = latest_dir / "news.json"
     if not path.exists():
         return
@@ -344,10 +344,7 @@ def check_news_language(latest_dir: Path, report: CheckReport) -> None:
         report.error(f"news.json: unable to read for language check: {exc}")
         return
     for i, item in enumerate(items):
-        # Chinese-source items (lang == "zh") carry the original-language text in the canonical
-        # title/summary until the AI brief translates them; that is the expected pre-translation
-        # state, not a contract violation. The translation-coverage gate (#225) is the intended
-        # blocker for under-translated batches, so we do not hard-fail on zh-source items here.
+        # Chinese-source records preserve the publisher's original title and summary.
         if item.get("lang") == "zh":
             continue
         for fname in ("title", "summary"):
@@ -357,6 +354,8 @@ def check_news_language(latest_dir: Path, report: CheckReport) -> None:
                     f"news.json item[{i}].{fname}: canonical English field contains Chinese "
                     f"(language isolation) — safeDisplayText will show 'Translation unavailable'"
                 )
+    if not include_legacy_ai:
+        return
     zh_path = latest_dir / "news.zh-translations.json"
     if zh_path.exists():
         try:
@@ -608,29 +607,33 @@ def check_metadata_and_feeds(data_dir: Path, report: CheckReport) -> None:
                 report.warn(f"{rel}: missing field {key!r}")
 
 
-def _run_all(data_dir: Path, latest: Path, now: datetime) -> CheckReport:
-    """Compose every Python validation category for one data tree."""
+def _run_all(data_dir: Path, latest: Path, now: datetime, *, include_legacy_ai: bool) -> CheckReport:
+    """Validate production data, with an explicit opt-in for historical AI artifacts."""
     report = CheckReport()
-    check_latest(latest, report, now)
+    check_latest(latest, report, now, include_legacy_ai=include_legacy_ai)
     check_news_duplicates(latest, report)
-    check_news_language(latest, report)
-    check_news_translation_coverage(latest, report)
+    check_news_language(latest, report, include_legacy_ai=include_legacy_ai)
+    if include_legacy_ai:
+        check_news_translation_coverage(latest, report)
     check_history(data_dir, report)
     check_slice_consistency(data_dir, report)
     check_metadata_and_feeds(data_dir, report)
     return report
 
 
-def run_all(data_dir: Path, now: datetime | None = None) -> CheckReport:
-    """Validate the complete ``public/data`` tree, including ``latest/``."""
+def run_all(data_dir: Path, now: datetime | None = None, *, include_legacy_ai: bool = False) -> CheckReport:
+    """Validate production data, ignoring only registered legacy AI files.
+
+    Unknown analysis language variants remain invalid files, even without legacy checks.
+    """
     now = now or datetime.now(timezone.utc)
-    return _run_all(data_dir, data_dir / "latest", now)
+    return _run_all(data_dir, data_dir / "latest", now, include_legacy_ai=include_legacy_ai)
 
 
-def run_latest(latest_dir: Path, now: datetime | None = None) -> CheckReport:
+def run_latest(latest_dir: Path, now: datetime | None = None, *, include_legacy_ai: bool = False) -> CheckReport:
     """Validate a snapshot directory through the same composed authority as :func:`run_all`."""
     now = now or datetime.now(timezone.utc)
-    return _run_all(latest_dir.parent, latest_dir, now)
+    return _run_all(latest_dir.parent, latest_dir, now, include_legacy_ai=include_legacy_ai)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -638,6 +641,7 @@ def main(argv: list[str] | None = None) -> int:
         description="T05 static data validation (schema/required/timestamp/quality/risk range/NaN/duplicate/stale/language/bilingual)"
     )
     parser.add_argument("--data-dir", type=Path, default=None, help="public/data directory (default: settings.data_dir)")
+    parser.add_argument("--include-legacy-ai", action="store_true", help="also validate historical AI briefs and translations")
     args = parser.parse_args(argv)
 
     if args.data_dir is not None:
@@ -647,7 +651,7 @@ def main(argv: list[str] | None = None) -> int:
 
         data_dir = settings.data_dir
 
-    report = run_all(data_dir)
+    report = run_all(data_dir, include_legacy_ai=args.include_legacy_ai)
     print(f"[validate_data] checked {report.files_checked} files, ERROR {len(report.errors)}, WARNING {len(report.warnings)}")
     for issue in report.errors:
         print(f"  [ERROR] {issue}")

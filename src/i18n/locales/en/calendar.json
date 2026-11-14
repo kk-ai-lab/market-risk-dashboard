@@ -1,6 +1,6 @@
 {
   "title": "Calendar",
-  "subtitle": "Economic + earnings calendar (next 7 days)",
+  "subtitle": "Economic and earnings calendar",
   "type": {
     "economic": "Economic",
     "earnings": "Earnings"
@@ -28,7 +28,13 @@
     "events": {
       "consumerPriceIndex": "Consumer Price Index",
       "producerPriceIndex": "Producer Price Index",
-      "advanceRetailSales": "Advance Retail Sales"
+      "advanceRetailSales": "Advance Retail Sales",
+      "personalIncomeAndOutlays": "Personal Income and Outlays",
+      "grossDomesticProduct": "Gross Domestic Product",
+      "employmentSituation": "Employment Situation",
+      "jobOpenings": "Job Openings and Labor Turnover Survey",
+      "fomcMeeting": "FOMC Meeting",
+      "fomcMeetingPressConference": "FOMC Meeting (press conference)"
     }
   }
 }

@@ -26,7 +26,7 @@
     "coverage": "Effective coverage",
     "scoreRange": "Evidence score range",
     "missingIndicators": "Missing indicators",
-    "explanation": "The score remains a point estimate; the range shows how missing indicators could change it."
+    "explanation": "The score is a point estimate. The range only shows the effect of extreme values for missing indicators; it excludes model error, proxy error and statistical uncertainty."
   },
   "level": {
     "riskOn": "Risk On",
@@ -128,6 +128,7 @@
     "source": "Source",
     "updatedAt": "Updated",
     "status": "Status",
+    "freshnessUnknown": "Freshness unknown",
     "proxy": "Proxy"
   },
   "confidenceFactors": {

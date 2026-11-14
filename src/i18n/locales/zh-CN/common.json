@@ -114,9 +114,6 @@
     "zh": "中文",
     "en": "英文"
   },
-  "evidence": {
-    "label": "证据"
-  },
   "time": {
     "updatedAt": "更新时间",
     "generatedAt": "生成时间"

@@ -1,14 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { ArrowUpRight, CalendarClock, Layers, Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { useDataset } from "@/hooks/useDataset";
-import { useAnalysisPair } from "@/hooks/useAnalysisPair";
+import { SnapshotTimestamp } from "@/components/dashboard/SnapshotTimestamp";
 import { RiskTrendSlice } from "@/schemas/history";
 import type { DashboardEnvelope, MacroEnvelope, NewsEnvelope } from "@/schemas";
 import { AssetHeatmap } from "@/charts/AssetHeatmap";
 import { RiskTrendChart } from "@/charts/RiskTrendChart";
 import { NewsCard } from "@/components/news/NewsCard";
 import { EventCard } from "@/components/calendar/EventCard";
-import { AIBrief } from "@/components/ai/AIBrief";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { Badge } from "@/components/ui/Badge";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -17,13 +16,13 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/layout/StatusBadge";
 import { dirTone, dirClasses, regimeTone, riskLevelTone, riskTrendTone, toneClasses } from "@/lib/riskColors";
 import { RISK_DIMENSION_KEYS, RISK_INDICATOR_KEYS, RISK_LEVEL_KEYS, regimeKey } from "@/lib/riskLabels";
-import { formatChange, formatDateTime, formatNumber, formatPctPoints, formatRatio } from "@/lib/format";
+import { formatChange, formatNumber, formatPctPoints, formatRatio } from "@/lib/format";
 import type { RiskDimensionKey } from "@/schemas";
 import type { HeatmapCell } from "@/charts/AssetHeatmap";
 
 /**
  * OverviewPage: dark-first terminal layout (spec #23 ticket #28 — reference implementation).
- * - KPI strip of 4 small cards (the only cards on the page besides the AI brief)
+ * - KPI strip of 4 small cards
  * - Charts live in open chart regions (surface-0 + section header + hairline, no card chrome)
  * - Drivers/catalysts/sectors/news are hairline-divided sections with tabular numerals
  * - Page footer: mono status line (generation time + freshness)
@@ -36,7 +35,6 @@ export default function OverviewPage() {
   const trendQ = useDataset<RiskTrendSlice>("risk", { slice: "30d" }, RiskTrendSlice);
   const macroQ = useDataset<MacroEnvelope>("macro");
   const newsQ = useDataset<NewsEnvelope>("news");
-  const analysisQ = useAnalysisPair();
   const dashboard = dashboardQ.data?.payload;
   const risk = dashboard?.risk;
 
@@ -81,11 +79,14 @@ export default function OverviewPage() {
         </h1>
         <p className="text-xs text-muted-foreground">{t("subtitle")}</p>
         {dashboardQ.data ? (
-          <span className="ml-auto">
+          <span className="ml-auto flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">{t("snapshot.recordedStatus")}</span>
             <StatusBadge status={dashboardQ.data.freshness_status} fromCache={dashboardQ.data.provenance?.from_cache} withDescription />
           </span>
         ) : null}
       </header>
+
+      <SnapshotTimestamp generatedAt={dashboardQ.data?.generated_at} />
 
       {/* KPI strip: the only cards on this page (card policy) */}
       <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4" data-testid="risk-conclusion">
@@ -326,18 +327,10 @@ export default function OverviewPage() {
         </div>
       </section>
 
-      {/* AI Market Brief (visually quarantined block) */}
-      <section className="border-t border-hairline pt-4" data-testid="ai-brief-section">
-        <AIBrief presentation={analysisQ.presentation} loading={analysisQ.isLoading} />
-      </section>
-
       {/* Mono status footer + compliance disclaimer */}
       {dashboardQ.data ? (
         <footer className="flex flex-col gap-1 border-t border-hairline pt-2">
           <div className="flex flex-wrap gap-4 font-mono text-xs text-muted-foreground">
-            <span>
-              {t("statusBar.generated")}: {formatDateTime(dashboardQ.data.generated_at, locale)}
-            </span>
             <span>
               {t("common:data.quality")}: <span className="tabular-nums">{formatRatio(dashboardQ.data.data_quality, locale)}</span>
             </span>

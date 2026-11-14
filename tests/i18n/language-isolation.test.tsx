@@ -35,6 +35,12 @@ describe("display-language policy", () => {
 
   it("does not fall back to another language for event titles", () => {
     expect(displayEventTitle("Consumer Price Index", "zh-CN")).toBe("消费者价格指数");
+    expect(displayEventTitle("Personal Income and Outlays", "zh-CN")).toBe("个人收入和支出");
+    expect(displayEventTitle("Gross Domestic Product", "zh-CN")).toBe("国内生产总值");
+    expect(displayEventTitle("Employment Situation", "zh-CN")).toBe("就业状况报告");
+    expect(displayEventTitle("Job Openings and Labor Turnover Survey", "zh-CN")).toBe("职位空缺和劳动力流动调查");
+    expect(displayEventTitle("FOMC Meeting", "zh-CN")).toBe("联邦公开市场委员会会议");
+    expect(displayEventTitle("FOMC Meeting (press conference)", "zh-CN")).toBe("联邦公开市场委员会会议及新闻发布会");
     expect(displayEventTitle("Unknown English event", "zh-CN")).toBe("经济事件");
     expect(displayEventTitle("中文事件", "en")).toBe("Calendar event");
   });
