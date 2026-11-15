@@ -362,9 +362,7 @@ def test_pipeline_adapter_forces_approved_mode_and_shared_cloud_branch(tmp_path,
     assert "DATA_FRED_API_KEY" not in env
 
 
-def test_child_failure_logs_only_allowlisted_collection_summary(
-    tmp_path, monkeypatch, capsys
-):
+def test_child_failure_logs_only_allowlisted_collection_summary(tmp_path, monkeypatch, capsys):
     settings = Settings(
         _env_file=None,
         data_dir=tmp_path / "data",
@@ -404,7 +402,7 @@ def test_child_failure_logs_only_allowlisted_collection_summary(
         )(),
     )
     diagnostics = cloud.RefreshDiagnostics(enabled=True)
-    diagnostics.enter(cloud.RefreshStage.APPROVED_COLLECTION)
+    diagnostics.enter(cloud.RefreshStage.APPROVED_SOURCE_COLLECTION)
 
     with pytest.raises(cloud.CloudRefreshError, match="Approved-source collection"):
         cloud._collect_approved(settings, diagnostics=diagnostics)
@@ -437,6 +435,35 @@ def test_child_failure_logs_only_allowlisted_collection_summary(
         "child-stderr-secret",
     ):
         assert secret not in output
+
+
+def test_refresh_cloud_diagnostic_keeps_the_failed_phase(setup, monkeypatch, capsys):
+    paths, settings = setup
+    diagnostics = cloud.RefreshDiagnostics(enabled=True)
+
+    def fail_collection(_settings, *, diagnostics):
+        assert diagnostics is not None
+        raise cloud.CloudRefreshError("collection failed")
+
+    monkeypatch.setattr(cloud, "_collect_approved", fail_collection)
+    with pytest.raises(cloud.CloudRefreshError, match="collection failed"):
+        cloud.refresh_cloud(
+            mode="code-only",
+            app_revision=REVISION,
+            checkpoint=Store(),
+            paths=paths,
+            settings=settings,
+            restorer=None,
+            diagnostics=diagnostics,
+        )
+    diagnostics.emit_failure()
+
+    events = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    assert events[-1] == {
+        "event": "cloud_refresh.failure",
+        "stage": "approved_source_collection",
+        "code": "refresh_failed",
+    }
 
 
 def test_scheduled_collects_with_verified_parent_and_stages_validated_child(

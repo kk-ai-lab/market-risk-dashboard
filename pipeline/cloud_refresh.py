@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Literal, Protocol
 from urllib.parse import urlsplit
@@ -33,6 +34,7 @@ from pipeline.storage.cloud_bls import _decode as decode_bls
 from pipeline.storage.cloud_treasury import _decode as decode_treasury
 from pipeline.storage.github_checkpoint import Checkpoint, CheckpointError, GitHubCheckpoint
 from pipeline.storage.publication_checkpoint import Generation, PublicationCheckpoint
+from pipeline.storage.strict_json import load_json_rejecting_duplicates
 from pipeline.storage.treasury_snapshot import SnapshotError as TreasurySnapshotError
 from pipeline.utils import now_utc
 
@@ -41,6 +43,138 @@ CloudMode = Literal["scheduled", "code-only"]
 
 class CloudRefreshError(ValueError):
     """A candidate cannot safely be prepared from the supplied state."""
+
+
+class RefreshStage(StrEnum):
+    STARTUP = "startup"
+    INPUT_VALIDATION = "input_validation"
+    PUBLICATION_CHECKPOINT = "publication_checkpoint"
+    PROVIDER_CHECKPOINT = "provider_checkpoint"
+    CHECKOUT_VERIFICATION = "checkout_verification"
+    GENERATION_RESTORE = "generation_restore"
+    GENERATION_VALIDATION = "generation_validation"
+    APPROVED_SOURCE_COLLECTION = "approved_source_collection"
+    PROVIDER_CHECKPOINT_RECHECK = "provider_checkpoint_recheck"
+    CANDIDATE_STAGING = "candidate_staging"
+
+
+class RefreshFailureCode(StrEnum):
+    REFRESH_FAILED = "refresh_failed"
+    CHILD_EXIT_NONZERO = "child_exit_nonzero"
+
+
+@dataclass(frozen=True)
+class CollectionSummary:
+    ok: bool | None
+    clean: bool | None
+    failed_datasets: tuple[str, ...]
+    skipped_datasets: tuple[str, ...]
+    degraded_datasets: tuple[str, ...]
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "ok": self.ok,
+            "clean": self.clean,
+            "failed_datasets": list(self.failed_datasets),
+            "skipped_datasets": list(self.skipped_datasets),
+            "degraded_datasets": list(self.degraded_datasets),
+        }
+
+
+@dataclass(frozen=True)
+class RefreshDiagnostic:
+    stage: RefreshStage
+    code: RefreshFailureCode
+    exit_code: int | None = None
+    collection: CollectionSummary | None = None
+
+    def as_dict(self) -> dict[str, object]:
+        result: dict[str, object] = {
+            "event": "cloud_refresh.failure",
+            "stage": self.stage.value,
+            "code": self.code.value,
+        }
+        if self.exit_code is not None:
+            result["exit_code"] = self.exit_code
+        if self.collection is not None:
+            result["collection"] = self.collection.as_dict()
+        return result
+
+
+@dataclass
+class RefreshDiagnostics:
+    enabled: bool = False
+    stage: RefreshStage = RefreshStage.STARTUP
+    failure_code: RefreshFailureCode = RefreshFailureCode.REFRESH_FAILED
+    exit_code: int | None = None
+    collection: CollectionSummary | None = None
+
+    def enter(self, stage: RefreshStage) -> None:
+        self.stage = stage
+        if self.enabled:
+            print(
+                json.dumps(
+                    {"event": "cloud_refresh.phase", "stage": stage.value},
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+                file=sys.stderr,
+                flush=True,
+            )
+
+    def record_collection_failure(
+        self, exit_code: int, collection: CollectionSummary | None
+    ) -> None:
+        self.failure_code = RefreshFailureCode.CHILD_EXIT_NONZERO
+        self.exit_code = exit_code
+        self.collection = collection
+
+    def emit_failure(self) -> None:
+        if not self.enabled:
+            return
+        diagnostic = RefreshDiagnostic(
+            self.stage, self.failure_code, self.exit_code, self.collection
+        )
+        print(
+            json.dumps(diagnostic.as_dict(), sort_keys=True, separators=(",", ":")),
+            file=sys.stderr,
+            flush=True,
+        )
+
+
+def _read_collection_summary(artifacts_dir: Path) -> CollectionSummary | None:
+    reports = sorted((artifacts_dir / "logs").glob("run-report-*.json"))
+    if not reports:
+        return None
+    try:
+        report = load_json_rejecting_duplicates(reports[-1].read_bytes())
+    except (OSError, ValueError, UnicodeError):
+        return None
+    if not isinstance(report, dict):
+        return None
+    from pipeline.risk_context import FULL_RUN_DATASETS
+
+    allowed = set(FULL_RUN_DATASETS)
+
+    def flag(name: str) -> bool | None:
+        value = report.get(name)
+        return value if type(value) is bool else None
+
+    def dataset_names(name: str) -> tuple[str, ...]:
+        values = report.get(name)
+        if not isinstance(values, list):
+            return ()
+        return tuple(
+            sorted({value for value in values if isinstance(value, str) and value in allowed})
+        )
+
+    return CollectionSummary(
+        ok=flag("ok"),
+        clean=flag("clean"),
+        failed_datasets=dataset_names("failed_datasets"),
+        skipped_datasets=dataset_names("skipped_datasets"),
+        degraded_datasets=dataset_names("degraded_datasets"),
+    )
 
 
 class GenerationRestorer(Protocol):
@@ -244,7 +378,7 @@ def _verify_checkout(settings: Settings, revision: str) -> None:
         )
 
 
-def _collect_approved(settings: Settings) -> None:
+def _collect_approved(settings: Settings, *, diagnostics: RefreshDiagnostics | None = None) -> None:
     if not settings.cloud_state_repo or settings.cloud_state_token is None:
         raise CloudRefreshError("Cloud state repository and token are required")
     env = {key: value for key, value in os.environ.items() if not key.startswith("DATA_")}
@@ -275,6 +409,10 @@ def _collect_approved(settings: Settings) -> None:
         timeout=900,
     )
     if result.returncode:
+        if diagnostics is not None:
+            diagnostics.record_collection_failure(
+                result.returncode, _read_collection_summary(settings.artifacts_dir)
+            )
         raise CloudRefreshError("Approved-source collection or risk calculation failed")
 
 
@@ -286,26 +424,39 @@ def refresh_cloud(
     paths: CloudPaths,
     settings: Settings,
     restorer: GenerationRestorer,
+    diagnostics: RefreshDiagnostics | None = None,
 ) -> CloudRefreshResult:
     """Return a local candidate from provisioned state, without publication writes."""
+    if diagnostics is not None:
+        diagnostics.enter(RefreshStage.INPUT_VALIDATION)
     if (
         mode not in {"scheduled", "code-only"}
         or re.fullmatch(r"[0-9a-f]{40}", app_revision) is None
     ):
         raise CloudRefreshError("Invalid mode or application revision")
+    if diagnostics is not None:
+        diagnostics.enter(RefreshStage.PUBLICATION_CHECKPOINT)
     state = PublicationCheckpoint(checkpoint, paths.publication).read()
     if state.candidate is not None:
         raise CloudRefreshError("An unresolved publication attempt requires reconciliation")
     if state.deployed and mode == "scheduled" and app_revision != state.deployed.producer_revision:
         raise CloudRefreshError("Scheduled refresh must keep the deployed application revision")
+    if diagnostics is not None:
+        diagnostics.enter(RefreshStage.PROVIDER_CHECKPOINT)
     _require_provisioned_provider_state(checkpoint, paths)
+    if diagnostics is not None:
+        diagnostics.enter(RefreshStage.CHECKOUT_VERIFICATION)
     _verify_checkout(settings, app_revision)
     workspace = paths.work_dir.resolve() / uuid4().hex
     workspace.mkdir(parents=True, exist_ok=False)
     store = workspace / "store"
     restored = None
     if state.deployed:
+        if diagnostics is not None:
+            diagnostics.enter(RefreshStage.GENERATION_RESTORE)
         restored = restorer.restore(state.deployed, store)
+        if diagnostics is not None:
+            diagnostics.enter(RefreshStage.GENERATION_VALIDATION)
         manifest = verify_generation(restored, manifest_sha256=state.deployed.manifest_sha256)
         if manifest["generation_id"] != state.deployed.generation_id:
             raise CloudRefreshError("Restored generation does not match checkpoint")
@@ -334,14 +485,24 @@ def refresh_cloud(
                 "treasury_checkpoint_path": paths.treasury,
             }
         )
-        _collect_approved(isolated)
+        if diagnostics is not None:
+            diagnostics.enter(RefreshStage.APPROVED_SOURCE_COLLECTION)
+            _collect_approved(isolated, diagnostics=diagnostics)
+        else:
+            _collect_approved(isolated)
+        if diagnostics is not None:
+            diagnostics.enter(RefreshStage.PROVIDER_CHECKPOINT_RECHECK)
         _require_provisioned_provider_state(checkpoint, paths)
         from scripts.stage_publication import stage_candidate
 
+        if diagnostics is not None:
+            diagnostics.enter(RefreshStage.CANDIDATE_STAGING)
         pointer = stage_candidate(
             data, store, parent_id=parent, revision=app_revision, created_at=now_utc()
         )
     directory = store / "generations" / pointer["generation_id"]
+    if diagnostics is not None:
+        diagnostics.enter(RefreshStage.GENERATION_VALIDATION)
     verify_generation(directory, manifest_sha256=pointer["manifest_sha256"])
     return CloudRefreshResult(
         mode, app_revision, pointer["generation_id"], pointer["manifest_sha256"], directory, parent
@@ -362,6 +523,7 @@ def main(argv: list[str] | None = None) -> int:
     checkpoint = GitHubCheckpoint(
         *repository, settings.cloud_state_branch, settings.cloud_state_token.get_secret_value()
     )
+    diagnostics = RefreshDiagnostics(enabled=True)
     try:
         result = refresh_cloud(
             mode=args.mode,
@@ -374,6 +536,7 @@ def main(argv: list[str] | None = None) -> int:
             ),
             settings=settings,
             restorer=PagesGenerationRestorer(args.site_url),
+            diagnostics=diagnostics,
         )
         print(json.dumps({**asdict(result), "generation_dir": str(result.generation_dir)}))
         return 0
@@ -387,6 +550,7 @@ def main(argv: list[str] | None = None) -> int:
         ValueError,
         subprocess.SubprocessError,
     ):
+        diagnostics.emit_failure()
         print("Cloud candidate preparation failed; no publication was performed", file=sys.stderr)
         return 1
     finally:
