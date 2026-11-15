@@ -516,15 +516,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--site-url", required=True)
     parser.add_argument("--work-dir", type=Path, default=Path("artifacts/cloud-refresh"))
     args = parser.parse_args(argv)
-    settings = Settings()
-    repository = (settings.cloud_state_repo or "").split("/")
-    if len(repository) != 2 or settings.cloud_state_token is None:
-        parser.error("Cloud state repository and token must be configured")
-    checkpoint = GitHubCheckpoint(
-        *repository, settings.cloud_state_branch, settings.cloud_state_token.get_secret_value()
-    )
     diagnostics = RefreshDiagnostics(enabled=True)
+    checkpoint: GitHubCheckpoint | None = None
     try:
+        diagnostics.enter(RefreshStage.STARTUP)
+        settings = Settings()
+        repository = (settings.cloud_state_repo or "").split("/")
+        if len(repository) != 2 or settings.cloud_state_token is None:
+            parser.error("Cloud state repository and token must be configured")
+        checkpoint = GitHubCheckpoint(
+            *repository, settings.cloud_state_branch, settings.cloud_state_token.get_secret_value()
+        )
         result = refresh_cloud(
             mode=args.mode,
             app_revision=args.app_revision,
@@ -554,7 +556,8 @@ def main(argv: list[str] | None = None) -> int:
         print("Cloud candidate preparation failed; no publication was performed", file=sys.stderr)
         return 1
     finally:
-        checkpoint.close()
+        if checkpoint is not None:
+            checkpoint.close()
 
 
 if __name__ == "__main__":
