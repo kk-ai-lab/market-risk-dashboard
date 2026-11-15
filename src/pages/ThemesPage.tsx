@@ -222,7 +222,7 @@ export default function ThemesPage() {
                   change1d={c.change_1d}
                   sub={`${t("crypto.volume24h")}: ${c.volume_24h === null ? t("common:data.na") : formatCompactNumber(c.volume_24h, locale)}`}
                 />
-                {c.source === "coinmetrics" ? <p className="mt-1 text-xs text-muted-foreground">{t("crypto.observedAt")}: {c.updated_at ? formatDateTime(c.updated_at, locale) : t("common:data.na")}</p> : null}
+                {c.source === "coinmetrics" ? <p className="mt-1 text-xs tabular-nums text-muted-foreground">{t("crypto.observedAt")}: {c.updated_at ? formatDateTime(c.updated_at, locale) : t("common:data.na")}</p> : null}
                 </div>
               ))}
             </div>

@@ -45,11 +45,11 @@ export function MacroIndicatorCard({ indicator }: MacroIndicatorCardProps) {
             : `${t("indicator.change1m")} ${indicator.change_1m > 0 ? "+" : ""}${formatNumber(indicator.change_1m, locale)}${formatUnitSuffix(indicator.unit, locale)}`}
         </p>
         {indicator.updated_at ? (
-          <p className="text-xs text-muted-foreground">{formatDateTime(indicator.updated_at, locale)}</p>
+          <p className="text-xs tabular-nums text-muted-foreground">{formatDateTime(indicator.updated_at, locale)}</p>
         ) : null}
-        {indicator.observation_period ? <p className="text-xs text-muted-foreground">{t("indicator.observationPeriod")}: {indicator.observation_period} · {sourceLabel}</p> : null}
-        {indicator.observation_date ? <p className="text-xs text-muted-foreground">{t("indicator.observationDate")}: {indicator.observation_date} · {sourceLabel}</p> : null}
-        {indicator.fetched_at ? <p className="text-xs text-muted-foreground">{t("indicator.fetchedAt")}: {formatDateTime(indicator.fetched_at, locale)}</p> : null}
+        {indicator.observation_period ? <p className="text-xs tabular-nums text-muted-foreground">{t("indicator.observationPeriod")}: {indicator.observation_period} · {sourceLabel}</p> : null}
+        {indicator.observation_date ? <p className="text-xs tabular-nums text-muted-foreground">{t("indicator.observationDate")}: {indicator.observation_date} · {sourceLabel}</p> : null}
+        {indicator.fetched_at ? <p className="text-xs tabular-nums text-muted-foreground">{t("indicator.fetchedAt")}: {formatDateTime(indicator.fetched_at, locale)}</p> : null}
         {!indicator.freshness_policy && timeBasedStatus ? <p className="text-xs text-muted-foreground">{t("indicator.freshnessUnavailable")}</p> : null}
       </CardContent>
     </Card>
