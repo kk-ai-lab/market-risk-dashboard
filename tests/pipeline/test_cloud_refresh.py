@@ -1,3 +1,4 @@
+import json
 from uuid import uuid4
 
 import httpx
@@ -361,6 +362,110 @@ def test_pipeline_adapter_forces_approved_mode_and_shared_cloud_branch(tmp_path,
     assert "DATA_FRED_API_KEY" not in env
 
 
+def test_child_failure_logs_only_allowlisted_collection_summary(tmp_path, monkeypatch, capsys):
+    settings = Settings(
+        _env_file=None,
+        data_dir=tmp_path / "data",
+        artifacts_dir=tmp_path / "artifacts",
+        cloud_state_repo="owner/repo",
+        cloud_state_token="test-token",
+        cloud_state_branch="cloud-state",
+    )
+    report_dir = settings.artifacts_dir / "logs"
+    report_dir.mkdir(parents=True)
+    (report_dir / "run-report-20261115T120000Z.json").write_text(
+        json.dumps(
+            {
+                "ok": True,
+                "clean": False,
+                "failed_datasets": ["equities", "report-token-secret"],
+                "skipped_datasets": [],
+                "degraded_datasets": ["macro"],
+                "error": "report-error-secret",
+                "degraded": ["provider-note-secret"],
+                "provider_status": {"credential": "provider-secret"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        cloud.subprocess,
+        "run",
+        lambda *_args, **_kwargs: type(
+            "Result",
+            (),
+            {
+                "returncode": 1,
+                "stdout": "child-stdout-secret",
+                "stderr": "child-stderr-secret",
+            },
+        )(),
+    )
+    diagnostics = cloud.RefreshDiagnostics(enabled=True)
+    diagnostics.enter(cloud.RefreshStage.APPROVED_SOURCE_COLLECTION)
+
+    with pytest.raises(cloud.CloudRefreshError, match="Approved-source collection"):
+        cloud._collect_approved(settings, diagnostics=diagnostics)
+    diagnostics.emit_failure()
+
+    output = capsys.readouterr().err
+    events = [json.loads(line) for line in output.splitlines()]
+    assert events == [
+        {"event": "cloud_refresh.phase", "stage": "approved_source_collection"},
+        {
+            "event": "cloud_refresh.failure",
+            "stage": "approved_source_collection",
+            "code": "child_exit_nonzero",
+            "exit_code": 1,
+            "collection": {
+                "ok": True,
+                "clean": False,
+                "failed_datasets": ["equities"],
+                "skipped_datasets": [],
+                "degraded_datasets": ["macro"],
+            },
+        },
+    ]
+    for secret in (
+        "report-token-secret",
+        "report-error-secret",
+        "provider-note-secret",
+        "provider-secret",
+        "child-stdout-secret",
+        "child-stderr-secret",
+    ):
+        assert secret not in output
+
+
+def test_refresh_cloud_diagnostic_keeps_the_failed_phase(setup, monkeypatch, capsys):
+    paths, settings = setup
+    diagnostics = cloud.RefreshDiagnostics(enabled=True)
+
+    def fail_collection(_settings, *, diagnostics):
+        assert diagnostics is not None
+        raise cloud.CloudRefreshError("collection failed")
+
+    monkeypatch.setattr(cloud, "_collect_approved", fail_collection)
+    with pytest.raises(cloud.CloudRefreshError, match="collection failed"):
+        cloud.refresh_cloud(
+            mode="code-only",
+            app_revision=REVISION,
+            checkpoint=Store(),
+            paths=paths,
+            settings=settings,
+            restorer=None,
+            diagnostics=diagnostics,
+        )
+    diagnostics.emit_failure()
+
+    events = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    assert events[-1] == {
+        "event": "cloud_refresh.failure",
+        "stage": "approved_source_collection",
+        "code": "refresh_failed",
+    }
+
+
 def test_scheduled_collects_with_verified_parent_and_stages_validated_child(
     tmp_path, files, setup, monkeypatch
 ):
@@ -479,3 +584,109 @@ def test_pages_paths_cannot_escape_generation(tmp_path, files):
     with pytest.raises(cloud.PublicationError):
         reader.restore(malformed, tmp_path / "restore")
     assert not (tmp_path / "outside.json").exists()
+
+
+def test_main_settings_initialization_failure_emits_startup_diagnostic(monkeypatch, capsys):
+    def fail_settings():
+        raise ValueError("settings-secret")
+
+    monkeypatch.setattr(cloud, "Settings", fail_settings)
+
+    result = cloud.main(
+        [
+            "--mode",
+            "code-only",
+            "--app-revision",
+            REVISION,
+            "--site-url",
+            "https://example.test",
+        ]
+    )
+
+    assert result == 1
+    output = capsys.readouterr()
+    events = [json.loads(line) for line in output.err.splitlines() if line.startswith("{")]
+    assert events == [
+        {"event": "cloud_refresh.phase", "stage": "startup"},
+        {
+            "event": "cloud_refresh.failure",
+            "stage": "startup",
+            "code": "refresh_failed",
+        },
+    ]
+    assert "settings-secret" not in output.err
+    assert "Cloud candidate preparation failed; no publication was performed" in output.err
+
+
+def test_main_checkpoint_initialization_failure_emits_startup_diagnostic(monkeypatch, capsys):
+    settings = Settings(
+        _env_file=None,
+        cloud_state_repo="owner/repo",
+        cloud_state_token="test-token",
+    )
+    monkeypatch.setattr(cloud, "Settings", lambda: settings)
+
+    def fail_checkpoint(*_args, **_kwargs):
+        raise ValueError("checkpoint-secret")
+
+    monkeypatch.setattr(cloud, "GitHubCheckpoint", fail_checkpoint)
+
+    result = cloud.main(
+        [
+            "--mode",
+            "code-only",
+            "--app-revision",
+            REVISION,
+            "--site-url",
+            "https://example.test",
+        ]
+    )
+
+    assert result == 1
+    output = capsys.readouterr()
+    events = [json.loads(line) for line in output.err.splitlines() if line.startswith("{")]
+    assert events == [
+        {"event": "cloud_refresh.phase", "stage": "startup"},
+        {
+            "event": "cloud_refresh.failure",
+            "stage": "startup",
+            "code": "refresh_failed",
+        },
+    ]
+    assert "checkpoint-secret" not in output.err
+
+
+@pytest.mark.parametrize(
+    ("repo", "token"), [(None, None), ("owner/repo", None), (None, "test-token")]
+)
+def test_main_missing_cloud_config_keeps_argparse_exit(repo, token, monkeypatch, capsys):
+    monkeypatch.setattr(
+        cloud,
+        "Settings",
+        lambda: Settings(_env_file=None, cloud_state_repo=repo, cloud_state_token=token),
+    )
+
+    with pytest.raises(SystemExit) as error:
+        cloud.main(
+            [
+                "--mode",
+                "code-only",
+                "--app-revision",
+                REVISION,
+                "--site-url",
+                "https://example.test",
+            ]
+        )
+
+    assert error.value.code == 2
+    output = capsys.readouterr().err
+    assert "error: Cloud state repository and token must be configured" in output
+    events = [json.loads(line) for line in output.splitlines() if line.startswith("{")]
+    assert events == [
+        {"event": "cloud_refresh.phase", "stage": "startup"},
+        {
+            "event": "cloud_refresh.failure",
+            "stage": "startup",
+            "code": "refresh_failed",
+        },
+    ]
