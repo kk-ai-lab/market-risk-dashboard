@@ -12,7 +12,7 @@ import os
 import tempfile
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Iterable, Literal, Protocol
 
 from pydantic import (
     AwareDatetime,
@@ -84,7 +84,7 @@ class BlsSnapshot(BaseModel):
 
 
 class BatchProvider(Protocol):
-    def get_series_batch(self) -> dict[str, list[dict]]: ...
+    def get_series_batch(self, series_ids: list[str] | None = None) -> dict[str, list[dict]]: ...
 
 
 class SnapshotError(Exception):
@@ -95,6 +95,16 @@ def empty_bls_snapshot() -> BlsSnapshot:
     return BlsSnapshot(version=1, attempted_on=None, attempt_status="never", series={
         key: SeriesSnapshot(rows=[], fetched_at=None, status="missing") for key in SERIES
     })
+
+
+def scope_bls_snapshot(state: BlsSnapshot, series_ids: Iterable[str]) -> BlsSnapshot:
+    selected = set(series_ids)
+    if not selected.issubset(SERIES):
+        raise SnapshotError("BLS selection contains an unsupported dashboard series")
+    scoped = state.model_copy(deep=True)
+    for series_id in set(SERIES) - selected:
+        scoped.series[series_id] = SeriesSnapshot(rows=[], fetched_at=None, status="missing")
+    return scoped
 
 
 def _load(path: Path) -> BlsSnapshot:
@@ -176,7 +186,10 @@ def complete_bls_attempt(state: BlsSnapshot, batch: dict[str, list[dict]], now: 
     return state
 
 
-def refresh_bls_snapshot(path: Path, provider: BatchProvider, *, now: datetime) -> BlsSnapshot:
+def refresh_bls_snapshot(
+    path: Path, provider: BatchProvider, *, now: datetime,
+    series_ids: Iterable[str] | None = None,
+) -> BlsSnapshot:
     """Attempt at most once per UTC day while all callers share this ledger and lock."""
     path.parent.mkdir(parents=True, exist_ok=True)
     lock_path = path.with_name(path.name + ".lock")
@@ -184,16 +197,29 @@ def refresh_bls_snapshot(path: Path, provider: BatchProvider, *, now: datetime) 
         fcntl.flock(lock, fcntl.LOCK_EX)
         state = _load(path)
         now = validate_snapshot_clock(state, now)
-        if state.attempted_on == now.date():
+        selected = set(SERIES if series_ids is None else series_ids)
+        if not selected.issubset(SERIES):
+            raise SnapshotError("BLS selection contains an unsupported dashboard series")
+        scoped = scope_bls_snapshot(state, selected)
+        if scoped != state:
+            state = scoped
+            _save(path, state)
+        if not selected or state.attempted_on == now.date():
             return state
         state = begin_bls_attempt(state, now)
         _save(path, state)
         try:
-            batch = provider.get_series_batch()
+            batch = (
+                provider.get_series_batch()
+                if selected == set(SERIES)
+                else provider.get_series_batch(sorted(selected))
+            )
         except ProviderError:
             state.attempt_status = "failed"
             _save(path, state)
             return state
+        if set(batch) - selected:
+            raise SnapshotError("BLS provider returned an unrequested dashboard series")
         state = complete_bls_attempt(state, batch, now)
         _save(path, state)
         return state

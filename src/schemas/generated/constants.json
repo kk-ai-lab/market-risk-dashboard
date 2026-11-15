@@ -26,7 +26,8 @@
     "not_collected_this_run",
     "source_policy_excluded",
     "interval_exceeded",
-    "input_dataset_unhealthy"
+    "input_dataset_unhealthy",
+    "news_translation_incomplete"
   ],
   "coinmetrics_expected_interval_minutes": 15,
   "risk_level_thresholds": {

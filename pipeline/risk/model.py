@@ -19,6 +19,7 @@ from math import isfinite
 from typing import Any
 
 from pipeline.degrade import degrade_factor
+from pipeline.macro_history import treasury_window_rows
 from pipeline.metadata import oldest_source_timestamp
 from pipeline.risk import confidence as conf_mod
 from pipeline.risk import regime as regime_mod
@@ -35,7 +36,6 @@ from pipeline.schemas import (
     RiskModelResult,
 )
 from pipeline.settings import Settings
-from pipeline.macro_history import treasury_window_rows
 from pipeline.utils import now_utc
 from pipeline.validation.freshness import aggregate_freshness
 
@@ -561,7 +561,6 @@ class RiskModel:
 
 
 def _dim_trend(score: float, prev_score: float | None) -> str:
-    """Compare with the previous day's score; report unknown without a baseline."""
     if prev_score is None:
         return "unknown"
     if abs(score - prev_score) < 0.01:
@@ -570,7 +569,6 @@ def _dim_trend(score: float, prev_score: float | None) -> str:
 
 
 def _history_trends(total_score: float, rows: Any, as_of_date: str | None = None) -> tuple[float | None, float | None]:
-    """Compare with observations near seven and thirty calendar days ago."""
     if not rows or not isinstance(rows, list):
         return None, None
     observations: list[tuple[date, float]] = []

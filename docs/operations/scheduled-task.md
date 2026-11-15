@@ -1,13 +1,14 @@
-# Local Scheduled Task Operations Manual
+# Legacy Local Pipeline Runbook
 
-> **Legacy runbook, updated 2026-11-15:** this describes local collection, not the planned
-> 15-minute cloud publisher. The dashboard no longer consumes AI briefs. `--analysis-only` is
-> retained only for explicit legacy artifact handling; it is not part of new public data runs.
-> The GitHub cloud publisher remains unpublished; see
-> `docs/operations/cloud-refresh-plan.md` for source and rollout gates.
+> **Legacy runbook, updated 2026-11-15:** this describes local collection. It is not the
+> production 15-minute publisher. AI analysis and the `--analysis-only` command have been
+> removed. GitHub Pages publishing is implemented in `deploy-pages.yml`; the schedule only
+> starts after that workflow reaches the default branch and cloud state is provisioned. See
+> `docs/operations/cloud-refresh-plan.md` for rollout status.
 
 **Applies to:** scheduled local tasks of the data pipeline (Windows Task Scheduler / macOS launchd / cron).
-**Goal:** automatically collect → compute → validate → push 2-3 times per day to keep `public/data` fresh and drive GitHub Pages auto-deployment.
+**Goal:** retain the former local collection procedure for reference. New production updates
+use the cloud publisher and immutable Pages generations.
 
 ---
 
@@ -23,7 +24,7 @@ Scheduled on US equity trading days (ET), 2-3 times per day; on non-trading days
 
 **ET ↔ local time mapping:** convert to your local timezone in `.env` or the task schedule (example: ET 07:30 = UTC 11:30 (DST) / 12:30 (standard time), Beijing 19:30/20:30 same day).
 
-**WorkBuddy automation mapping (currently the actual scheduler):** the four MRD automations are scheduled in machine-local time (Dublin, GMT+1) — data refresh `--full` at 11:30 + 20:30 Dublin (≈ 06:30 / 15:30 ET), overnight `--news-only` at 04:30 Dublin (≈ 23:30 ET), and the AI briefs at 12:30 + 21:30 Dublin (≈ 07:30 / 16:30 ET) 1h after each refresh. The ET windows hold year-round (modulo US/EU DST transition weeks). If you switch to a local scheduler (cron/launchd), prefer ET-anchored times.
+**Historical WorkBuddy schedule:** old refresh tasks were recorded at 11:30, 20:30, and 04:30 Dublin time. This runbook does not manage or cancel external WorkBuddy schedules. Do not schedule AI analysis; that command was removed.
 
 > Note: expected market/news update frequency is 2-3 times/day (architecture §8.5); FRED macro data follows a T+1 release cadence; `freshness` determination is described in `pipeline/validation/freshness.py`.
 
@@ -40,7 +41,6 @@ python -m pipeline.run --market-only     # market data + crypto + A-shares
 python -m pipeline.run --macro-only      # FRED + FedWatch
 python -m pipeline.run --news-only       # RSS news
 python -m pipeline.run --fact-layer      # rebuild fact layer only (no collection)
-python -m pipeline.run --analysis-only   # validate AI briefs + update analysis freshness + merge news translations
 
 # Other
 python -m pipeline.run --dry-run         # dry run, no writes

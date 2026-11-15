@@ -49,6 +49,7 @@ from pydantic import BaseModel, Field, RootModel, field_validator
 from pipeline.degrade import degrade_factor as resolve_degrade_factor
 from pipeline.schemas.envelope import SCHEMA_VERSION
 from pipeline.schemas.news import _validate_news_url
+from pipeline.config.models import ApprovedCollectionPlan
 from pipeline.settings import Settings
 from pipeline.utils import now_utc
 
@@ -592,10 +593,10 @@ class CircuitBreaker:
 class ProviderRegistry:
     """Maintains the "domain → ordered Provider list" and the last-good cache (architecture §1.4)."""
 
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(self, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None) -> None:
         self.settings = settings or Settings()
-        self.public_source_policy = (
-            self.settings.load_public_source_policy()
+        self.collection_plan = collection_plan or (
+            self.settings.load_public_source_policy().collection_plan()
             if self.settings.approved_sources_only else None
         )
         # #102: retries/backoff/jitter and the cache directory come from the VALIDATED
@@ -637,8 +638,8 @@ class ProviderRegistry:
 
     def register(self, domain: str, provider: BaseProvider) -> None:
         if (
-            self.public_source_policy is not None
-            and not self.public_source_policy.allows_provider(domain, provider.name)
+            self.collection_plan is not None
+            and not self.collection_plan.allows_provider(domain, provider.name)
         ):
             raise ValueError(
                 f"public source policy does not allow {provider.name!r} in {domain!r}"
@@ -662,8 +663,8 @@ class ProviderRegistry:
         if domain == "crypto" and (
             self.settings.coinmetrics_enabled
             or (
-                self.public_source_policy is not None
-                and self.public_source_policy.allows_provider(domain, "coinmetrics")
+                self.collection_plan is not None
+                and self.collection_plan.allows_provider(domain, "coinmetrics")
             )
         ):
             return self.cache_dir / f"{domain}__coinmetrics__{key}.json"
@@ -689,8 +690,8 @@ class ProviderRegistry:
         from pipeline.degrade import cache_max_age_hours
 
         allowed_cache_providers = (
-            self.public_source_policy.providers_for_domain(domain)
-            if self.public_source_policy is not None else None
+            self.collection_plan.providers_for_domain(domain)
+            if self.collection_plan is not None else None
         )
         if allowed_cache_providers is not None and not allowed_cache_providers:
             return None
@@ -742,18 +743,31 @@ class ProviderRegistry:
         if domain == "crypto" and (
             self.settings.coinmetrics_enabled
             or (
-                self.public_source_policy is not None
-                and self.public_source_policy.allows_provider(domain, "coinmetrics")
+                self.collection_plan is not None
+                and self.collection_plan.allows_provider(domain, "coinmetrics")
             )
         ):
             if provider != "coinmetrics" or cached.get("observation_time_basis") != "provider":
                 return None
             rows = data.get("assets") if isinstance(data, dict) else None
-            if not isinstance(rows, list) or len(rows) != 2:
+            grant = (
+                self.collection_plan.grant_for_dataset("crypto")
+                if self.collection_plan is not None else None
+            )
+            expected_symbols = (
+                set(grant.market_symbols)
+                if grant is not None else {"BTC", "ETH"}
+            )
+            if (
+                not isinstance(rows, list)
+                or len(rows) != len(expected_symbols)
+                or any(not isinstance(row, dict) or not isinstance(row.get("symbol"), str) for row in rows)
+            ):
                 return None
             if any(not isinstance(row, dict) or row.get("source") != "coinmetrics" for row in rows):
                 return None
-            if {row.get("symbol") for row in rows} != {"BTC", "ETH"}:
+            symbols = [row["symbol"] for row in rows]
+            if len(symbols) != len(set(symbols)) or set(symbols) != expected_symbols:
                 return None
             for row in rows:
                 try:
@@ -784,11 +798,24 @@ class ProviderRegistry:
 
     def _save_last_good(self, domain: str, key: str, method: str, payload: Any, provider: str) -> None:
         if (
-            self.public_source_policy is not None
-            and not self.public_source_policy.allows_provider(domain, provider)
+            self.collection_plan is not None
+            and not self.collection_plan.allows_provider(domain, provider)
         ):
             return
         data = payload.model_dump(mode="json") if isinstance(payload, BaseModel) else payload
+        if self.collection_plan is not None and domain == "crypto" and method == "get_crypto_market":
+            grant = self.collection_plan.grant_for_dataset("crypto")
+            rows = data.get("assets") if isinstance(data, dict) else None
+            symbols = [row.get("symbol") for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+            if (
+                grant is None
+                or not isinstance(rows, list)
+                or any(not isinstance(row, dict) for row in rows)
+                or any(not isinstance(symbol, str) for symbol in symbols)
+                or len(symbols) != len(set(symbols))
+                or set(symbols) != set(grant.market_symbols)
+            ):
+                return
         try:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             self._cache_path(domain, key).write_text(

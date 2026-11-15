@@ -122,9 +122,11 @@ def test_all_evidence_refs_valid(analysis_pair: tuple[Path, Path, Path]) -> None
 def test_fact_generation_id_is_stable_when_publication_time_changes() -> None:
     first = make_facts(generated_at="2026-08-03T10:00:00Z")
     second = make_facts(generated_at="2026-08-03T11:00:00Z")
+    first_model = FactLayer.model_validate(first)
+    second_model = FactLayer.model_validate(second)
 
-    assert fact_generation_id(first) == fact_generation_id(second)
-    assert first["generation_id"] == fact_generation_id(first)
+    assert fact_generation_id(first_model) == fact_generation_id(second_model)
+    assert first["generation_id"] == fact_generation_id(first_model)
 
 
 def test_fact_generation_id_changes_when_observed_content_changes() -> None:

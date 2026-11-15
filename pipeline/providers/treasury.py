@@ -1,4 +1,4 @@
-"""Standalone Treasury CMT adapter; deliberately absent from production registration.
+"""Official Treasury CMT adapter.
 
 Source authorization: the exact Daily Treasury Yield Curve Rates dataset is CC0:
 https://catalog.data.gov/dataset/interest-rate-statistics-daily-treasury-yield-curve-rates
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import math
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Iterable
 from xml.etree import ElementTree as ET
 from xml.parsers import expat
 
@@ -96,7 +96,7 @@ class TreasuryProvider(BaseProvider):
         except ProviderError as exc:
             return ProviderHealth(provider=self.name, ok=False, error=str(exc))
 
-    def get_yield_curve(self, *, year: int | None = None) -> dict[str, Any]:
+    def get_yield_curve(self, *, year: int | None = None, series_ids: Iterable[str] | None = None) -> dict[str, Any]:
         """Fetch one calendar year; retain provenance and retrieval time separately.
 
         Missing/nonfinite yield fields are omitted individually, without filling dates.
@@ -106,19 +106,21 @@ class TreasuryProvider(BaseProvider):
         year. Errors or nonempty feeds with unusable data never trigger fallback.
         """
         now = datetime.now(UTC)
+        selected = list(dict.fromkeys(SERIES if series_ids is None else series_ids))
+        if not selected or any(series_id not in SERIES for series_id in selected):
+            raise ProviderError("Treasury: unsupported or empty series selection")
         default_year = year is None
         year = now.year if default_year else year
         if isinstance(year, bool) or not isinstance(year, int) or not 1990 <= year <= now.year:
             raise ProviderError("Treasury: invalid year")
-        result = self._get_year(year, now)
+        result = self._get_year(year, now, selected)
         if result is None and default_year and year > 1990:
-            result = self._get_year(year - 1, now)
+            result = self._get_year(year - 1, now, selected)
         if result is None:
             raise ProviderError("Treasury: requested maturity missing or empty")
         return result
 
-    def _get_year(self, year: int, now: datetime) -> dict[str, Any] | None:
-        """None means a valid Atom feed with no entries, never a parse failure."""
+    def _get_year(self, year: int, now: datetime, series_ids: list[str]) -> dict[str, Any] | None:
         params = {"data": "daily_treasury_yield_curve", "field_tdr_date_value": str(year)}
         try:
             with self._client.stream("GET", TREASURY_XML, params=params, follow_redirects=False) as response:
@@ -142,7 +144,7 @@ class TreasuryProvider(BaseProvider):
             if not _trusted_empty_feed(root):
                 raise ProviderError("Treasury: untrusted empty feed")
             return None
-        output: dict[str, list[dict[str, Any]]] = {key: [] for key in SERIES}
+        output: dict[str, list[dict[str, Any]]] = {key: [] for key in series_ids}
         seen: set[str] = set()
         for entry in entries:
             properties = entry.find(ATOM + "content/" + META + "properties")
@@ -163,7 +165,8 @@ class TreasuryProvider(BaseProvider):
             if key in seen:
                 raise ProviderError("Treasury: duplicate observation date")
             seen.add(key)
-            for series_id, field in SERIES.items():
+            for series_id in series_ids:
+                field = SERIES[series_id]
                 node = fields.get(DATA + field)
                 if node is None or node.get(META + "null") == "true":
                     continue

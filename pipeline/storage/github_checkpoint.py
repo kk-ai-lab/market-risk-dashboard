@@ -12,6 +12,7 @@ import binascii
 import hashlib
 import re
 from dataclasses import dataclass
+from typing import Protocol
 from urllib.parse import quote, unquote
 
 import httpx
@@ -35,6 +36,11 @@ class CheckpointSnapshot:
     tree_sha: str
     path: str
     content: bytes
+
+
+class Checkpoint(Protocol):
+    def read(self, path: str) -> CheckpointSnapshot: ...
+    def write(self, snapshot: CheckpointSnapshot, content: bytes, message: str) -> str: ...
 
 
 def _sha(value: object) -> str:

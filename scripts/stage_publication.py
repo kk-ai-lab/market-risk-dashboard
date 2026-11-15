@@ -18,19 +18,18 @@ from pydantic import (
     model_validator,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-from pipeline.collectors.macro import SERIES_GROUPS  # noqa: E402
-from pipeline.publication import (  # noqa: E402
+from pipeline.collectors.macro import SERIES_GROUPS
+from pipeline.publication import (
     PublicationError,
     load_candidate_files,
     publish_snapshot,
 )
-from pipeline.schemas.envelope import UTCDateTime  # noqa: E402
-from pipeline.schemas.metadata import FreshnessDocument, SourcesDocument  # noqa: E402
-from pipeline.schemas.risk import MarketRegime, RiskEvidenceState, RiskLevel  # noqa: E402
-from pipeline.validation.ci_checks import run_all  # noqa: E402
+from pipeline.schemas.envelope import UTCDateTime
+from pipeline.schemas.metadata import FreshnessDocument, SourcesDocument
+from pipeline.schemas.risk import MarketRegime, RiskEvidenceState, RiskLevel
+from pipeline.validation.ci_checks import run_all
+
+ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_CLIENT_FILES = frozenset({
     *(f"history/risk/{slice_name}.json" for slice_name in ("daily", "30d", "90d")),

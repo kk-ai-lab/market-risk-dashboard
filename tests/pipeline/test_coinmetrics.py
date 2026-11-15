@@ -39,6 +39,18 @@ def test_bulk_reference_rates(provider):
     assert provider.requires_api_key is False
 
 
+def test_selected_symbol_request_contains_only_the_approved_asset(tmp_path):
+    instance = CoinMetricsProvider(Settings(_env_file=None, artifacts_dir=tmp_path), symbols={"ETH"})
+    try:
+        with respx.mock:
+            route = respx.get(CM_URL).respond(200, json={"data": [rows()[1]]})
+            result = instance.get_crypto_market()
+        assert dict(route.calls[0].request.url.params)["assets"] == "eth"
+        assert [asset["symbol"] for asset in result["assets"]] == ["ETH"]
+    finally:
+        instance._client.close()
+
+
 @pytest.mark.parametrize("payload,match", [
     ({}, "envelope"), ({"data": []}, "no data"), ({"data": rows()[:1]}, "partial"),
     ({"data": [rows()[0], rows()[0]]}, "duplicate"),

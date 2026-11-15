@@ -21,7 +21,7 @@ class Provider:
         self.days = [2, 3]
         self.lock = Lock()
 
-    def get_yield_curve(self, *, year):
+    def get_yield_curve(self, *, year, series_ids=None):
         with self.lock:
             self.calls.append(year)
         if year in self.failed:
@@ -30,7 +30,7 @@ class Provider:
                 "source": f"{TREASURY_XML}?data=daily_treasury_yield_curve&field_tdr_date_value={year}",
                 "checked_at": self.now.isoformat(), "date_semantics": "observation_date",
                 "series": {key: [{"date": f"{year}-01-{day:02}", "value": self.value} for day in self.days]
-                           for key in ("DGS2", "DGS10")}}
+                           for key in (series_ids or ("DGS2", "DGS10"))}}
 
 
 def test_cold_start_six_calendar_years_and_original_time(tmp_path):
@@ -50,6 +50,81 @@ def test_cold_start_six_calendar_years_and_original_time(tmp_path):
     refreshed = refresh_treasury_snapshot(tmp_path, provider, now=provider.now)
     assert not refreshed.degraded
     assert provider.calls == list(range(2021, 2027)) + [2026]
+
+
+def test_same_day_policy_narrowing_scrubs_local_years_without_request(tmp_path):
+    provider = Provider()
+    refresh_treasury_snapshot(tmp_path, provider, now=NOW)
+    provider.calls.clear()
+
+    state = refresh_treasury_snapshot(tmp_path, provider, now=NOW, series_ids=["DGS10"])
+
+    assert provider.calls == []
+    assert set(state.years[2026].series) == {"DGS10"}
+    assert set(json.loads((tmp_path / "2026.json").read_text())["data"]["series"]) == {"DGS10"}
+
+
+def test_empty_treasury_selection_scrubs_local_state_without_request(tmp_path):
+    provider = Provider()
+    refresh_treasury_snapshot(tmp_path, provider, now=NOW)
+    previous_ledger = json.loads((tmp_path / "manifest.json").read_text())
+    provider.calls.clear()
+
+    state = refresh_treasury_snapshot(tmp_path, provider, now=NOW, series_ids=[])
+
+    assert provider.calls == []
+    assert state.years == {}
+    assert not list(tmp_path.glob("[0-9][0-9][0-9][0-9].json"))
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    assert all(
+        not item["has_data"]
+        and item["status"] == "excluded"
+        and item["attempted_at"] == previous_ledger["years"][year]["attempted_at"]
+        for year, item in manifest["years"].items()
+    )
+
+
+def test_empty_selection_reauthorization_preserves_request_cadence(tmp_path):
+    provider = Provider()
+    refresh_treasury_snapshot(tmp_path, provider, now=NOW)
+    provider.calls.clear()
+    refresh_treasury_snapshot(tmp_path, provider, now=NOW, series_ids=[])
+
+    state = refresh_treasury_snapshot(tmp_path, provider, now=NOW, series_ids=["DGS10"])
+
+    assert provider.calls == []
+    assert state.degraded and state.years == {}
+    assert set(state.errors) == set(range(2021, 2027))
+
+
+def test_treasury_request_persists_only_the_approved_maturity(tmp_path):
+    provider = Provider()
+    state = refresh_treasury_snapshot(tmp_path, provider, now=NOW, series_ids=["DGS10"])
+
+    assert set(state.years[2026].series) == {"DGS10"}
+    assert all(set(year.series) == {"DGS10"} for year in state.years.values())
+
+
+def test_expanding_treasury_selection_waits_for_cadence_then_backfills(tmp_path):
+    provider = Provider()
+    refresh_treasury_snapshot(tmp_path, provider, now=NOW, series_ids=["DGS10"])
+    provider.calls.clear()
+
+    state = refresh_treasury_snapshot(
+        tmp_path, provider, now=NOW + timedelta(seconds=1), series_ids=["DGS2", "DGS10"]
+    )
+    assert provider.calls == []
+    assert state.degraded
+    assert all(set(year.series) == {"DGS10"} for year in state.years.values())
+
+    provider.now = NOW + timedelta(days=1)
+    state = refresh_treasury_snapshot(
+        tmp_path, provider, now=provider.now, series_ids=["DGS2", "DGS10"]
+    )
+
+    assert not state.degraded
+    assert provider.calls == list(range(2021, 2027))
+    assert all(set(year.series) == {"DGS2", "DGS10"} for year in state.years.values())
 
 
 def test_partial_bootstrap_failure_and_daily_history_retry(tmp_path):
@@ -270,3 +345,12 @@ def test_crash_before_atomic_year_commit_keeps_old_rows_and_pending(tmp_path, mo
     assert recovered.degraded and "pending" in recovered.errors[2026]
     assert recovered.years[2026] == old.years[2026]
     assert len(provider.calls) == calls
+
+
+@pytest.mark.parametrize("minutes", [0, -1, 1.5, True, "15", 10**30])
+def test_refresh_interval_must_be_positive_integer_before_network(tmp_path, minutes):
+    provider = Provider()
+    with pytest.raises(ValueError):
+        refresh_treasury_snapshot(tmp_path, provider, now=NOW, refresh_interval_minutes=minutes)
+    assert provider.calls == []
+    assert not (tmp_path / "manifest.json").exists()

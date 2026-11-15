@@ -8,6 +8,7 @@ from pipeline.providers.base import ProviderError
 from pipeline.providers.bls import SERIES
 from pipeline.storage.bls_snapshot import SnapshotError
 from pipeline.storage.cloud_bls import (
+    _decode,
     CloudBlsRefreshError,
     initial_cloud_bls_ledger,
     refresh_cloud_bls_snapshot,
@@ -71,6 +72,32 @@ def test_once_per_utc_day_and_next_day_refresh():
     assert refresh(store, provider) == state
     refresh(store, provider, NOW + timedelta(days=1))
     assert provider.calls == 2
+
+
+def test_same_day_narrowing_confirms_checkpoint_scrub_before_noop():
+    store = Store()
+    refresh(store, Provider())
+    provider = Provider()
+
+    state = refresh(store, provider, NOW + timedelta(hours=2), series_ids=["UNRATE"])
+
+    persisted = _decode(store.content).snapshot
+    assert provider.calls == 0
+    assert persisted.series["UNRATE"].status == "fresh"
+    assert all(persisted.series[key].status == "missing" for key in set(SERIES) - {"UNRATE"})
+    assert state == persisted
+
+
+def test_empty_bls_selection_scrubs_checkpoint_without_request():
+    store = Store()
+    refresh(store, Provider())
+    provider = Provider()
+
+    state = refresh(store, provider, series_ids=[])
+
+    assert provider.calls == 0
+    assert all(series.status == "missing" for series in state.series.values())
+    assert all(series.status == "missing" for series in _decode(store.content).snapshot.series.values())
 
 
 def test_failure_keeps_old_values_and_spends_day():

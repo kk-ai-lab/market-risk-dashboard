@@ -64,3 +64,20 @@ def test_dashboard_cross_asset_keeps_the_selected_quote_source() -> None:
 
     assert payload.cross_asset[0].source == "yahoo"
     assert payload.cross_asset[1].source == "coinmetrics"
+
+
+def test_run_summary_withholds_score_when_evidence_is_insufficient(capsys) -> None:
+    from pipeline.run import _print_summary
+
+    risk = SimpleNamespace(payload=SimpleNamespace(
+        total_score=70.25,
+        evidence_state="insufficient_evidence",
+        evidence_coverage=0.1,
+        score_lower_bound=7.0,
+        score_upper_bound=97.0,
+    ))
+    _print_summary("full", {"risk": risk, "degraded": []}, 1.0)
+
+    output = capsys.readouterr().out
+    assert "withheld (insufficient evidence, 10% coverage, interval 7.0–97.0)" in output
+    assert "70.25" not in output

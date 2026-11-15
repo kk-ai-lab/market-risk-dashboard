@@ -15,14 +15,21 @@ authoritative shape for the same file.
 from __future__ import annotations
 
 import ipaddress
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TypeVar
 from urllib.parse import urlparse
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
-
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 from pipeline.degrade import DEFAULT_CACHE_MAX_AGE_HOURS, DEFAULT_DEGRADE_FACTOR
+
+PUBLIC_MACRO_TARGETS = {
+    "bls": frozenset({"CPIAUCSL", "CPILFESL", "PAYEMS", "UNRATE"}),
+    "treasury": frozenset({"DGS2", "DGS10"}),
+}
+PUBLIC_MARKET_TARGETS = {"coinmetrics": frozenset({"BTC", "ETH"})}
+PUBLIC_DATASETS = frozenset({"calendar", "commodities", "crypto", "equities", "macro", "news", "sectors"})
 
 
 #: Everything config-related that #102 can raise. Loaders use it so a bad config fails the
@@ -110,6 +117,66 @@ class PublicDataSource(BaseModel):
     permitted_use: Literal["public-domain", "noncommercial"]
     cadence_minutes: int = Field(ge=1)
 
+    @field_validator("macro_series", "market_symbols", mode="before")
+    @classmethod
+    def _canonical_targets(cls, values: object) -> object:
+        if not isinstance(values, list):
+            return values
+        return [value.strip().upper() if isinstance(value, str) else value for value in values]
+
+
+@dataclass(frozen=True)
+class SourceGrant:
+    source_id: str
+    provider: str
+    registry_domain: str | None
+    datasets: frozenset[str]
+    macro_series: frozenset[str]
+    market_symbols: frozenset[str]
+    license_id: str
+    license_url: str
+    attribution: str
+    permitted_use: str
+    cadence_minutes: int
+
+
+@dataclass(frozen=True)
+class ApprovedCollectionPlan:
+    grants: tuple[SourceGrant, ...]
+
+    def grant_for_dataset(self, dataset: str) -> SourceGrant | None:
+        matches = tuple(grant for grant in self.grants if dataset in grant.datasets)
+        if len(matches) > 1:
+            raise ConfigError(f"public_sources.yaml: multiple grants for dataset {dataset!r}")
+        return matches[0] if matches else None
+
+    def grant_for(self, provider: str, dataset: str) -> SourceGrant | None:
+        matches = tuple(
+            grant for grant in self.grants
+            if grant.provider == provider and dataset in grant.datasets
+        )
+        if len(matches) > 1:
+            raise ConfigError(f"public_sources.yaml: multiple grants for {provider!r}/{dataset!r}")
+        return matches[0] if matches else None
+
+    def macro_grant_for(self, series_id: str) -> SourceGrant | None:
+        return next((grant for grant in self.grants if series_id in grant.macro_series), None)
+
+    def allows_dataset(self, dataset: str) -> bool:
+        return any(dataset in grant.datasets for grant in self.grants)
+
+    def allows_provider(self, domain: str, provider: str) -> bool:
+        return any(
+            grant.registry_domain == domain and grant.provider == provider
+            for grant in self.grants
+        )
+
+    def providers_for_domain(self, domain: str) -> tuple[str, ...]:
+        return tuple(
+            grant.provider for grant in self.grants
+            if grant.registry_domain == domain
+        )
+
 
 class PublicSourcePolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -117,13 +184,72 @@ class PublicSourcePolicy(BaseModel):
     schema_version: str = Field(min_length=1)
     sources: dict[str, PublicDataSource]
 
+    def collection_plan(self) -> ApprovedCollectionPlan:
+        return ApprovedCollectionPlan(tuple(
+            SourceGrant(
+                source_id=source_id,
+                provider=source.provider,
+                registry_domain=source.registry_domain,
+                datasets=frozenset(source.datasets),
+                macro_series=frozenset(source.macro_series),
+                market_symbols=frozenset(source.market_symbols),
+                license_id=source.license_id,
+                license_url=source.license_url,
+                attribution=source.attribution,
+                permitted_use=source.permitted_use,
+                cadence_minutes=source.cadence_minutes,
+            )
+            for source_id, source in self.sources.items()
+        ))
+
     @model_validator(mode="after")
     def _source_targets_are_unambiguous(self) -> PublicSourcePolicy:
         series: set[str] = set()
         symbols: set[str] = set()
+        provider_datasets: set[tuple[str, str]] = set()
+        provider_domains: dict[str, str | None] = {}
+        dataset_owners: dict[str, str] = {}
         for source_id, source in self.sources.items():
             if not source_id or not source.datasets:
                 raise ValueError("each public source needs an id and at least one dataset")
+            unknown_datasets = set(source.datasets) - PUBLIC_DATASETS
+            if unknown_datasets:
+                raise ValueError(f"{source_id} has unsupported datasets: {sorted(unknown_datasets)}")
+            previous_domain = provider_domains.setdefault(source.provider, source.registry_domain)
+            if previous_domain != source.registry_domain:
+                raise ValueError(f"{source.provider} has conflicting registry domains")
+            repeated_datasets = provider_datasets.intersection(
+                (source.provider, dataset) for dataset in source.datasets
+            )
+            if repeated_datasets:
+                raise ValueError(f"{source.provider} has multiple grants for {sorted(repeated_datasets)}")
+            provider_datasets.update((source.provider, dataset) for dataset in source.datasets)
+            for dataset in source.datasets:
+                if dataset == "macro":
+                    continue
+                owner = dataset_owners.setdefault(dataset, source_id)
+                if owner != source_id:
+                    raise ValueError(f"{dataset} has multiple approved sources")
+            if len(source.macro_series) != len(set(source.macro_series)):
+                raise ValueError(f"{source_id} repeats a macro series")
+            if len(source.market_symbols) != len(set(source.market_symbols)):
+                raise ValueError(f"{source_id} repeats a market symbol")
+            if "macro" in source.datasets and not source.macro_series:
+                raise ValueError(f"{source_id} authorizes macro without macro_series")
+            if source.macro_series and "macro" not in source.datasets:
+                raise ValueError(f"{source_id} configures macro_series outside the macro dataset")
+            supported_series = PUBLIC_MACRO_TARGETS.get(source.provider, frozenset())
+            if not set(source.macro_series).issubset(supported_series):
+                raise ValueError(f"{source_id} has macro series unsupported by {source.provider}")
+            if source.provider in PUBLIC_MACRO_TARGETS and "macro" in source.datasets and not source.macro_series:
+                raise ValueError(f"{source_id} requires an explicit {source.provider} macro series list")
+            supported_symbols = PUBLIC_MARKET_TARGETS.get(source.provider, frozenset())
+            if not set(source.market_symbols).issubset(supported_symbols):
+                raise ValueError(f"{source_id} has market symbols unsupported by {source.provider}")
+            if source.market_symbols and "crypto" not in source.datasets:
+                raise ValueError(f"{source_id} configures market symbols outside the crypto dataset")
+            if "crypto" in source.datasets and (not supported_symbols or not source.market_symbols):
+                raise ValueError(f"{source_id} requires a supported crypto provider and explicit market symbols")
             if source.permitted_use == "noncommercial" and not source.attribution.strip():
                 raise ValueError(f"{source_id} requires attribution")
             repeated_series = series.intersection(source.macro_series)

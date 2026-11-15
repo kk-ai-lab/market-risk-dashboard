@@ -30,7 +30,8 @@
       "not_collected_this_run": "Not collected this run",
       "source_policy_excluded": "No approved source is configured for this dataset",
       "interval_exceeded": "Update interval exceeded",
-      "input_dataset_unhealthy": "An input dataset is unhealthy"
+      "input_dataset_unhealthy": "An input dataset is unhealthy",
+      "news_translation_incomplete": "News translation coverage is incomplete"
     }
   },
   "datasets": {

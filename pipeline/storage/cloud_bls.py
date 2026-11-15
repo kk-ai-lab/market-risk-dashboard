@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
-from typing import Literal, Protocol
+from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
@@ -18,13 +18,17 @@ from pipeline.storage.bls_snapshot import (
     begin_bls_attempt,
     complete_bls_attempt,
     empty_bls_snapshot,
+    scope_bls_snapshot,
     validate_snapshot_clock,
 )
+from pipeline.providers.bls import SERIES as BLS_SERIES
 from pipeline.storage.github_checkpoint import (
+    Checkpoint,
     CheckpointConflict,
     CheckpointError,
     CheckpointSnapshot,
 )
+from pipeline.storage.strict_json import load_json_rejecting_duplicates
 
 
 class CloudBlsRefreshError(CheckpointError):
@@ -35,11 +39,6 @@ class CloudBlsRefreshError(CheckpointError):
         self.snapshot = snapshot.model_copy(deep=True)
         for series in self.snapshot.series.values():
             series.status = "degraded" if series.rows else "missing"
-
-
-class Checkpoint(Protocol):
-    def read(self, path: str) -> CheckpointSnapshot: ...
-    def write(self, snapshot: CheckpointSnapshot, content: bytes, message: str) -> str: ...
 
 
 class CloudBlsLedger(BaseModel):
@@ -67,17 +66,8 @@ def _encode(ledger: CloudBlsLedger) -> bytes:
 
 
 def _decode(content: bytes) -> CloudBlsLedger:
-    def unique_pairs(pairs):
-        result = {}
-        for key, value in pairs:
-            if key in result:
-                raise ValueError("duplicate ledger field")
-            result[key] = value
-        return result
-
     try:
-        raw = json.loads(content, object_pairs_hook=unique_pairs,
-                         parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)))
+        raw = load_json_rejecting_duplicates(content)
         if not isinstance(raw, dict) or type(raw.get("version")) is not int or raw["version"] != 1:
             raise ValueError("invalid ledger version")
         snapshot = raw.get("snapshot")
@@ -91,7 +81,7 @@ def _decode(content: bytes) -> CloudBlsLedger:
 def refresh_cloud_bls_snapshot(
     checkpoint: Checkpoint, path: str, provider: BatchProvider, *,
     now: datetime | None = None, clock: Callable[[], datetime] | None = None,
-    persistence_attempts: int = 3,
+    persistence_attempts: int = 3, series_ids: Iterable[str] | None = None,
 ) -> BlsSnapshot:
     """Reserve before calling BLS; ambiguous reservations never authorize a call.
 
@@ -105,11 +95,19 @@ def refresh_cloud_bls_snapshot(
     original = checkpoint.read(path)
     ledger = _decode(original.content)
     started = validate_snapshot_clock(ledger.snapshot, started)
-    if ledger.snapshot.attempted_on == started.date():
+    selected = set(BLS_SERIES if series_ids is None else series_ids)
+    scoped = scope_bls_snapshot(ledger.snapshot, selected)
+    if scoped != ledger.snapshot:
+        ledger = CloudBlsLedger(version=ledger.version, nonce=ledger.nonce, snapshot=scoped)
+        checkpoint.write(original, _encode(ledger), "Remove unapproved BLS series")
+        original = checkpoint.read(path)
+        if _decode(original.content) != ledger:
+            raise CheckpointError("BLS policy scope could not be confirmed")
+    if not selected or ledger.snapshot.attempted_on == started.date():
         return ledger.snapshot
     try:
         return _refresh_reserved(checkpoint, path, provider, ledger, original, started,
-                                 current_time, persistence_attempts)
+                                 current_time, persistence_attempts, selected)
     except (CheckpointError, SnapshotError) as exc:
         raise CloudBlsRefreshError(ledger.snapshot) from exc
 
@@ -118,6 +116,7 @@ def _refresh_reserved(
     checkpoint: Checkpoint, path: str, provider: BatchProvider,
     ledger: CloudBlsLedger, original: CheckpointSnapshot, started: datetime,
     current_time: Callable[[], datetime], persistence_attempts: int,
+    series_ids: set[str],
 ) -> BlsSnapshot:
     reserved = CloudBlsLedger(version=1, nonce=uuid4().hex,
                               snapshot=begin_bls_attempt(ledger.snapshot, started))
@@ -130,7 +129,13 @@ def _refresh_reserved(
     if request_time.date() != started.date():
         return reserved.snapshot
     try:
-        batch = provider.get_series_batch()
+        batch = (
+            provider.get_series_batch()
+            if series_ids == set(BLS_SERIES)
+            else provider.get_series_batch(sorted(series_ids))
+        )
+        if set(batch) - series_ids:
+            raise SnapshotError("BLS provider returned an unrequested dashboard series")
     except ProviderError:
         completed = reserved.snapshot.model_copy(deep=True)
         completed.attempt_status = "failed"

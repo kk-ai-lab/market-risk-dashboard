@@ -237,8 +237,7 @@ def read_prev_risk(writer: StorageWriter, *, as_of_date: str | None = None) -> t
 #:
 #: Derived from the registry rather than listed by hand: a dataset added to the registry and
 #: forgotten here would be collected, written, and then quietly excluded from the health
-#: report. `analysis` and `news_translations` are `required=False` — the AI automations
-#: produce them out of band, so a collection run that lacks them is degraded, not failed.
+#: report. Retired AI artifacts remain optional historical contracts.
 FULL_RUN_DATASETS: tuple[str, ...] = tuple(
     spec.key for spec in dataset_registry.DATASETS if spec.required
 )
@@ -252,5 +251,4 @@ COMMAND_DATASETS: dict[str, tuple[str, ...]] = {
     "macro-only": ("macro",),
     "news-only": ("news",),
     "fact-layer": ("factlayer",),
-    "analysis-only": (),
 }

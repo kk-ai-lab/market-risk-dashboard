@@ -1,5 +1,3 @@
-"""Pure date-window operations for macro observation rows."""
-
 from __future__ import annotations
 
 from datetime import UTC, date, datetime

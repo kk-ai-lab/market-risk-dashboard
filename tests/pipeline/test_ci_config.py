@@ -254,18 +254,21 @@ def test_scheduled_runner_fails_closed_after_repository_errors() -> None:
 
 
 def test_deploy_pages_runs_full_data_and_secret_gates() -> None:
-    """Artifact upload must be downstream of Python validation and secret scanning."""
     workflow = _read_workflow("deploy-pages.yml")
 
     assert "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065" in workflow
-    assert "python -m pipeline.validation.ci_checks --data-dir public/data" in workflow
+    assert 'python -m pipeline.validation.ci_checks --data-dir "$GENERATION_DIR"' in workflow
     assert "scripts/scan-secrets.mjs --root ." in workflow
     assert "npm run check:contracts" in workflow
-    assert "Validate JSON data (Node structural companion)" in workflow
-    assert workflow.index("run: npm run build") < workflow.index("run: node scripts/scan-secrets.mjs --root .")
-    assert workflow.index("run: node scripts/scan-secrets.mjs --root .") < workflow.index(
-        "actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa"
-    )
+    assert 'node scripts/validate-json.mjs --data-dir "$GENERATION_DIR"' in workflow
+    build = workflow.index("run: npm run build")
+    copy_data = workflow.index("cp -R public/data/. dist/data/")
+    scan = workflow.index("run: node scripts/scan-secrets.mjs --root .")
+    upload = workflow.index("actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa")
+    artifact_check = workflow.index("python -m scripts.verify_pages_artifact")
+    reserve = workflow.index("pipeline.cloud_publication reserve")
+    assert "VITE_VERSIONED_DATA: \"true\"" in workflow
+    assert build < copy_data < scan < upload < artifact_check < reserve
 
 
 def test_theme_health_gate_is_scheduled_read_only_and_runs_symbol_health() -> None:
@@ -339,7 +342,7 @@ def test_frontend_ci_and_production_audit_gate_are_wired() -> None:
             assert command in workflow, f"missing frontend gate: {command}"
 
     assert "branches: [dev, main]" in deploy_pages, (
-        "Pages publishing must run on push to dev and main (per-branch concurrency keeps them from cancelling each other)"
+        "Pages publishing must run on push to dev and main"
     )
     assert re.search(r"^\s*pages: write$", deploy_pages, re.MULTILINE), (
         "the deploy job must retain Pages write permission"
@@ -367,37 +370,34 @@ def test_secret_scan_fails_closed_on_incomplete_coverage() -> None:
 
 
 def test_pages_release_boundary_is_dev_and_main_and_fully_gated() -> None:
-    """Dev and main may release Pages, but only after the full build gate; PRs never do.
-
-    #172: the release boundary widened from main-only to dev+main, and the concurrency
-    group became per-ref so a dev deploy can never cancel an in-flight main deploy (or
-    vice versa). The deploy job still requires the complete build: Python validation,
-    contract drift, audit, build and secret scan must all precede the artifact upload,
-    and the production Pages environment stays unreachable from PR validation.
-    """
     deploy_pages = _read_workflow("deploy-pages.yml")
     test_pipeline = _read_workflow("test-pipeline.yml")
-    deploy_job = deploy_pages.split("\n  deploy:\n", maxsplit=1)[1]
-    build_job = deploy_pages.split("\n  deploy:\n", maxsplit=1)[0]
 
     assert "pull_request" in test_pipeline
     assert "branches: [dev, main]" in test_pipeline
     assert "github-pages" not in test_pipeline
     assert "workflow_dispatch:" in deploy_pages
-    assert "if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'" in deploy_job, (
-        "the deploy job must guard BOTH release refs (dev and main)"
-    )
-    assert "group: pages-${{ github.ref }}" in deploy_pages, (
-        "the concurrency group must be per-ref so dev/main never cancel each other"
-    )
-    assert "cancel-in-progress: true" in deploy_pages
-    assert "needs: build" in deploy_job
-    assert "github-pages" in deploy_job
-    assert "pages: write" not in build_job
-    assert "id-token: write" not in build_job
+    assert "- cron: \"*/15 * * * *\"" in deploy_pages
+    assert "branches: [dev, main]" in deploy_pages
+    assert "group: pages-publication" in deploy_pages
+    assert "cancel-in-progress: false" in deploy_pages
+    assert "queue: max" in deploy_pages
+    assert "pages: write" in deploy_pages
+    assert "id-token: write" in deploy_pages
+    prepare_job = deploy_pages.split("\n  deploy:\n", maxsplit=1)[0]
+    deploy_job = deploy_pages.split("\n  deploy:\n", maxsplit=1)[1].split("\n  verify:\n", maxsplit=1)[0]
+    verify_job = deploy_pages.split("\n  verify:\n", maxsplit=1)[1]
+    assert "contents: write" in prepare_job
+    assert "pages: write" not in prepare_job
+    assert "id-token: write" not in prepare_job
+    assert "pages: write" in deploy_job and "id-token: write" in deploy_job
+    assert "contents: write" not in deploy_job
+    assert "needs: prepare" in deploy_job
+    assert "needs: [prepare, deploy]" in verify_job
+    assert "pipeline.cloud_publication finish" in verify_job
 
     for command in (
-        "python -m pipeline.validation.ci_checks --data-dir public/data",
+        "python -m pipeline.validation.ci_checks --data-dir \"$GENERATION_DIR\"",
         "python -m pytest tests/pipeline/ --cov=pipeline --cov-report=term-missing",
         "ruff check . --select F821",
         "npm run check:contracts",
@@ -405,7 +405,7 @@ def test_pages_release_boundary_is_dev_and_main_and_fully_gated() -> None:
         "npm run build",
         "node scripts/scan-secrets.mjs --root .",
     ):
-        assert command in build_job, f"release build is missing required gate: {command}"
+        assert command in prepare_job, f"release build is missing required gate: {command}"
 
     for gate in (
         "run: python -m pytest tests/pipeline/ --cov=pipeline --cov-report=term-missing",
@@ -414,15 +414,18 @@ def test_pages_release_boundary_is_dev_and_main_and_fully_gated() -> None:
         "run: node scripts/scan-secrets.mjs --root .",
         "actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa",
     ):
-        assert gate in build_job
-    assert build_job.index("run: npm run build") < build_job.index(
-        "run: node scripts/scan-secrets.mjs --root ."
-    ) < build_job.index("actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa")
-    artifact = build_job.index(
+        assert gate in prepare_job
+    assert prepare_job.index("run: npm run build") < prepare_job.index(
+        "cp -R public/data/. dist/data/"
+    ) < prepare_job.index("run: node scripts/scan-secrets.mjs --root .")
+    assert prepare_job.index("run: node scripts/scan-secrets.mjs --root .") < prepare_job.index(
+        "actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa"
+    )
+    artifact = prepare_job.index(
         "actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa"
     )
     for gate in (
         "run: python -m pytest tests/pipeline/ --cov=pipeline --cov-report=term-missing",
         "run: ruff check . --select F821",
     ):
-        assert build_job.index(gate) < artifact
+        assert prepare_job.index(gate) < artifact

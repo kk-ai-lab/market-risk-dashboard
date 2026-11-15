@@ -86,6 +86,33 @@ def test_policy_loads_licensed_sources_and_builds_only_coinmetrics(tmp_path):
     assert isinstance(providers[0], CoinMetricsProvider)
 
 
+def test_policy_plan_and_provider_factory_keep_the_selected_market_targets(tmp_path):
+    settings = public_settings(tmp_path)
+    policy = settings.load_public_source_policy()
+    policy.sources["coinmetrics"].market_symbols = ["ETH"]
+    plan = policy.collection_plan()
+
+    providers = build_default_providers(settings, collection_plan=plan)
+
+    assert plan.grant_for_dataset("crypto").market_symbols == frozenset({"ETH"})
+    assert providers[0].symbols == ("ETH",)
+
+
+@pytest.mark.parametrize(
+    "source,field,value",
+    [
+        ("bls", "macro_series", ["DGS10"]),
+        ("coinmetrics", "market_symbols", ["BTC", "SOL"]),
+    ],
+)
+def test_policy_rejects_targets_the_provider_cannot_fetch(tmp_path, source, field, value):
+    raw = public_settings(tmp_path).load_public_source_policy().model_dump()
+    raw["sources"][source][field] = value
+
+    with pytest.raises(ValueError, match="unsupported"):
+        type(public_settings(tmp_path).load_public_source_policy()).model_validate(raw)
+
+
 def test_policy_rejects_unapproved_provider_and_legacy_cache_fallback(tmp_path, monkeypatch):
     from pipeline.providers.coingecko import CoinGeckoProvider
 
@@ -174,6 +201,31 @@ def test_market_policy_collects_crypto_without_other_market_requests(tmp_path, m
     assert market["source_updated_at_by_dataset"]["crypto"] == "2026-11-15T12:00:00Z"
     assert "approved public source" in market["degraded_detail_by_dataset"]["equities"]
     assert market["source_policy_excluded_datasets"] == ["commodities", "equities", "sectors"]
+
+
+def test_market_collector_rejects_unapproved_coinmetrics_asset(tmp_path, monkeypatch):
+    from pipeline.providers.base import ProviderRegistry
+
+    settings = public_settings(tmp_path)
+    policy = settings.load_public_source_policy()
+    policy.sources["coinmetrics"].market_symbols = ["ETH"]
+    plan = policy.collection_plan()
+    registry = ProviderRegistry(settings, collection_plan=plan)
+    registry.register_all(build_default_providers(settings, collection_plan=plan))
+    provider = registry.providers_for("crypto")[0]
+    monkeypatch.setattr(provider, "get_crypto_market", lambda: {
+        "assets": [
+            {"symbol": "BTC", "name": "Bitcoin", "price": 100.0, "source": "coinmetrics", "updated_at": "2026-11-15T12:00:00Z"},
+            {"symbol": "ETH", "name": "Ethereum", "price": 10.0, "source": "coinmetrics", "updated_at": "2026-11-15T12:01:00Z"},
+        ],
+        "btc_dominance": None, "stablecoin_mcap": None, "market_cap_total": None, "sentiment": None,
+    })
+    monkeypatch.setattr(MarketCollector, "_collect_history_plan", lambda self: pytest.fail("unapproved history was requested"))
+
+    result = MarketCollector(registry, AssetUniverse.load(settings), settings, collection_plan=plan).collect()
+
+    assert result["crypto"].assets == []
+    assert result["degraded_by_dataset"]["crypto"]
 
 
 def test_news_and_calendar_mark_unlicensed_data_missing_without_registry_calls(tmp_path):
@@ -298,14 +350,13 @@ def test_macro_only_persists_policy_reason_and_full_history_roster(monkeypatch, 
     assert set(manifest["series"]) == set(DEFAULT_SERIES)
 
 
-def test_github_mode_missing_bls_checkpoint_is_explicit_and_never_uses_fred(tmp_path, monkeypatch):
+def test_cloud_mode_missing_bls_checkpoint_is_explicit_and_never_uses_fred(tmp_path, monkeypatch):
     from pipeline import run
     from tests.pipeline.test_treasury_macro import snapshot as treasury_snapshot
 
-    settings = public_settings(tmp_path)
+    settings = public_settings(tmp_path, bls_cloud_enabled=True)
     monkeypatch.setattr(run, "settings", settings)
-    monkeypatch.setattr(run, "build_registry", lambda _: NoNetworkRegistry())
-    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(run, "build_registry", lambda *_args, **_kwargs: NoNetworkRegistry())
     monkeypatch.setattr(
         "pipeline.storage.treasury_snapshot.refresh_treasury_snapshot",
         lambda *args, **kwargs: treasury_snapshot(),
@@ -314,7 +365,7 @@ def test_github_mode_missing_bls_checkpoint_is_explicit_and_never_uses_fred(tmp_
     results = run._run_collection("macro-only")
 
     assert results["macro_meta"]["provider_status"]["bls"]["error"] == (
-        "Cloud BLS checkpoint repository or token is not configured"
+        "Cloud state repository or token is not configured"
     )
     assert "Source checkpoints degraded: bls" in results["macro_meta"]["detail"]
     assert results["macro_meta"]["provider"]["provider"] == "treasury"

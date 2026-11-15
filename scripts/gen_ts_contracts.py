@@ -373,7 +373,6 @@ HEADER = """// =================================================================
 // a field to a dataset cannot take a page down. Unknown fields are reported by
 // src/lib/api.ts.
 // ============================================================================
-/* eslint-disable */
 import { z } from "zod";
 
 /** ISO 8601 UTC + Z timestamp, e.g. 2026-08-03T10:00:00Z. */

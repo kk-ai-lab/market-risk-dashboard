@@ -47,7 +47,7 @@ All numeric readouts use `font-variant-numeric: tabular-nums`; true monospace is
 _Avoid_: mono numbers, digital font
 
 **AI brief (legacy term)**:
-The retired LLM-generated research block formerly shown on the dashboard. Historical analysis artifacts and validation code remain in the repository, but the public application and new data runs do not produce or consume briefs.
+The retired LLM-generated research block formerly shown on the dashboard. Historical analysis schemas and validators remain for old artifacts. The public application and new data runs do not produce or consume briefs, and the former `--analysis-only` command is retired.
 _Avoid_: AI summary card, insights panel
 
 ## News data contract
@@ -57,15 +57,15 @@ The language a news item's source feed emits, derived from `config/news_sources.
 _Avoid_: feed language, item language
 
 **Canonical bilingual model**:
-The rule that `title`/`summary` are always English and `title_zh`/`summary_zh` always Chinese for every NewsItem, regardless of source language. Chosen over a "mirror pair" so both UIs render correctly (ADR-0003).
+The rule that `title`/`summary` hold English and `title_zh`/`summary_zh` hold Chinese when a translation is available, regardless of source language. The UI falls back to source text when a translation is unavailable; incomplete translation coverage is reported as degraded rather than fresh (ADR-0003).
 _Avoid_: mirror pair, raw-language summary
 
 **summary / summary_zh**:
-`summary` is the English one-sentence summary (self-written, ≤160 chars, no full text — copyright boundary); `summary_zh` is its Chinese translation. Both populated per item.
+`summary` is the English one-sentence summary (self-written, ≤160 chars, no full text — copyright boundary); `summary_zh` is its Chinese translation when available.
 _Avoid_: mixed-language summary, translation written into `summary`
 
 **title / title_zh**:
-`title` is the English headline; `title_zh` is the Chinese translation. Both populated per item.
+`title` is the English headline; `title_zh` is the Chinese translation when available.
 _Avoid_: source-language title
 
 **Translation merge**:

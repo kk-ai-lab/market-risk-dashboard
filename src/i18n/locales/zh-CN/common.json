@@ -70,8 +70,10 @@
       "fmpQuotes": "金融行情数据源",
       "fred": "美国经济数据源",
       "fredCalendar": "经济日历数据源",
+      "multipleSources": "多个数据源",
       "riskModel": "风险模型",
       "rssNews": "新闻聚合源",
+      "unavailable": "无可用数据源",
       "yfinance": "雅虎财经",
       "yfinanceAShare": "雅虎财经（中国股票）"
     },

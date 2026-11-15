@@ -27,6 +27,7 @@ from pipeline.fedwatch import (
     save_history,
 )
 from pipeline.metadata import oldest_source_timestamp, quality_for_outcomes
+from pipeline.config.models import ApprovedCollectionPlan
 from pipeline.providers.base import ProviderError, ProviderRegistry
 from pipeline.providers.bls import SERIES as BLS_SERIES
 from pipeline.providers.fred import DEFAULT_SERIES_META, SERIES_CATALOG
@@ -73,11 +74,11 @@ MACRO_LOOKBACK_DAYS = 5 * 365
 
 
 class MacroCollector:
-    def __init__(self, registry: ProviderRegistry, settings: Settings | None = None, *, bls_snapshot: BlsSnapshot | None = None, treasury_snapshot: TreasurySnapshot | None = None, source_errors: dict[str, str] | None = None) -> None:
+    def __init__(self, registry: ProviderRegistry, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None, bls_snapshot: BlsSnapshot | None = None, treasury_snapshot: TreasurySnapshot | None = None, source_errors: dict[str, str] | None = None) -> None:
         self.registry = registry
         self.settings = settings or Settings()
-        self.public_source_policy = (
-            self.settings.load_public_source_policy()
+        self.collection_plan = collection_plan or (
+            self.settings.load_public_source_policy().collection_plan()
             if self.settings.approved_sources_only else None
         )
         self.bls_snapshot = bls_snapshot
@@ -137,23 +138,22 @@ class MacroCollector:
             self.degraded.append(f"{source_id}: {error}")
             self.provider_status[source_id] = {"provider": source_id, "degraded": True, "error": error}
         for series_id in DEFAULT_SERIES:
-            policy_source = (
-                self.public_source_policy.source_for_macro_series(series_id)
-                if self.public_source_policy is not None else None
+            grant = (
+                self.collection_plan.macro_grant_for(series_id)
+                if self.collection_plan is not None else None
             )
-            if self.public_source_policy is None:
+            if self.collection_plan is None:
                 bls = self.bls_snapshot.series[series_id] if self.bls_snapshot is not None and series_id in BLS_SERIES else None
                 treasury = self.treasury_snapshot if series_id in TREASURY_SERIES else None
             else:
-                source = policy_source[1] if policy_source is not None else None
                 bls = (
                     self.bls_snapshot.series.get(series_id)
-                    if source is not None and source.provider == "bls" and self.bls_snapshot is not None
+                    if grant is not None and grant.provider == "bls" and self.bls_snapshot is not None
                     else None
                 )
                 treasury = (
                     self.treasury_snapshot
-                    if source is not None and source.provider == "treasury"
+                    if grant is not None and grant.provider == "treasury"
                     else None
                 )
             if treasury is not None:
@@ -161,13 +161,13 @@ class MacroCollector:
                     {"date": row.date.isoformat(), "value": row.value, "source": "Treasury", "fetched_at": datetime.fromisoformat(year.checked_at).astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")}
                     for number in sorted(treasury.required_years)
                     if (year := treasury.years.get(number)) is not None
-                    for row in year.series[series_id]
+                    for row in year.series.get(series_id, [])
                 ]
                 self.series_history[series_id.lower()] = rows
                 if treasury.degraded:
                     self._degraded_sources.add("treasury")
                     self.degraded.append(f"Treasury {series_id}: degraded snapshot")
-            elif self.public_source_policy is not None and bls is None:
+            elif self.collection_plan is not None and bls is None:
                 rows = []
             else:
                 rows = [row.model_dump(mode="json") for row in bls.rows] if bls is not None else self._fred_series(series_id)
@@ -177,16 +177,15 @@ class MacroCollector:
                     self._degraded_sources.add("bls")
                     self.degraded.append(f"BLS {series_id}: {bls.status}")
             if not rows:
-                if self.public_source_policy is not None:
+                if self.collection_plan is not None:
                     catalog = SERIES_CATALOG[series_id]
-                    source_config = policy_source[1] if policy_source is not None else None
                     source_label = (
-                        "BLS" if source_config is not None and source_config.provider == "bls"
-                        else "Treasury" if source_config is not None and source_config.provider == "treasury"
+                        "BLS" if grant is not None and grant.provider == "bls"
+                        else "Treasury" if grant is not None and grant.provider == "treasury"
                         else "unavailable"
                     )
                     self.series_history[series_id.lower()] = []
-                    self._degraded_sources.add(source_config.provider if source_config is not None else "public_source_policy")
+                    self._degraded_sources.add(grant.provider if grant is not None else "public_source_policy")
                     self.degraded.append(f"No approved public observation for {series_id}")
                     groups[_group_of(series_id)].append(MacroIndicator(
                         key=series_id.lower(), label=catalog["label"], source=source_label, status="missing",
@@ -213,8 +212,9 @@ class MacroCollector:
                 source="Treasury" if treasury is not None else "BLS" if bls is not None else "FRED",
                 updated_at=None if bls is not None or treasury is not None else _utc_from_date(rows[-1]["date"]),
                 observation_date=rows[-1]["date"] if treasury is not None else None,
-                observation_period=rows[-1]["date"][:7] if bls is not None else None,
+                observation_period=rows[-1]["date"][:7] if frequency == "monthly" else None,
                 fetched_at=rows[-1]["fetched_at"] if treasury is not None else bls.fetched_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ") if bls is not None and bls.fetched_at is not None else None,
+                freshness_policy=_freshness_policy(frequency),
                 # #84 §6b: per-indicator status is judged against the series' own cadence
                 # (a monthly series unchanged for 30 days is fresh; a daily series 10 days
                 # behind is stale), not a row count.
@@ -230,7 +230,7 @@ class MacroCollector:
             labor=groups["labor"],
             liquidity=groups["liquidity"],
             fx=groups["fx"],
-            fedwatch=self._collect_fedwatch() if self.public_source_policy is None else None,
+            fedwatch=self._collect_fedwatch() if self.collection_plan is None else None,
         )
 
     # ---- FedWatch ----
@@ -317,7 +317,7 @@ class MacroCollector:
         FRED partial failure counts as one source, FedWatch failure counts as one.
         """
         sources = ["fred", "fedwatch", "bls", "treasury"]
-        if self.public_source_policy is not None:
+        if self.collection_plan is not None:
             sources.append("public_source_policy")
         return quality_for_outcomes(
             [source in self._degraded_sources for source in sources],
@@ -365,8 +365,8 @@ class MacroCollector:
         policy_excluded_series = [
             series_id
             for series_id in DEFAULT_SERIES
-            if self.public_source_policy is not None
-            and self.public_source_policy.source_for_macro_series(series_id) is None
+            if self.collection_plan is not None
+            and self.collection_plan.macro_grant_for(series_id) is None
         ]
         detail_parts = []
         if self.source_errors:
@@ -443,6 +443,14 @@ def _series_status(last_date: str, frequency: str) -> str:
         return "stale"
     threshold = FREQ_SPEC.get(frequency, FREQ_SPEC["daily"])["stale_days"]
     return "fresh" if age_days <= threshold else "stale"
+
+
+def _freshness_policy(frequency: str) -> dict[str, int]:
+    stale_after_minutes = FREQ_SPEC.get(frequency, FREQ_SPEC["daily"])["stale_days"] * 24 * 60
+    return {
+        "delayed_after_minutes": stale_after_minutes // 2,
+        "stale_after_minutes": stale_after_minutes,
+    }
 
 
 def _utc_from_date(date_str: str) -> str | None:

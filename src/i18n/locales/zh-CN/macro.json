@@ -20,10 +20,16 @@
     "observationPeriod": "观测月份",
     "observationDate": "观测日期",
     "fetchedAt": "采集时间",
+    "freshnessUnavailable": "此旧记录未提供来源时效规则",
     "name": "指标",
     "change1m": "月环比",
     "value": "数值",
     "unit": "单位"
+  },
+  "sources": {
+    "BLS": "美国劳工统计局（BLS）",
+    "Treasury": "美国财政部（Treasury）",
+    "FRED": "FRED"
   },
   "fedwatch": {
     "title": "利率预期",

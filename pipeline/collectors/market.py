@@ -9,7 +9,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, NamedTuple
 
-from pipeline.config.models import theme_history_symbols
+from pipeline.config.models import ApprovedCollectionPlan, theme_history_symbols
 from pipeline.indicators.technical import technical_snapshot
 from pipeline.indicators.themes import changes_from_closes, percentile_of_trailing_return
 from pipeline.metadata import latest_row_timestamp, oldest_source_timestamp, quality_for_outcomes
@@ -84,12 +84,12 @@ INDEX_HISTORIES = {
 
 
 class MarketCollector:
-    def __init__(self, registry: ProviderRegistry, universe: AssetUniverse, settings: Settings | None = None) -> None:
+    def __init__(self, registry: ProviderRegistry, universe: AssetUniverse, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None) -> None:
         self.registry = registry
         self.universe = universe
         self.settings = settings or Settings()
-        self.public_source_policy = (
-            self.settings.load_public_source_policy()
+        self.collection_plan = collection_plan or (
+            self.settings.load_public_source_policy().collection_plan()
             if self.settings.approved_sources_only else None
         )
         # #102 (C-1): the sector/theme taxonomy lives in config/themes.yaml, not in this
@@ -427,6 +427,19 @@ class MarketCollector:
         try:
             out = self.registry.call("crypto", "get_crypto_market", "crypto_market")
             data = out["result"]
+            if self.collection_plan is not None:
+                grant = self.collection_plan.grant_for_dataset("crypto")
+                expected = set(grant.market_symbols) if grant is not None else set()
+                rows = data.get("assets", [])
+                symbols = [row.get("symbol") for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+                if (
+                    not isinstance(rows, list)
+                    or len(symbols) != len(rows)
+                    or any(not isinstance(symbol, str) for symbol in symbols)
+                    or len(symbols) != len(set(symbols))
+                    or set(symbols) != expected
+                ):
+                    raise ProviderError("crypto provider response does not match approved symbols")
             self.provider_status["crypto"] = out["meta"]
             self._record_outcome("crypto", out["meta"])
             if out["meta"].get("degraded"):
@@ -679,29 +692,29 @@ class MarketCollector:
 
     def collect(self) -> dict[str, Any]:
         self._reset_collection_state()
-        if self.public_source_policy is None:
+        if self.collection_plan is None:
             self._collect_history_plan()
             equities = self._collect_equities()
             crypto = self._collect_crypto()
             commodities = self._collect_commodities()
             sectors = self._collect_sectors()
         else:
-            if self.public_source_policy.allows_dataset("equities"):
+            if self.collection_plan.allows_dataset("equities"):
                 equities = self._collect_equities()
             else:
                 self._mark_unavailable("equities")
                 equities = EquitiesDataset()
-            if self.public_source_policy.allows_dataset("crypto"):
+            if self.collection_plan.allows_dataset("crypto"):
                 crypto = self._collect_crypto()
             else:
                 self._mark_unavailable("crypto")
                 crypto = CryptoDataset()
-            if self.public_source_policy.allows_dataset("commodities"):
+            if self.collection_plan.allows_dataset("commodities"):
                 commodities = self._collect_commodities()
             else:
                 self._mark_unavailable("commodities")
                 commodities = CommoditiesDataset()
-            if self.public_source_policy.allows_dataset("sectors"):
+            if self.collection_plan.allows_dataset("sectors"):
                 sectors = self._collect_sectors()
             else:
                 self._mark_unavailable("sectors")
@@ -728,8 +741,16 @@ class MarketCollector:
             "crypto": (
                 oldest_source_timestamp(asset.updated_at for asset in crypto.assets)
                 if (
-                    (self.settings.coinmetrics_enabled or self.public_source_policy is not None)
-                    and len(crypto.assets) == 2
+                    (
+                        (self.settings.coinmetrics_enabled and len(crypto.assets) == 2)
+                        or (
+                            self.collection_plan is not None
+                            and self.collection_plan.allows_dataset("crypto")
+                            and len(crypto.assets) == len(
+                                self.collection_plan.grant_for_dataset("crypto").market_symbols
+                            )
+                        )
+                    )
                 )
                 else None
             ),

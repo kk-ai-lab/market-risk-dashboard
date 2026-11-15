@@ -71,6 +71,7 @@ ReasonCode = Literal[
     "source_policy_excluded",
     "interval_exceeded",
     "input_dataset_unhealthy",
+    "news_translation_incomplete",
 ]
 
 SOURCE_POLICY_EXCLUDED_REASON_CODE: ReasonCode = "source_policy_excluded"

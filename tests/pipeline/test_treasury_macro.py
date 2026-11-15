@@ -3,10 +3,10 @@ from datetime import date
 import pytest
 
 from pipeline.collectors.macro import SERIES_GROUPS, MacroCollector
+from pipeline.macro_history import treasury_window_rows
 from pipeline.providers.treasury import TREASURY_XML
 from pipeline.risk.model import RiskModel, _curve_value
 from pipeline.schemas import MacroDataset, MacroIndicator
-from pipeline.macro_history import treasury_window_rows
 from pipeline.storage.macro_history import write_macro_history
 from pipeline.storage.treasury_snapshot import TreasurySnapshot, TreasuryYear
 from pipeline.storage.writer import StorageWriter
@@ -35,6 +35,10 @@ def test_treasury_never_requests_fred_maturities(tmp_path, degraded, empty):
     assert all(item.status == ("missing" if empty else "degraded" if degraded else "fresh") for item in maturities)
     assert all(item.observation_date == (None if empty else date.today().isoformat()) for item in maturities)
     assert all(item.fetched_at == (None if empty else f"{date.today().isoformat()}T12:00:00Z") for item in maturities)
+    if empty:
+        assert all(item.freshness_policy is None for item in maturities)
+    else:
+        assert all(item.freshness_policy.stale_after_minutes == 10_080 for item in maturities)
     assert meta["series_sources"]["dgs10"] == "Treasury"
     writer = StorageWriter(tmp_path)
     write_macro_history(writer, meta["series_history"], SERIES_GROUPS, series_sources=meta["series_sources"])
@@ -48,6 +52,19 @@ def test_treasury_never_requests_fred_maturities(tmp_path, degraded, empty):
         assert risk["yield_curve_10y2y"].source == "Treasury"
         assert risk["yield_curve_10y2y"].observation_date == date.today().isoformat()
         assert risk["yield_curve_10y2y"].updated_at is None
+
+
+def test_missing_newly_approved_treasury_series_degrades_without_crashing():
+    data = snapshot(degraded=True)
+    data.years[date.today().year].series.pop("DGS2")
+    collector = MacroCollector(_FakeRegistry(_all_series_rows()), treasury_snapshot=data)
+    collector._collect_fedwatch = lambda: None
+
+    macro, meta = collector.collect()
+
+    dgs2 = next(item for item in macro.rates if item.key == "dgs2")
+    assert dgs2.status == "missing"
+    assert meta["series_history"]["dgs2"] == []
 
 
 @pytest.mark.parametrize("source,day", [("FRED", "2026-11-12"), ("Treasury", "2026-11-11"), ("Treasury", None)])

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { badgeFor, currentFreshness, currentSourceFreshness, elapsedFreshness } from "@/lib/freshness";
+import { badgeFor, currentFreshness, currentSourceFreshness, elapsedFreshness, macroObservationFreshness } from "@/lib/freshness";
 import { freshTone, type FreshTone } from "@/lib/riskColors";
 import { Badge } from "@/components/ui/Badge";
-import type { FreshnessStatus } from "@/schemas";
+import type { FreshnessStatus, MacroFreshnessPolicy } from "@/schemas";
 
 /**
  * StatusBadge: freshness six-state badge (architecture §8.5, ADR-0002).
@@ -22,6 +22,8 @@ export interface StatusBadgeProps {
   generatedAt?: string;
   sourceUpdatedAt?: string | null;
   sourceExpectedMinutes?: number;
+  observationAt?: string | null;
+  observationPolicy?: MacroFreshnessPolicy | null;
   className?: string;
 }
 
@@ -39,19 +41,22 @@ const TONE_TO_DOT: Record<FreshTone, string> = {
   na: "bg-muted-foreground",
 };
 
-export function StatusBadge({ status: publishedStatus, dataset, generatedAt, sourceUpdatedAt, sourceExpectedMinutes, withDescription = false, fromCache = false, className }: StatusBadgeProps) {
+export function StatusBadge({ status: publishedStatus, dataset, generatedAt, sourceUpdatedAt, sourceExpectedMinutes, observationAt, observationPolicy, withDescription = false, fromCache = false, className }: StatusBadgeProps) {
   const { t } = useTranslation("common");
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!dataset || !generatedAt) return;
+    if (!(dataset && generatedAt) && !(observationAt && observationPolicy)) return;
     const update = () => setNow(Date.now());
     const timer = window.setInterval(update, 60_000);
     window.addEventListener("focus", update);
     return () => { window.clearInterval(timer); window.removeEventListener("focus", update); };
-  }, [dataset, generatedAt]);
+  }, [dataset, generatedAt, observationAt, observationPolicy]);
   const snapshotStatus = dataset && generatedAt ? currentFreshness(publishedStatus, dataset, generatedAt, now, sourceExpectedMinutes) : publishedStatus;
   const sourceAge = dataset && sourceExpectedMinutes ? elapsedFreshness(dataset, sourceUpdatedAt ?? "", now, sourceExpectedMinutes) : "fresh";
-  const status = currentSourceFreshness(snapshotStatus, sourceAge);
+  const sourceStatus = currentSourceFreshness(snapshotStatus, sourceAge);
+  const status = observationAt && observationPolicy
+    ? macroObservationFreshness(sourceStatus, observationAt, observationPolicy, now)
+    : sourceStatus;
   const badge = badgeFor(status, fromCache);
   const tone = freshTone(status);
   const testId = fromCache ? "status-badge-cache" : `status-badge-${status}`;

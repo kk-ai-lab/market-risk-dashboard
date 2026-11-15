@@ -20,10 +20,16 @@
     "observationPeriod": "Observation month",
     "observationDate": "Observation date",
     "fetchedAt": "Fetched",
+    "freshnessUnavailable": "Source freshness unavailable for this legacy record",
     "name": "Indicator",
     "change1m": "MoM",
     "value": "Value",
     "unit": "Unit"
+  },
+  "sources": {
+    "BLS": "BLS",
+    "Treasury": "U.S. Treasury",
+    "FRED": "FRED"
   },
   "fedwatch": {
     "title": "FedWatch Rate Expectations",

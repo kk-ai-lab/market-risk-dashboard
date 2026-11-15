@@ -12,7 +12,7 @@ import json
 import math
 import time
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Iterable
 
 import httpx
 
@@ -20,10 +20,7 @@ from pipeline.providers.base import BaseProvider, ProviderError, ProviderHealth,
 
 CM_URL = "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics"
 MAX_BYTES = 64 * 1024
-PARAMS = {
-    "assets": "btc,eth", "metrics": "ReferenceRateUSD", "frequency": "1m",
-    "page_size": 2, "limit_per_asset": 1,
-}
+ASSETS = {"BTC": ("btc", "Bitcoin"), "ETH": ("eth", "Ethereum")}
 
 
 class CoinMetricsProvider(BaseProvider):
@@ -32,8 +29,17 @@ class CoinMetricsProvider(BaseProvider):
     hosts = ("community-api.coinmetrics.io",)
     requires_api_key = False
 
-    def __init__(self, settings=None) -> None:
+    def __init__(self, settings=None, *, symbols: Iterable[str] | None = None) -> None:
         super().__init__(settings)
+        requested = [symbol.strip().upper() for symbol in symbols] if symbols is not None else ["BTC", "ETH"]
+        if not requested or len(requested) != len(set(requested)) or not set(requested).issubset(ASSETS):
+            raise ValueError("Coin Metrics requires a nonempty supported symbol selection")
+        self.symbols = tuple(sorted(requested))
+        self._params = {
+            "assets": ",".join(ASSETS[symbol][0] for symbol in self.symbols),
+            "metrics": "ReferenceRateUSD", "frequency": "1m",
+            "page_size": len(self.symbols), "limit_per_asset": 1,
+        }
         self._client = guarded_client(set(self.hosts), timeout=10.0)
 
     def health(self) -> ProviderHealth:
@@ -49,10 +55,10 @@ class CoinMetricsProvider(BaseProvider):
         )
 
     def get_crypto_market(self) -> dict[str, Any]:
-        """Fetch BTC and ETH atomically; missing metrics remain explicitly unknown."""
+        """Fetch only the approved reference rates; missing metrics remain unknown."""
         started = time.monotonic()
         try:
-            with self._client.stream("GET", CM_URL, params=PARAMS, follow_redirects=False) as response:
+            with self._client.stream("GET", CM_URL, params=self._params, follow_redirects=False) as response:
                 if response.status_code != 200:
                     raise ProviderError.from_exception(
                         httpx.HTTPStatusError("Coin Metrics HTTP failure", request=response.request, response=response),
@@ -78,7 +84,7 @@ class CoinMetricsProvider(BaseProvider):
         assets = {}
         now = datetime.now(UTC)
         for row in rows:
-            if not isinstance(row, dict) or row.get("asset") not in ("btc", "eth"):
+            if not isinstance(row, dict) or row.get("asset") not in {ASSETS[symbol][0] for symbol in self.symbols}:
                 raise ProviderError("Coin Metrics malformed or unexpected asset")
             asset = row["asset"]
             if asset in assets:
@@ -98,15 +104,16 @@ class CoinMetricsProvider(BaseProvider):
             except (ValueError, OverflowError) as exc:
                 raise ProviderError("Coin Metrics invalid price or source time") from exc
             assets[asset] = {
-                "symbol": asset.upper(), "name": "Bitcoin" if asset == "btc" else "Ethereum",
+                "symbol": asset.upper(), "name": next(ASSETS[symbol][1] for symbol in self.symbols if ASSETS[symbol][0] == asset),
                 "price": price, "source": self.name,
                 "updated_at": observed.astimezone(UTC).isoformat().replace("+00:00", "Z"),
                 "change_1d": None, "change_1w": None, "change_1m": None,
                 "market_cap": None, "volume_24h": None,
             }
-        if set(assets) != {"btc", "eth"}:
-            raise ProviderError("Coin Metrics partial BTC/ETH data")
+        expected = {ASSETS[symbol][0] for symbol in self.symbols}
+        if set(assets) != expected:
+            raise ProviderError("Coin Metrics partial approved-symbol data")
         return {
-            "assets": [assets["btc"], assets["eth"]], "btc_dominance": None,
+            "assets": [assets[ASSETS[symbol][0]] for symbol in self.symbols], "btc_dominance": None,
             "stablecoin_mcap": None, "market_cap_total": None, "sentiment": None,
         }

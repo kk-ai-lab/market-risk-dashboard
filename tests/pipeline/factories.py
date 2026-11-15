@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Any
 
 from pipeline.lineage import fact_generation_id
-from pipeline.schemas import registry
+from pipeline.schemas import FactLayer, registry
 from pipeline.schemas.envelope import SCHEMA_VERSION
 
 __all__ = [
@@ -821,7 +821,7 @@ def make_facts(**overrides: Any) -> dict[str, Any]:
         overrides,
     )
     if "generation_id" not in overrides:
-        result["generation_id"] = fact_generation_id(result)
+        result["generation_id"] = fact_generation_id(FactLayer.model_validate(result))
     return result
 
 

@@ -70,8 +70,10 @@
       "fmpQuotes": "Financial market quotes",
       "fred": "US economic data",
       "fredCalendar": "Economic calendar data",
+      "multipleSources": "Multiple data sources",
       "riskModel": "Risk model",
       "rssNews": "News aggregation",
+      "unavailable": "No available source",
       "yfinance": "Yahoo Finance",
       "yfinanceAShare": "Yahoo Finance (A-share)"
     },

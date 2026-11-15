@@ -2,23 +2,25 @@
 status: accepted
 ---
 
-# Bilingual canonical language model for NewsItem
+# Bilingual news display model
 
-NewsItem is rendered in two locales (zh-CN + en). We adopt a **canonical bilingual model**: `title` and `summary` are always English; `title_zh` and `summary_zh` are always Chinese. The source feed's own language is recorded per item (derived from `config/news_sources.yaml` `lang`) but is never stored as the display string.
+`news.json` keeps each article's source text until an external translation sidecar supplies the missing language. `lang` identifies the source language, and the UI uses it to choose a safe fallback.
 
-This replaces the previous "mirror pair" design, where `summary`/`title` held the raw feed language and `summary_zh` was an optional overlay that `merge_translations` wrote *into* `summary` (`pipeline/collectors/news.py:161`). That overwrite — applied only on partial translation coverage — was the root cause of `summary` coming out sometimes Chinese, sometimes English, and it also broke the English UI (NewsCard rendered `summary` for every locale).
+## Stored fields
 
-## Considered options
+- `title` and `summary` hold the source text. English feeds therefore provide English text. Chinese feeds retain Chinese text until a sidecar supplies English.
+- `title_zh` and `summary_zh` hold Chinese text when a translation is available. For a Chinese-source item, the sidecar copies the Chinese original and fills the English fields.
+- `lang` records the source language. The UI displays Chinese-source text in Chinese and shows its localized unavailable label in English until a translation arrives.
+- Translation fields may be partial. The UI does not display a value in the wrong language.
 
-- **Mirror pair** — `summary` = raw feed language, `summary_zh` = translation. Rejected: Chinese-source items (东方财富 / 财联社 / 华尔街见闻) have no English text, so the English UI shows Chinese; it also preserves mixed-language at storage.
-- **Canonical bilingual** (`summary`=EN, `summary_zh`=ZH) — **chosen**: symmetric, both UIs render correctly, and it removes the overwrite bug.
-- **Single-language normalization** — force every `summary` to Chinese, drop translation. Rejected: abandons the en locale.
+## Merge and freshness
 
-## Consequences
+`merge_translations` matches by item ID, with a normalized-title fallback for old sidecars whose IDs drifted. It fills Chinese fields for English-source articles. For Chinese-source articles, it fills the English fields and preserves the Chinese original.
 
-- **`NewsTranslation` (news.zh-translations.json) becomes a symmetric full-pair record.** It carries both `title`/`summary` (English) and `title_zh`/`summary_zh` (Chinese) for the same id. Merge copies both sides; it no longer needs to inspect source language.
-- **Translation automation must emit both directions** — en→zh for English sources, zh→en for Chinese sources — and aim for full coverage (best-effort + graceful fallback, not partial).
-- **`merge_translations` must stop overwriting `summary`.** It only sets `summary_zh`/`title_zh` (and the English side when the source is Chinese). The UI falls back to the other language when the preferred one is missing; it never blanks a card.
-- **Schema change** in `pipeline/schemas/news.py` (add `summary_zh` to `NewsItem`, redefine `summary` semantics) and `src/schemas/news.ts`.
-- **Historical items** without translations need a backfill pass.
-- **Source language** (`lang` from `config/news_sources.yaml`) is retained only for translation routing, never as the stored display string.
+The pipeline merges a sidecar only when its `updated_at` is at least as new as the latest article's `published_at`. An older sidecar cannot make a newer news batch appear translated. The pipeline does not generate translations or AI briefs.
+
+## Decision history
+
+The initial design required `title` and `summary` to always contain English. That invariant did not match Chinese feeds when no translation sidecar existed. Storing original feed text keeps the article usable in its source language and lets the UI identify missing translation without showing the wrong language.
+
+The previous mirror-pair merge could overwrite English fields with Chinese text. This decision keeps the source text stable and puts translated text in the corresponding language fields.

@@ -52,10 +52,12 @@ class Settings(BaseSettings):
     approved_sources_only: bool = Field(default=False, description="Restrict collection and cache replay to config/public_sources.yaml")
 
     bls_cloud_enabled: bool = Field(default=False, description="Opt in to the durable cloud BLS ledger instead of the local snapshot")
-    bls_checkpoint_repo: str | None = Field(default=None, description="Explicit checkpoint owner/repository")
-    bls_checkpoint_branch: str = Field(default="bls-checkpoint", description="Pre-provisioned dedicated checkpoint branch; never reset while writers run")
+    treasury_cloud_enabled: bool = Field(default=False, description="Opt in to the durable cloud Treasury ledger instead of the local snapshot")
+    cloud_state_repo: str | None = Field(default=None, description="Explicit owner/repository for the pre-provisioned cloud-state branch")
+    cloud_state_branch: str = Field(default="cloud-state", description="Pre-provisioned shared state branch; never reset while writers run")
+    cloud_state_token: SecretStr | None = Field(default=None, description="Credential with contents write access to the cloud-state branch")
     bls_checkpoint_path: str = Field(default="bls/ledger.json", description="Pre-provisioned cloud BLS ledger path")
-    bls_checkpoint_token: SecretStr | None = Field(default=None, description="Checkpoint repository contents-write credential")
+    treasury_checkpoint_path: str = Field(default="treasury/ledger.json", description="Pre-provisioned cloud Treasury ledger path")
 
     # Directories (relative to project root)
     project_root: Path = PROJECT_ROOT

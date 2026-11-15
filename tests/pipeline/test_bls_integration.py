@@ -24,6 +24,8 @@ def test_bls_snapshot_routes_supported_series_without_fred_fallback(tmp_path, mo
     assert by_key["cpiaucsl"].observation_period == "2026-10"
     assert by_key["cpiaucsl"].updated_at is None
     assert by_key["cpiaucsl"].fetched_at == "2026-11-14T00:00:00Z"
+    assert by_key["cpiaucsl"].freshness_policy.delayed_after_minutes == 54_000
+    assert by_key["cpiaucsl"].freshness_policy.stale_after_minutes == 108_000
     assert by_key["payems"].value is None
     assert by_key["payems"].status == "missing"
     assert not ({call[2] for call in registry.calls} & set(SERIES))
@@ -145,8 +147,6 @@ def test_full_pipeline_writes_bls_sources_and_reuses_snapshot(tmp_path, monkeypa
 
 
 class FileCheckpoint:
-    """Fresh client instances share only disk state, as separate runners would."""
-
     instances = []
     state_path = None
     uncertain = False
@@ -187,9 +187,9 @@ def _cloud_collection_setup(tmp_path, monkeypatch, **overrides):
             type(self).calls += 1
             return super().get_series_batch()
 
-    config = dict(bls_cloud_enabled=True, bls_enabled=True, bls_checkpoint_repo="owner/repo",
-                  bls_checkpoint_branch="test-ledger", bls_checkpoint_path="state/bls.json",
-                  bls_checkpoint_token="test-secret", artifacts_dir=tmp_path / "local")
+    config = dict(bls_cloud_enabled=True, bls_enabled=True, cloud_state_repo="owner/repo",
+                  cloud_state_branch="test-ledger", bls_checkpoint_path="state/bls.json",
+                  cloud_state_token="test-secret", artifacts_dir=tmp_path / "local")
     config.update(overrides)
     configured = Settings(_env_file=None, **config)
     registry = _FakeRegistry(_all_series_rows())
@@ -242,8 +242,8 @@ def test_cloud_bls_missing_config_never_uses_local_snapshot_or_fred(tmp_path, mo
     local_path = configured.artifacts_dir / "bls" / "snapshot.json"
     refresh_bls_snapshot(local_path, BatchProvider(), now=datetime.now(UTC))
     original = local_path.read_bytes()
-    for missing in (dict(bls_checkpoint_repo=None), dict(bls_checkpoint_token=None),
-                    dict(bls_checkpoint_repo="invalid")):
+    for missing in (dict(cloud_state_repo=None), dict(cloud_state_token=None),
+                    dict(cloud_state_repo="invalid")):
         monkeypatch.setattr(run, "settings", configured.model_copy(update=missing))
         result = run._run_collection("macro-only")
         assert result["macro"].inflation[0].source == "BLS"

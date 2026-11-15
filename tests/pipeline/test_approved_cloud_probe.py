@@ -128,11 +128,14 @@ class ApprovedCloudProbeTests(unittest.TestCase):
         self.assertIn("permissions:\n  contents: read", text)
         self.assertIn("persist-credentials: false", text)
         self.assertIn("python -m scripts.approved_cloud_probe", text)
+        self.assertIn("python -m scripts.approved_cloud_shadow", text)
+        self.assertIn("retention-days: 5", text)
         actions = re.findall(r"uses: (\S+)", text)
-        self.assertEqual(len(actions), 2)
+        self.assertEqual(len(actions), 4)
+        allowed = {"checkout", "setup-python", "setup-node", "upload-artifact"}
         for action in actions:
-            self.assertRegex(action, r"^actions/(checkout|setup-python)@[0-9a-f]{40}$")
-        for forbidden in ("schedule:", "secrets.", "write", "deploy", "pipeline.run", "npm"):
+            self.assertRegex(action, rf"^actions/({'|'.join(allowed)})@[0-9a-f]{{40}}$")
+        for forbidden in ("schedule:", "secrets.", "write", "deploy", "pipeline.run --publish"):
             self.assertNotIn(forbidden, text)
 
 if __name__ == "__main__":

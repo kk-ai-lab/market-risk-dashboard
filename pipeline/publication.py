@@ -6,7 +6,9 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -161,59 +163,132 @@ def load_candidate_files(source: Path) -> dict[str, dict | list]:
     return files
 
 
-def publish_snapshot(root: Path, files: Mapping[str, dict | list], *, parent_id: str | None,
-                     producer_revision: str, created_at: str,
-                     validator: Callable[[Path], bool]) -> dict:
-    """Validate a staged candidate then atomically switch current with parent checking.
+@dataclass(frozen=True)
+class GenerationSource:
+    directory: Path
+    manifest_sha256: str
 
-    The validator receives the staged generation directory and must return True.
-    Old generations remain available. This is not a deployment checkpoint or a
-    cross-runner lock, and callers must not mutate published generations.
-    """
+
+@contextmanager
+def _stage_generation(
+    root: Path,
+    payloads: Mapping[str, bytes],
+    *,
+    parent_id: str | None,
+    producer_revision: str,
+    created_at: str,
+) -> Iterator[tuple[Path, dict]]:
     root = Path(root)
     if root.is_symlink():
         raise PublicationError("Symbolic publication root")
     root.mkdir(parents=True, exist_ok=True)
+    files = {_path(path): data for path, data in payloads.items()}
+    if any(type(data) is not bytes for data in files.values()):
+        raise PublicationError("Generation payloads must be bytes")
+    identity = {
+        "version": VERSION,
+        "parent_id": parent_id,
+        "producer_revision": producer_revision,
+        "created_at": created_at,
+        "files": {path: _sha(data) for path, data in files.items()},
+    }
+    generation_id = _sha(canonical_json(identity))
+    manifest = {**identity, "generation_id": generation_id}
+    manifest_bytes = canonical_json(manifest)
+    pointer = {
+        "version": VERSION,
+        "generation_id": generation_id,
+        "manifest_sha256": _sha(manifest_bytes),
+    }
+    with tempfile.TemporaryDirectory(prefix=".publication-", dir=root) as temporary:
+        staged = Path(temporary) / generation_id
+        staged.mkdir()
+        for relative, data in files.items():
+            target = staged / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        (staged / "manifest.json").write_bytes(manifest_bytes)
+        verify_generation(staged)
+        yield staged, pointer
+
+
+def _install_generation(root: Path, staged: Path, pointer: dict, parent_id: str | None) -> dict:
     lock_path = root / ".publication.lock"
     if lock_path.is_symlink():
         raise PublicationError("Symbolic lock")
     with lock_path.open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         current = read_current(root)
-        payloads = {_path(path): canonical_json(value) for path, value in files.items()}
-        identity = {"version": VERSION, "parent_id": parent_id,
-                    "producer_revision": producer_revision, "created_at": created_at,
-                    "files": {path: _sha(data) for path, data in payloads.items()}}
-        generation_id = _sha(canonical_json(identity))
-        manifest = {**identity, "generation_id": generation_id}
-        manifest_bytes = canonical_json(manifest)
-        pointer = {"version": VERSION, "generation_id": generation_id,
-                   "manifest_sha256": _sha(manifest_bytes)}
         if current != pointer and (current["generation_id"] if current else None) != parent_id:
             raise PublicationError("Stale parent")
         generations = root / "generations"
         if generations.is_symlink():
             raise PublicationError("Symbolic generation directory")
         generations.mkdir(exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix=".publication-", dir=root) as temporary:
-            staged = Path(temporary) / generation_id
-            staged.mkdir()
-            for relative, data in payloads.items():
-                target = staged / relative
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(data)
-            (staged / "manifest.json").write_bytes(manifest_bytes)
-            verify_generation(staged)
-            if validator(staged) is not True:
-                raise PublicationError("Candidate validator did not succeed")
-            verify_generation(staged, manifest_sha256=pointer["manifest_sha256"])
-            destination = generations / generation_id
-            if destination.exists() or destination.is_symlink():
-                verify_generation(destination, manifest_sha256=pointer["manifest_sha256"])
-            else:
-                os.replace(staged, destination)
-            if current != pointer:
-                temporary_pointer = Path(temporary) / "current.json"
-                temporary_pointer.write_bytes(canonical_json(pointer))
-                os.replace(temporary_pointer, root / "current.json")
-        return pointer
+        verify_generation(staged, manifest_sha256=pointer["manifest_sha256"])
+        destination = generations / pointer["generation_id"]
+        if destination.exists() or destination.is_symlink():
+            verify_generation(destination, manifest_sha256=pointer["manifest_sha256"])
+        else:
+            os.replace(staged, destination)
+        if current != pointer:
+            temporary_pointer = staged.parent / "current.json"
+            temporary_pointer.write_bytes(canonical_json(pointer))
+            os.replace(temporary_pointer, root / "current.json")
+    return pointer
+
+
+def publish_snapshot(
+    root: Path,
+    files: Mapping[str, dict | list],
+    *,
+    parent_id: str | None,
+    producer_revision: str,
+    created_at: str,
+    validator: Callable[[Path], bool],
+) -> dict:
+    """Validate a staged candidate then atomically switch current with parent checking.
+
+    The validator receives the staged generation directory and must return True.
+    Old generations remain available. This is not a deployment checkpoint or a
+    cross-runner lock, and callers must not mutate published generations.
+    """
+    payloads = {_path(path): canonical_json(value) for path, value in files.items()}
+    with _stage_generation(
+        root,
+        payloads,
+        parent_id=parent_id,
+        producer_revision=producer_revision,
+        created_at=created_at,
+    ) as (staged, pointer):
+        if validator(staged) is not True:
+            raise PublicationError("Candidate validator did not succeed")
+        return _install_generation(Path(root), staged, pointer, parent_id)
+
+
+def publish_reused_generation(
+    root: Path,
+    source: GenerationSource,
+    *,
+    producer_revision: str,
+    created_at: str,
+) -> dict:
+    manifest = verify_generation(source.directory, manifest_sha256=source.manifest_sha256)
+    payloads = {}
+    for relative, digest in manifest["files"].items():
+        path = source.directory / relative
+        if path.is_symlink():
+            raise PublicationError("Symbolic generation file")
+        data = path.read_bytes()
+        if _sha(data) != digest:
+            raise PublicationError("Source generation changed during reuse")
+        payloads[relative] = data
+    parent_id = manifest["generation_id"]
+    with _stage_generation(
+        root,
+        payloads,
+        parent_id=parent_id,
+        producer_revision=producer_revision,
+        created_at=created_at,
+    ) as (staged, pointer):
+        return _install_generation(Path(root), staged, pointer, parent_id)

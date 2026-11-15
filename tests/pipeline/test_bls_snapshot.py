@@ -36,6 +36,37 @@ def test_same_day_reuses_snapshot_across_instances(tmp_path):
     assert first.series["UNRATE"].fetched_at == NOW
 
 
+def test_same_day_policy_narrowing_scrubs_unapproved_series_without_request(tmp_path):
+    path = tmp_path / "bls.json"
+    refresh_bls_snapshot(path, Provider(), now=NOW)
+    provider = Provider()
+
+    state = refresh_bls_snapshot(path, provider, now=NOW + timedelta(hours=2), series_ids=["UNRATE"])
+
+    assert provider.calls == 0
+    assert state.series["UNRATE"].status == "fresh"
+    assert all(state.series[key].status == "missing" for key in set(SERIES) - {"UNRATE"})
+
+
+def test_bls_request_and_snapshot_follow_the_approved_series_selection(tmp_path):
+    path = tmp_path / "bls.json"
+
+    class SelectedProvider:
+        def __init__(self):
+            self.requests = []
+
+        def get_series_batch(self, series_ids=None):
+            self.requests.append(tuple(series_ids))
+            return {key: [{"date": "2026-10-01", "value": 2.0}] for key in series_ids}
+
+    provider = SelectedProvider()
+    state = refresh_bls_snapshot(path, provider, now=NOW, series_ids=["UNRATE"])
+
+    assert provider.requests == [("UNRATE",)]
+    assert state.series["UNRATE"].status == "fresh"
+    assert all(state.series[key].status == "missing" for key in set(SERIES) - {"UNRATE"})
+
+
 def test_failure_and_empty_series_preserve_last_observation_time(tmp_path):
     path = tmp_path / "bls.json"
     first = Provider()

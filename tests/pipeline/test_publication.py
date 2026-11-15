@@ -1,11 +1,15 @@
+import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
 
 from pipeline.publication import (
+    GenerationSource,
     PublicationError,
     canonical_json,
+    publish_reused_generation,
     publish_snapshot,
     read_current,
     verify_generation,
@@ -20,6 +24,33 @@ def files():
 def publish(root, files, parent=None, **kwargs):
     return publish_snapshot(root, files, parent_id=parent, producer_revision="fixture-revision",
                             created_at="2026-11-14T12:00:00Z", validator=lambda _: True, **kwargs)
+
+
+def source_generation(root: Path, payloads: dict[str, bytes]) -> Path:
+    digests = {path: hashlib.sha256(data).hexdigest() for path, data in payloads.items()}
+    identity = {
+        "version": 1,
+        "parent_id": None,
+        "producer_revision": "source-revision",
+        "created_at": "2026-11-14T12:00:00Z",
+        "files": digests,
+    }
+    generation_id = hashlib.sha256(canonical_json(identity)).hexdigest()
+    manifest = {**identity, "generation_id": generation_id}
+    manifest_bytes = canonical_json(manifest)
+    directory = root / "generations" / generation_id
+    for relative, data in payloads.items():
+        target = directory / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    (directory / "manifest.json").write_bytes(manifest_bytes)
+    pointer = {
+        "version": 1,
+        "generation_id": generation_id,
+        "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+    }
+    (root / "current.json").write_bytes(canonical_json(pointer))
+    return directory
 
 
 def test_two_generations_and_idempotence(tmp_path, files):
@@ -140,3 +171,81 @@ def test_atomic_pointer_failure_preserves_old(tmp_path, files, monkeypatch):
     with pytest.raises(OSError):
         publish(tmp_path, files, first["generation_id"])
     assert read_current(tmp_path) == first
+
+
+def test_reused_generation_preserves_source_bytes_and_retries_after_pointer_switch(
+    tmp_path, monkeypatch
+):
+    import pipeline.publication as publication
+
+    payloads = {
+        "latest/data.json": b'{ "value" : 1 }\n',
+        "history/data.json": b'[ { "date" : "2026-11-14", "value" : 1 } ]\n',
+        "metadata/data.json": b'{"source": "fixture"}\n',
+    }
+    destination = tmp_path / "destination"
+    source_dir = source_generation(destination, payloads)
+    source_manifest = verify_generation(source_dir)
+    source = GenerationSource(
+        source_dir,
+        hashlib.sha256((source_dir / "manifest.json").read_bytes()).hexdigest(),
+    )
+    replace = publication.os.replace
+
+    def replace_then_lose_ack(source_path, destination_path):
+        replace(source_path, destination_path)
+        if destination_path == destination / "current.json":
+            raise OSError("caller lost the pointer-switch acknowledgement")
+
+    monkeypatch.setattr(publication.os, "replace", replace_then_lose_ack)
+    arguments = {
+        "producer_revision": "new-revision",
+        "created_at": "2026-11-15T12:00:00Z",
+    }
+    with pytest.raises(OSError, match="acknowledgement"):
+        publish_reused_generation(destination, source, **arguments)
+
+    expected = read_current(destination)
+    assert expected["generation_id"] != source_manifest["generation_id"]
+    monkeypatch.undo()
+    assert publish_reused_generation(destination, source, **arguments) == expected
+    copied = destination / "generations" / expected["generation_id"]
+    assert verify_generation(copied)["parent_id"] == source_manifest["generation_id"]
+    for relative, data in payloads.items():
+        assert (copied / relative).read_bytes() == data
+
+
+def test_reused_generation_rejects_source_bytes_changed_after_validation(tmp_path, monkeypatch):
+    import pipeline.publication as publication
+
+    payloads = {
+        "latest/data.json": b'{ "value" : 1 }\n',
+        "history/data.json": b'[{"date":"2026-11-14","value":1}]',
+        "metadata/data.json": b'{"source":"fixture"}',
+    }
+    source_dir = source_generation(tmp_path / "source", payloads)
+    source = GenerationSource(
+        source_dir,
+        hashlib.sha256((source_dir / "manifest.json").read_bytes()).hexdigest(),
+    )
+    source_file = source_dir / "latest/data.json"
+    verify = publication.verify_generation
+    mutated = False
+
+    def verify_then_mutate(*args, **kwargs):
+        nonlocal mutated
+        manifest = verify(*args, **kwargs)
+        if not mutated:
+            source_file.write_bytes(b'{"value":2}')
+            mutated = True
+        return manifest
+
+    monkeypatch.setattr(publication, "verify_generation", verify_then_mutate)
+    with pytest.raises(PublicationError, match="changed during reuse"):
+        publish_reused_generation(
+            tmp_path / "destination",
+            source,
+            producer_revision="new-revision",
+            created_at="2026-11-15T12:00:00Z",
+        )
+    assert not (tmp_path / "destination" / "current.json").exists()

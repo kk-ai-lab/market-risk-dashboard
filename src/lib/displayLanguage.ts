@@ -20,8 +20,10 @@ const PROVIDER_LABEL_KEYS: Record<string, string> = {
   fmp_quotes: "fmpQuotes",
   fred: "fred",
   fred_calendar: "fredCalendar",
+  mixed: "multipleSources",
   risk_model: "riskModel",
   rss_news: "rssNews",
+  unavailable: "unavailable",
   yfinance: "yfinance",
   yfinance_a_share: "yfinanceAShare",
 };

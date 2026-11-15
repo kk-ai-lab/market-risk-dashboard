@@ -10,7 +10,6 @@
 // a field to a dataset cannot take a page down. Unknown fields are reported by
 // src/lib/api.ts.
 // ============================================================================
-/* eslint-disable */
 import { z } from "zod";
 
 /** ISO 8601 UTC + Z timestamp, e.g. 2026-08-03T10:00:00Z. */
@@ -48,7 +47,7 @@ export type NewsSentiment = z.infer<typeof NewsSentiment>;
 export const NewsSourceLang = z.enum(["en", "zh"]);
 export type NewsSourceLang = z.infer<typeof NewsSourceLang>;
 
-export const ReasonCode = z.enum(["ok", "no_rows_returned", "no_events_in_window", "provider_http_error", "provider_rate_limited", "provider_auth_failed", "provider_parse_error", "served_from_fallback", "served_from_cache", "cache_expired", "cache_invalid", "all_providers_failed", "not_collected_this_run", "source_policy_excluded", "interval_exceeded", "input_dataset_unhealthy"]);
+export const ReasonCode = z.enum(["ok", "no_rows_returned", "no_events_in_window", "provider_http_error", "provider_rate_limited", "provider_auth_failed", "provider_parse_error", "served_from_fallback", "served_from_cache", "cache_expired", "cache_invalid", "all_providers_failed", "not_collected_this_run", "source_policy_excluded", "interval_exceeded", "input_dataset_unhealthy", "news_translation_incomplete"]);
 export type ReasonCode = z.infer<typeof ReasonCode>;
 
 export const RiskCalibrationStatus = z.enum(["provisional", "calibrated"]);
@@ -598,6 +597,14 @@ export const FreshnessDocument = z
   .passthrough();
 export type FreshnessDocument = z.infer<typeof FreshnessDocument>;
 
+export const MacroFreshnessPolicy = z
+  .object({
+    delayed_after_minutes: z.number().int().gt(0),
+    stale_after_minutes: z.number().int().gt(0),
+  })
+  .passthrough();
+export type MacroFreshnessPolicy = z.infer<typeof MacroFreshnessPolicy>;
+
 /** A single macro indicator (raw numeric storage, architecture §8.3). */
 export const MacroIndicator = z
   .object({
@@ -613,6 +620,7 @@ export const MacroIndicator = z
     observation_period: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])$")).nullable().default(null),
     fetched_at: utcDateTime.nullable().default(null),
     status: FreshnessStatus.default("fresh"),
+    freshness_policy: MacroFreshnessPolicy.nullable().default(null),
   })
   .passthrough();
 export type MacroIndicator = z.infer<typeof MacroIndicator>;
@@ -704,7 +712,7 @@ export const NewsEnvelope = z
   .passthrough();
 export type NewsEnvelope = z.infer<typeof NewsEnvelope>;
 
-/** Symmetric full-pair translation of a news item (AI automation produces news.zh-translations.json, ADR-0003). Carries both English (title/summary) and Chinese (title_zh/summary_zh) for the same id; merge copies both sides without overwriting the canonical English (title/summary) of the item. */
+/** Translation fields used to fill the missing language for a news item. */
 export const NewsTranslation = z
   .object({
     id: z.string().min(1),
@@ -716,7 +724,7 @@ export const NewsTranslation = z
   .passthrough();
 export type NewsTranslation = z.infer<typeof NewsTranslation>;
 
-/** news.zh-translations.json (architecture §1.5: merged into news.json on the next pipeline run). */
+/** news.zh-translations.json; merged only when it covers the current news batch. */
 export const NewsTranslationsDataset = z
   .object({
     items: z.array(NewsTranslation).default([]),

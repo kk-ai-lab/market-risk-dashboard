@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from pipeline.metadata import quality_for_outcomes
+from pipeline.config.models import ApprovedCollectionPlan
 from pipeline.providers.base import ProviderError, ProviderRegistry
 from pipeline.schemas import NewsDataset, NewsItem, NewsTranslation, NewsTranslationsDataset
 from pipeline.schemas.envelope import SOURCE_POLICY_EXCLUDED_REASON_CODE
@@ -37,12 +38,37 @@ def _normalize_title(text: str) -> str:
     return re.sub(r"\W+", "", text or "").lower()
 
 
+def news_translation_coverage(news: NewsDataset) -> tuple[int, int]:
+    complete = sum(
+        bool(
+            item.title_zh
+            and _CJK_RE.search(item.title_zh)
+            and (not item.summary or (item.summary_zh and _CJK_RE.search(item.summary_zh)))
+            and not _CJK_RE.search(item.title)
+            and not _CJK_RE.search(item.summary)
+        )
+        for item in news.items
+    )
+    return complete, len(news.items)
+
+
+def translation_sidecar_matches_news_batch(
+    news: NewsDataset,
+    translations: NewsTranslationsDataset,
+) -> bool:
+    if not news.items:
+        return True
+    if translations.updated_at is None:
+        return False
+    return translations.updated_at >= max(item.published_at for item in news.items)
+
+
 class NewsCollector:
-    def __init__(self, registry: ProviderRegistry, settings: Settings | None = None) -> None:
+    def __init__(self, registry: ProviderRegistry, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None) -> None:
         self.registry = registry
         self.settings = settings or Settings()
-        self.public_source_policy = (
-            self.settings.load_public_source_policy()
+        self.collection_plan = collection_plan or (
+            self.settings.load_public_source_policy().collection_plan()
             if self.settings.approved_sources_only else None
         )
         # #102: importance rules come from the VALIDATED news_sources config (single shape,
@@ -125,8 +151,8 @@ class NewsCollector:
 
     def collect(self) -> tuple[NewsDataset, dict[str, Any]]:
         if (
-            self.public_source_policy is not None
-            and not self.public_source_policy.allows_dataset("news")
+            self.collection_plan is not None
+            and not self.collection_plan.allows_dataset("news")
         ):
             detail = "No approved public source configured for news"
             self.degraded.append(detail)
@@ -223,14 +249,13 @@ class NewsCollector:
     # ---- Chinese translation merge (architecture §1.5 step 4; ADR-0003) ----
 
     def merge_translations(self, news: NewsDataset, translations: NewsTranslationsDataset | None) -> NewsDataset:
-        """Merge AI-produced symmetric full-pair translations into the news payload.
+        """Fill the missing language while preserving each feed's source text.
 
-        Canonical bilingual model (ADR-0003): `summary`/`title` stay English, `summary_zh`/`title_zh`
-        carry Chinese. A translation record carries both sides; this copies whatever it provides and
-        never replaces the canonical English with Chinese (the pre-ADR-0003 overwrite bug).
+        English-source items retain their English fields and receive Chinese overlays.
+        Chinese-source items retain their Chinese fallback and receive English fields when present.
 
         Matching is by id (the canonical key) with a deterministic content fallback (#225): the
-        external AI step sometimes re-derives ids from the translated text, so a record that misses
+        external translation jobs sometimes re-derive ids from the translated text, so a record that misses
         the collector's id is still merged when its `title_zh` (zh-source items) or English `title`
         (en-source items) matches the item after title normalization.
         """
