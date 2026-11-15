@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -41,3 +42,42 @@ def test_run_write_path_manifest_is_stable(data_root: Path) -> None:
         f"extra={sorted(set(actual) - set(expected))} "
         f"changed={sorted(k for k in set(actual) & set(expected) if actual[k] != expected[k])}"
     )
+
+
+def test_dashboard_cross_asset_keeps_the_selected_quote_source() -> None:
+    from pipeline.run import _build_dashboard
+    from pipeline.schemas.risk import RiskModelResult
+    from tests.pipeline.factories import make_risk_payload
+
+    risk = RiskModelResult.model_validate(make_risk_payload())
+    equities = SimpleNamespace(payload=SimpleNamespace(assets=[
+        SimpleNamespace(symbol="SPY", change_1d=0.2, source="yahoo"),
+    ]))
+    crypto = SimpleNamespace(payload=SimpleNamespace(assets=[
+        SimpleNamespace(symbol="BTC", change_1d=-0.4, source="coinmetrics"),
+    ]))
+    calendar = SimpleNamespace(payload=SimpleNamespace(events=[]))
+    payload = _build_dashboard(
+        risk_env=SimpleNamespace(payload=risk), equities=equities, crypto=crypto,
+        sectors=None, calendar=calendar,
+    )
+
+    assert payload.cross_asset[0].source == "yahoo"
+    assert payload.cross_asset[1].source == "coinmetrics"
+
+
+def test_run_summary_withholds_score_when_evidence_is_insufficient(capsys) -> None:
+    from pipeline.run import _print_summary
+
+    risk = SimpleNamespace(payload=SimpleNamespace(
+        total_score=70.25,
+        evidence_state="insufficient_evidence",
+        evidence_coverage=0.1,
+        score_lower_bound=7.0,
+        score_upper_bound=97.0,
+    ))
+    _print_summary("full", {"risk": risk, "degraded": []}, 1.0)
+
+    output = capsys.readouterr().out
+    assert "withheld (insufficient evidence, 10% coverage, interval 7.0–97.0)" in output
+    assert "70.25" not in output

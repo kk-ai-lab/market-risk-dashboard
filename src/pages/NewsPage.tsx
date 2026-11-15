@@ -58,7 +58,7 @@ export default function NewsPage() {
         <p className="text-xs text-muted-foreground">{t("subtitle")}</p>
         {newsQ.data ? (
           <div className="ml-auto flex items-center gap-3">
-            <StatusBadge status={newsQ.data.freshness_status} fromCache={newsQ.data.provenance?.from_cache} />
+            <StatusBadge dataset="news" generatedAt={newsQ.data.generated_at} status={newsQ.data.freshness_status} fromCache={newsQ.data.provenance?.from_cache} />
             <span className="text-xs text-muted-foreground">
               {t("total")}: {formatNumber(newsQ.data.payload.total, locale)}
             </span>

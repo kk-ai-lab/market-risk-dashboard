@@ -42,6 +42,7 @@ export const RISK_TREND_KEYS: Record<RiskTrend, string> = {
   rising: "common:direction.rising",
   falling: "common:direction.falling",
   flat: "common:direction.flat",
+  unknown: "common:direction.unknown",
 };
 
 export const RISK_EVIDENCE_KEYS: Record<RiskEvidenceState, string> = {

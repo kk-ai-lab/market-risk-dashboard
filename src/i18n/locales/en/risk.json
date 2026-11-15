@@ -23,6 +23,7 @@
     "complete": "Complete evidence",
     "partial": "Partial evidence",
     "insufficient": "Insufficient evidence",
+    "unknown": "Evidence status unknown",
     "coverage": "Effective coverage",
     "scoreRange": "Evidence score range",
     "missingIndicators": "Missing indicators",
@@ -130,6 +131,13 @@
     "status": "Status",
     "freshnessUnknown": "Freshness unknown",
     "proxy": "Proxy"
+  },
+  "breadth": {
+    "title": "Breadth sample",
+    "above200": "Above the 200-day average",
+    "newHighs": "New highs",
+    "newLows": "New lows",
+    "explanation": "Counts cover only eligible instruments in the configured sample, not the entire market."
   },
   "confidenceFactors": {
     "title": "Data-trust factors",

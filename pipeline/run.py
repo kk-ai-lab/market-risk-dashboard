@@ -1,11 +1,10 @@
-"""Pipeline CLI entry point (architecture §1.3 frozen command set + T03 full implementation + Fix rounds).
+"""Pipeline CLI entry point.
 
 Commands:
   --full          Full (default): collect + indicators + risk + fact layer + storage
   --market-only   Quotes/crypto/A-shares only
-  --macro-only    Macro only (FRED + FedWatch)
+  --macro-only    Macro series only (providers follow the active source policy)
   --news-only     News only
-  --analysis-only Legacy AI artifact validation / translation merge only (no collection)
   --fact-layer    Rebuild fact layer only (no collection)
   --backfill      Warm-up backfill of 30-90 days of history (except FedWatch)
   --dry-run       Dry run without writing to disk
@@ -20,15 +19,16 @@ Fix round additions/revisions:
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 import time
 import traceback
-from pathlib import Path
+from datetime import UTC, date, datetime
 from typing import Any
 
 from pipeline import __version__
 from pipeline.collectors import CalendarCollector, MacroCollector, MarketCollector, NewsCollector
+from pipeline.collectors.news import news_translation_coverage, translation_sidecar_matches_news_batch
+from pipeline.config.models import ApprovedCollectionPlan
 from pipeline.factlayer import FactLayerBuilder
 from pipeline.indicators.derived_series import derive_report
 from pipeline.metadata import oldest_source_timestamp, row_count_for
@@ -50,11 +50,13 @@ from pipeline.schemas import (
     EquitiesEnvelope,
     MacroEnvelope,
     NewsEnvelope,
+    NewsTranslationsDataset,
     RiskEnvelope,
     SectorsEnvelope,
 )
 from pipeline.schemas import registry as dataset_registry
 from pipeline.schemas.envelope import (
+    SOURCE_POLICY_EXCLUDED_REASON_CODE,
     AssembledDataset,
     FreshnessReason,
     FreshnessStatus,
@@ -63,6 +65,7 @@ from pipeline.schemas.envelope import (
 from pipeline.settings import settings
 from pipeline.storage import StorageWriter
 from pipeline.storage.outcomes import RunOutcomes
+from pipeline.storage.writer import CorruptDataError
 from pipeline.universe import AssetUniverse
 from pipeline.utils import now_utc
 from pipeline.validation.ci_checks import run_all as run_data_validation
@@ -76,18 +79,11 @@ from pipeline.validation.freshness import (
 _build_risk_context = build_risk_context
 _read_prev_risk = read_prev_risk
 
-#: The AI-side Chinese translation file the merge step consumes (#192).
-TRANSLATIONS_FILENAME = "news.zh-translations.json"
-
-_CJK_RE = re.compile(r"[\u3400-\u9fff]")
-
-
 COMMANDS = (
     "full",
     "market-only",
     "macro-only",
     "news-only",
-    "analysis-only",
     "fact-layer",
 )
 
@@ -97,9 +93,8 @@ def build_parser() -> argparse.ArgumentParser:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--full", action="store_true", help="full (default): collect + indicators + risk + fact layer + storage")
     mode.add_argument("--market-only", action="store_true", help="quotes/crypto/A-shares only")
-    mode.add_argument("--macro-only", action="store_true", help="macro only (FRED + FedWatch)")
+    mode.add_argument("--macro-only", action="store_true", help="macro series only (providers follow the active source policy)")
     mode.add_argument("--news-only", action="store_true", help="news collection only")
-    mode.add_argument("--analysis-only", action="store_true", help="legacy AI artifact validation/merge only (no collection)")
     mode.add_argument("--fact-layer", action="store_true", help="rebuild fact layer only (no collection)")
     parser.add_argument("--locale", choices=["zh-CN", "en"], default=None, help="analysis language (default bilingual)")
     parser.add_argument("--dry-run", action="store_true", help="dry run: validate config and arguments, no write to disk")
@@ -120,9 +115,6 @@ def _resolve_command(args: argparse.Namespace) -> str:
 # ============================================================
 
 def _run_scope(command: str) -> set[str]:
-    """Production commands observe data only; the legacy command owns old AI artifacts."""
-    if command == "analysis-only":
-        return set(dataset_registry.LEGACY_AI_DATASET_KEYS)
     return set(COMMAND_DATASETS.get(command, FULL_RUN_DATASETS))
 
 #: metadata/freshness.json status meaning the dataset produced nothing at all.
@@ -153,6 +145,7 @@ def dataset_health(writer: StorageWriter, command: str, *, run_started_at: str) 
 
     failed: list[str] = []
     degraded: list[str] = []
+    policy_excluded: set[str] = set()
     for name in attempted:
         entry = metadata.get(name)
         if not isinstance(entry, dict):
@@ -170,11 +163,18 @@ def dataset_health(writer: StorageWriter, command: str, *, run_started_at: str) 
             continue
         status = str(entry.get("status", ""))
         if status in FAILED_FRESHNESS_STATUSES:
-            failed.append(name)
+            reason = entry.get("reason")
+            reason_code = reason.get("code") if isinstance(reason, dict) else None
+            if reason_code == SOURCE_POLICY_EXCLUDED_REASON_CODE:
+                policy_excluded.add(name)
+            elif command == "full" and reason_code == "input_dataset_unhealthy":
+                degraded.append(name)
+            else:
+                failed.append(name)
         elif status in DEGRADED_FRESHNESS_STATUSES:
             degraded.append(name)
 
-    skipped = [name for name in FULL_RUN_DATASETS if name not in attempted]
+    skipped = [name for name in FULL_RUN_DATASETS if name not in attempted or name in policy_excluded]
     return {"failed": failed, "degraded": degraded, "skipped": skipped}
 
 
@@ -287,6 +287,10 @@ def _market_dataset_params(market_meta: dict[str, Any], name: str, fallback_degr
         data_quality=market_meta.get("data_quality_by_dataset", {}).get(name, market_meta.get("data_quality", 1.0)),
         source_updated_at=market_meta.get("source_updated_at_by_dataset", {}).get(name),
         detail=market_meta.get("degraded_detail_by_dataset", {}).get(name, ""),
+        error_code=(
+            SOURCE_POLICY_EXCLUDED_REASON_CODE
+            if name in market_meta.get("source_policy_excluded_datasets", []) else None
+        ),
     )
 
 
@@ -365,25 +369,10 @@ def _publish_metadata(
     writer: StorageWriter,
     outcomes: RunOutcomes,
     provider_status: dict[str, Any] | None = None,
-    *,
-    include_legacy_ai: bool = False,
 ) -> None:
-    """Render both metadata files from the one outcome record (#89).
-
-    Writing them together, from the same source, is the mechanism that makes the old
-    contradiction unrepresentable: ``sources.json`` cannot call a domain healthy while
-    ``freshness.json`` calls its dataset degraded, because ``degraded`` in both files is
-    *derived* from the same outcomes — and, on partial runs, both carry forward out-of-scope
-    state together so a ``--news-only`` run cannot reset a previously-degraded domain.
-
-    ``provider_status`` is omitted by commands that fetch nothing (``--fact-layer``,
-    ``--analysis-only``); rewriting provider health from a run that contacted no provider
-    would replace real information with an empty guess.
-    """
     freshness = outcomes.freshness_projection(writer.read_freshness_raw())
-    if not include_legacy_ai:
-        for key in dataset_registry.LEGACY_AI_DATASET_KEYS:
-            freshness["datasets"].pop(key, None)
+    for key in dataset_registry.LEGACY_AI_DATASET_KEYS:
+        freshness["datasets"].pop(key, None)
     writer.write_freshness_metadata(freshness)
     if provider_status is not None:
         writer.write_sources_metadata(
@@ -413,9 +402,9 @@ def _build_dashboard(
 
     cross_asset: list[DashboardAsset] = []
     for a in equities.payload.assets[:6]:
-        cross_asset.append(DashboardAsset(asset=a.symbol, category="equity", change_1d=a.change_1d))
+        cross_asset.append(DashboardAsset(asset=a.symbol, category="equity", change_1d=a.change_1d, source=a.source))
     for a in crypto.payload.assets[:3]:
-        cross_asset.append(DashboardAsset(asset=a.symbol, category="crypto", change_1d=a.change_1d))
+        cross_asset.append(DashboardAsset(asset=a.symbol, category="crypto", change_1d=a.change_1d, source=a.source))
 
     catalysts = [e.model_dump() for e in calendar.payload.events[:5]]
 
@@ -467,7 +456,15 @@ def _empty_results() -> dict[str, Any]:
 def _run_collection(command: str) -> dict[str, Any]:
     """Run collection according to the command, returning collected results and durations."""
     started = time.monotonic()
-    registry = build_registry(settings)
+    collection_plan = (
+        settings.load_public_source_policy().collection_plan()
+        if settings.approved_sources_only else None
+    )
+    registry = (
+        build_registry(settings)
+        if collection_plan is None
+        else build_registry(settings, collection_plan=collection_plan)
+    )
     universe = AssetUniverse.load(settings)
 
     results = _empty_results()
@@ -479,7 +476,8 @@ def _run_collection(command: str) -> dict[str, Any]:
 
     if need_market:
         t0 = time.monotonic()
-        mc = MarketCollector(registry, universe, settings)
+        market_options = {"collection_plan": collection_plan} if collection_plan is not None else {}
+        mc = MarketCollector(registry, universe, settings, **market_options)
         market = mc.collect()
         results.update(
             equities=market["equities"],
@@ -496,7 +494,137 @@ def _run_collection(command: str) -> dict[str, Any]:
 
     if need_macro:
         t0 = time.monotonic()
-        macc = MacroCollector(registry, settings)
+        macro_options: dict[str, Any] = {}
+        source_errors: dict[str, str] = {}
+        if settings.treasury_enabled or settings.treasury_cloud_enabled or settings.approved_sources_only:
+            from pipeline.providers.treasury import TreasuryProvider
+            from pipeline.storage.treasury_snapshot import (
+                SnapshotError as TreasurySnapshotError,
+            )
+            from pipeline.storage.treasury_snapshot import (
+                TreasurySnapshot,
+                refresh_treasury_snapshot,
+            )
+
+            treasury_grant = (
+                collection_plan.grant_for("treasury", "macro")
+                if collection_plan is not None else None
+            )
+            treasury_series = treasury_grant.macro_series if treasury_grant is not None else ()
+            treasury_now = datetime.now(UTC)
+            if settings.treasury_cloud_enabled:
+                from contextlib import suppress
+
+                from pipeline.storage.cloud_treasury import (
+                    CloudTreasuryRefreshError,
+                    refresh_cloud_treasury_snapshot,
+                )
+                from pipeline.storage.github_checkpoint import CheckpointError, GitHubCheckpoint
+
+                checkpoint = None
+                try:
+                    repository = (settings.cloud_state_repo or "").split("/")
+                    token = settings.cloud_state_token
+                    if len(repository) != 2 or token is None:
+                        raise ValueError("Cloud state repository or token is not configured")
+                    checkpoint = GitHubCheckpoint(
+                        *repository, settings.cloud_state_branch, token.get_secret_value(),
+                    )
+                    macro_options["treasury_snapshot"] = refresh_cloud_treasury_snapshot(
+                        checkpoint, settings.treasury_checkpoint_path, TreasuryProvider(settings),
+                        settings=settings,
+                        series_ids=treasury_series if collection_plan is not None else None,
+                        refresh_interval_minutes=(
+                            treasury_grant.cadence_minutes if treasury_grant is not None else None
+                        ),
+                    )
+                except CloudTreasuryRefreshError as exc:
+                    macro_options["treasury_snapshot"] = exc.snapshot
+                    source_errors["treasury"] = "Cloud Treasury checkpoint refresh failed"
+                except (CheckpointError, TreasurySnapshotError, OSError, ValueError):
+                    macro_options["treasury_snapshot"] = TreasurySnapshot(
+                        years={}, required_years=list(range(treasury_now.year - 5, treasury_now.year + 1)),
+                        degraded=True, errors={treasury_now.year: "Cloud Treasury checkpoint unavailable"},
+                        history_rechecked=False,
+                    )
+                    source_errors["treasury"] = "Cloud Treasury checkpoint unavailable"
+                finally:
+                    if checkpoint is not None:
+                        with suppress(CheckpointError, OSError, ValueError):
+                            checkpoint.close()
+            else:
+                try:
+                    macro_options["treasury_snapshot"] = refresh_treasury_snapshot(
+                        settings.artifacts_dir / "treasury", TreasuryProvider(settings), now=treasury_now,
+                        series_ids=treasury_series if collection_plan is not None else None,
+                    )
+                except (TreasurySnapshotError, OSError, ValueError):
+                    macro_options["treasury_snapshot"] = TreasurySnapshot(
+                        years={}, required_years=list(range(treasury_now.year - 5, treasury_now.year + 1)),
+                        degraded=True, errors={treasury_now.year: "Treasury snapshot unavailable"}, history_rechecked=False,
+                    )
+                    source_errors["treasury"] = "Treasury snapshot unavailable"
+        if settings.bls_enabled or settings.bls_cloud_enabled or settings.approved_sources_only:
+            from pipeline.providers.bls import BlsProvider
+            from pipeline.storage.bls_snapshot import (
+                SnapshotError,
+                empty_bls_snapshot,
+                refresh_bls_snapshot,
+            )
+
+            bls_grant = (
+                collection_plan.grant_for("bls", "macro")
+                if collection_plan is not None else None
+            )
+            bls_series = bls_grant.macro_series if bls_grant is not None else ()
+            if settings.bls_cloud_enabled:
+                from contextlib import suppress
+
+                from pipeline.storage.cloud_bls import (
+                    CloudBlsRefreshError,
+                    refresh_cloud_bls_snapshot,
+                )
+                from pipeline.storage.github_checkpoint import CheckpointError, GitHubCheckpoint
+
+                checkpoint = None
+                try:
+                    repository = (settings.cloud_state_repo or "").split("/")
+                    token = settings.cloud_state_token
+                    if len(repository) != 2 or token is None:
+                        source_errors["bls"] = "Cloud state repository or token is not configured"
+                        raise ValueError(source_errors["bls"])
+                    checkpoint = GitHubCheckpoint(
+                        *repository, settings.cloud_state_branch, token.get_secret_value(),
+                    )
+                    bls_snapshot = refresh_cloud_bls_snapshot(
+                        checkpoint, settings.bls_checkpoint_path, BlsProvider(settings),
+                        series_ids=bls_series if collection_plan is not None else None,
+                    )
+                except CloudBlsRefreshError as exc:
+                    bls_snapshot = exc.snapshot
+                    source_errors["bls"] = "Cloud BLS checkpoint refresh failed"
+                except (CheckpointError, SnapshotError, OSError, ValueError):
+                    bls_snapshot = empty_bls_snapshot()
+                    source_errors.setdefault("bls", "Cloud BLS checkpoint unavailable")
+                finally:
+                    if checkpoint is not None:
+                        with suppress(CheckpointError, OSError, ValueError):
+                            checkpoint.close()
+            else:
+                try:
+                    bls_snapshot = refresh_bls_snapshot(
+                        settings.artifacts_dir / "bls" / "snapshot.json", BlsProvider(settings),
+                        now=datetime.now(UTC),
+                        series_ids=bls_series if collection_plan is not None else None,
+                    )
+                except (SnapshotError, OSError):
+                    bls_snapshot = empty_bls_snapshot()
+                    source_errors["bls"] = "BLS local snapshot unavailable"
+            macro_options["bls_snapshot"] = bls_snapshot
+        macro_options["source_errors"] = source_errors
+        if collection_plan is not None:
+            macro_options["collection_plan"] = collection_plan
+        macc = MacroCollector(registry, settings, **macro_options)
         macro, macro_meta = macc.collect()
         results["macro"] = macro
         results["macro_meta"] = macro_meta
@@ -508,7 +636,8 @@ def _run_collection(command: str) -> dict[str, Any]:
 
     if need_calendar:
         t0 = time.monotonic()
-        ccc = CalendarCollector(registry, settings)
+        calendar_options = {"collection_plan": collection_plan} if collection_plan is not None else {}
+        ccc = CalendarCollector(registry, settings, **calendar_options)
         calendar, cal_meta = ccc.collect()
         results["calendar"] = calendar
         results["calendar_meta"] = cal_meta
@@ -519,8 +648,51 @@ def _run_collection(command: str) -> dict[str, Any]:
 
     if need_news:
         t0 = time.monotonic()
-        ncc = NewsCollector(registry, settings)
+        news_options = {"collection_plan": collection_plan} if collection_plan is not None else {}
+        ncc = NewsCollector(registry, settings, **news_options)
         news, news_meta = ncc.collect()
+        translation_status = "missing"
+        translation_reason = "news translation sidecar not found"
+        stale_translation_sidecar = False
+        try:
+            translations = StorageWriter(settings.data_dir).read_latest("news.zh-translations")
+        except CorruptDataError:
+            translations = None
+            translation_status = "skipped"
+            translation_reason = "news translation sidecar is invalid"
+        if translations is not None:
+            try:
+                payload = translations.get("payload", translations)
+                parsed = NewsTranslationsDataset.model_validate(payload)
+                if translation_sidecar_matches_news_batch(news, parsed):
+                    news = ncc.merge_translations(news, parsed)
+                    translation_status = "merged"
+                    translation_reason = "news translation sidecar merged"
+                else:
+                    stale_translation_sidecar = True
+                    translation_status = "stale"
+                    translation_reason = "news translation sidecar predates the latest article"
+            except (TypeError, ValueError):
+                translation_status = "skipped"
+                translation_reason = "news translation sidecar is invalid"
+        covered, total = news_translation_coverage(news)
+        translation_degraded = bool(total and covered < total) or stale_translation_sidecar
+        if translation_degraded:
+            if not stale_translation_sidecar:
+                translation_status = "skipped"
+            coverage_detail = f"bilingual translations cover {covered}/{total} news items"
+            if translation_reason != "news translation sidecar not found":
+                translation_reason = f"{translation_reason}; {coverage_detail}"
+            else:
+                translation_reason = coverage_detail
+            news_meta["degraded"].append(translation_reason)
+            news_meta["error_code"] = "news_translation_incomplete"
+            news_meta["detail"] = translation_reason
+        news_meta["translation_record"] = {
+            "status": translation_status,
+            "merged_items": covered,
+            "reason": translation_reason,
+        }
         results["news"] = news
         results["news_meta"] = news_meta
         results["news_degraded"] = bool(news_meta["degraded"])
@@ -569,7 +741,9 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
                           used_fallback=bool(macro_outcome.get("used_fallback", False)),
                           from_cache=bool(macro_outcome.get("from_cache", False)),
                           data_quality=macro_meta.get("data_quality", 1.0),
-                          source_updated_at=macro_meta.get("source_updated_at"))
+                          source_updated_at=macro_meta.get("source_updated_at"),
+                          detail=macro_meta.get("detail", ""),
+                          error_code=macro_meta.get("error_code"))
         # (#192): one parameterization for both market write paths; order here is the
         # full-run publish order (see _write_finalized calls below), not market-only's.
         market_datasets = {}
@@ -579,6 +753,7 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
                 _name, results[_name], params["degraded"],
                 **params["provider_kwargs"], data_quality=params["data_quality"],
                 source_updated_at=params["source_updated_at"], detail=params["detail"],
+                error_code=params["error_code"],
             )
         equities, sectors, crypto, commodities = (
             market_datasets["equities"], market_datasets["sectors"],
@@ -587,11 +762,18 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
         news = _assemble("news", results["news"], news_degraded,
                          **_provider_kwargs(news_meta, None, default="rss_news"),
                          data_quality=news_meta.get("data_quality", 1.0),
-                         source_updated_at=news_meta.get("source_updated_at"))
+                         source_updated_at=news_meta.get("source_updated_at"),
+                         detail=news_meta.get("detail", ""),
+                         error_code=news_meta.get("error_code"))
+        if news_meta.get("translation_record"):
+            translation_record = news_meta["translation_record"]
+            writer.record_translations(**translation_record)
         calendar = _assemble("calendar", results["calendar"], calendar_degraded,
                              **_provider_kwargs(calendar_meta, None, default="fmp"),
                              data_quality=calendar_meta.get("data_quality", 1.0),
-                             source_updated_at=calendar_meta.get("source_updated_at"))
+                             source_updated_at=calendar_meta.get("source_updated_at"),
+                             detail=calendar_meta.get("detail", ""),
+                             error_code=calendar_meta.get("error_code"))
 
         risk_model = RiskModel(settings)
         market_histories = results.get("histories", {})
@@ -607,7 +789,10 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
             else None
         )
         today = now_utc()[:10]
-        prev_score, prev_dims, risk_history = read_prev_risk(writer, as_of_date=today)
+        if settings.approved_sources_only:
+            prev_score, prev_dims, risk_history = None, None, []
+        else:
+            prev_score, prev_dims, risk_history = read_prev_risk(writer, as_of_date=today)
         # #99 (verified end to end): _assemble returns AssembledDataset (the #101 single
         # assembly path); the risk context and the fact layer operate on ENVELOPES.
         ctx = build_risk_context(
@@ -627,7 +812,10 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
             crypto_provenance=market_meta.get("providers", {}).get("crypto"),
             commodities_provenance=market_meta.get("providers", {}).get("commodities"),
         )
+        ctx["_as_of_date"] = today
         risk_result = risk_model.score(ctx)
+        if not any(indicator.value is not None for dimension in risk_result.dimensions for indicator in dimension.indicators):
+            return False, "risk calculation has no available indicators"
         risk_source_updated_at = oldest_source_timestamp(
             [
                 macro.envelope.source_updated_at,
@@ -659,11 +847,17 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
     try:
         # #96 (shape per #84 §3): history belongs to the same publish group as latest and
         # metadata, so a later validation/write failure cannot leave a mixed run on disk.
-        if results.get("series_history"):
-            from pipeline.collectors.macro import SERIES_GROUPS
-            from pipeline.storage.macro_history import write_macro_history
+        from pipeline.collectors.macro import SERIES_GROUPS
+        from pipeline.storage.macro_history import write_macro_history
 
-            write_macro_history(writer, results["series_history"], SERIES_GROUPS)
+        write_macro_history(
+            writer,
+            results.get("series_history", {}),
+            SERIES_GROUPS,
+            series_sources=macro_meta.get("series_sources"),
+            percentile_window_years=risk_model.percentile_window_years,
+            as_of_date=date.fromisoformat(today),
+        )
         macro = _write_finalized(writer, "macro", macro, outcomes)
         market_envelopes = _write_market_datasets(
             writer,
@@ -768,7 +962,9 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
             "risk_level": risk_result.risk_level,
             "regime": risk_result.regime,
             "confidence": risk_result.confidence,
-            "dim_scores": {d.key: d.score for d in risk_result.dimensions},
+            "evidence_state": risk_result.evidence_state,
+            "dim_scores": {d.key: d.score for d in risk_result.dimensions if d.evidence_state in {"partial", "complete"}},
+            "dim_evidence_states": {d.key: d.evidence_state for d in risk_result.dimensions},
             # Per-indicator scores: a dimension score is a weighted average, so the published
             # history could only ever attribute a move to a *dimension*, never to the input
             # that caused it — which makes any weight/contribution validation impossible after
@@ -916,6 +1112,8 @@ def main(argv: list[str] | None = None) -> int:
         settings.load_risk_model()
         settings.load_sources()
         settings.load_news_sources()
+        if settings.approved_sources_only:
+            settings.load_public_source_policy()
     except ConfigError as exc:
         print(f"[pipeline] config loading failed: {exc}", file=sys.stderr)
         return 1
@@ -925,8 +1123,16 @@ def main(argv: list[str] | None = None) -> int:
         print("[pipeline] dry-run complete, no files written (no-op normal exit)")
         return 0
 
-    if command == "analysis-only":
-        return _run_analysis_only()
+    if settings.approved_sources_only:
+        approved_data_dir = settings.data_dir.resolve()
+        legacy_data_dir = (settings.project_root / "public" / "data").resolve()
+        if approved_data_dir == legacy_data_dir:
+            print(
+                "[pipeline] approved-source mode requires an isolated data_dir; "
+                "public/data contains legacy source payloads",
+                file=sys.stderr,
+            )
+            return 1
 
     if args.backfill:
         return run_backfill()
@@ -958,6 +1164,7 @@ def main(argv: list[str] | None = None) -> int:
                         _name, results[_name], params["degraded"],
                         **params["provider_kwargs"], data_quality=params["data_quality"],
                         source_updated_at=params["source_updated_at"], detail=params["detail"],
+                        error_code=params["error_code"],
                     )
                 _write_market_datasets(
                     writer, market_datasets, outcomes,
@@ -972,15 +1179,24 @@ def main(argv: list[str] | None = None) -> int:
             outcomes = RunOutcomes(scope=_run_scope(command))
             macro_meta = results.get("macro_meta", {})
             with writer.atomic_group():
-                if results.get("series_history"):
-                    from pipeline.collectors.macro import SERIES_GROUPS
-                    from pipeline.storage.macro_history import write_macro_history
+                from pipeline.collectors.macro import SERIES_GROUPS
+                from pipeline.storage.macro_history import write_macro_history
 
-                    write_macro_history(writer, results["series_history"], SERIES_GROUPS)
+                risk_model = RiskModel(settings)
+                write_macro_history(
+                    writer,
+                    results.get("series_history", {}),
+                    SERIES_GROUPS,
+                    series_sources=macro_meta.get("series_sources"),
+                    percentile_window_years=risk_model.percentile_window_years,
+                    as_of_date=date.fromisoformat(now_utc()[:10]),
+                )
                 _finalize_and_write(writer, "macro", results["macro"], bool(macro_meta.get("degraded")), outcomes,
                                     **_provider_kwargs(macro_meta, None, default="fred"),
                                     data_quality=macro_meta.get("data_quality", 1.0),
-                                    source_updated_at=macro_meta.get("source_updated_at"))
+                                    source_updated_at=macro_meta.get("source_updated_at"),
+                                    detail=macro_meta.get("detail", ""),
+                                    error_code=macro_meta.get("error_code"))
                 _publish_metadata(writer, outcomes, results["provider_status"])
             health = dataset_health(StorageWriter(settings.data_dir), command, run_started_at=run_started_at)
             return _finish_run(command, results, time.monotonic() - started, health)
@@ -993,7 +1209,11 @@ def main(argv: list[str] | None = None) -> int:
                 _finalize_and_write(writer, "news", results["news"], bool(results.get("news_degraded", False)), outcomes,
                                     **_provider_kwargs(news_meta, None, default="rss_news"),
                                     data_quality=news_meta.get("data_quality", 1.0),
-                                    source_updated_at=news_meta.get("source_updated_at"))
+                                    source_updated_at=news_meta.get("source_updated_at"),
+                                    detail=news_meta.get("detail", ""),
+                                    error_code=news_meta.get("error_code"))
+                if news_meta.get("translation_record"):
+                    writer.record_translations(**news_meta["translation_record"])
                 _publish_metadata(writer, outcomes, results["provider_status"])
             health = dataset_health(StorageWriter(settings.data_dir), command, run_started_at=run_started_at)
             return _finish_run(command, results, time.monotonic() - started, health)
@@ -1092,82 +1312,6 @@ def _run_fact_layer_only() -> tuple[bool, str | None]:
     # left it rather than being overwritten with an empty map.
     _publish_metadata(writer, outcomes)
     return True, None
-
-
-def _merge_news_translations(
-    writer: StorageWriter,
-    collector: NewsCollector,
-    news: Any,
-    translations_path: Path,
-) -> Any:
-    """Merge historical translations for the explicit legacy --analysis-only command.
-
-    The helper takes a payload, not its envelope, to preserve the #81 call-site fix.
-    Returns the merged payload, or None when no translations file exists ("missing" is
-    recorded here and the caller keeps its dataset unchanged).
-    """
-    if not translations_path.exists():
-        writer.record_translations(
-            "missing", 0, "news.zh-translations.json not found (AI did not produce Chinese translation)"
-        )
-        return None
-    import json
-
-    from pipeline.schemas import NewsTranslationsDataset
-
-    translations = NewsTranslationsDataset.model_validate(json.loads(translations_path.read_text(encoding="utf-8")))
-    merged = collector.merge_translations(news, translations)
-    merged_count = sum(1 for it in merged.items if it.title_zh)
-    # #225: an id/batch mismatch makes the merge silently no-op — record the honest coverage so a
-    # stale/misaligned translation file is visible instead of a false "merged" with zero effect.
-    zh_still_cjk = sum(1 for it in merged.items if it.lang == "zh" and it.title and _CJK_RE.search(it.title))
-    if zh_still_cjk:
-        reason = (
-            f"news.zh-translations.json merged {merged_count} zh sides, but {zh_still_cjk} zh-source "
-            f"items still lack English canonical (id/batch mismatch, #225)"
-        )
-    else:
-        reason = "news.zh-translations.json merged into news.json"
-    writer.record_translations("merged", merged_count, reason)
-    return merged
-
-
-def _run_analysis_only() -> int:
-    """Legacy AI artifact validation and translation merge, outside production collection."""
-    from pipeline.analysis_pair import record_ai_outcomes, write_analysis_only_report
-
-    writer = StorageWriter(settings.data_dir)
-    outcomes = RunOutcomes(scope=_run_scope("analysis-only"))
-    analysis_valid = record_ai_outcomes(writer, outcomes)
-    if not analysis_valid:
-        _publish_metadata(writer, outcomes, include_legacy_ai=True)
-        write_analysis_only_report(writer, outcomes)
-        print("[pipeline] analysis-only: AI pair was not promoted; freshness recorded as degraded", file=sys.stderr)
-        return 0
-
-    # Merge Chinese translation into news.json (P1-6: record merge status)
-    news_data = writer.read_latest("news")
-    if news_data:
-        from pipeline.schemas import NewsEnvelope
-
-        news = NewsEnvelope.model_validate(news_data)
-        collector = NewsCollector(build_registry(settings), settings)
-        # #81: the shared helper takes the PAYLOAD (merge_translations iterates
-        # `news.items`, which an envelope does not have) and re-wrap the result —
-        # the old hand-rolled copy passed the envelope and never merged.
-        merged_payload = _merge_news_translations(
-            writer, collector, news.payload, settings.data_dir / "latest" / TRANSLATIONS_FILENAME
-        )
-        if merged_payload is not None:
-            writer.write_dataset("news", news.model_copy(update={"payload": merged_payload}))
-            print("[pipeline] analysis-only: Chinese translation merged into news.json")
-
-    outcomes = RunOutcomes(scope=_run_scope("analysis-only"))
-    record_ai_outcomes(writer, outcomes)
-    _publish_metadata(writer, outcomes, include_legacy_ai=True)
-    write_analysis_only_report(writer, outcomes)
-    print("[pipeline] analysis-only: validation passed ✓")
-    return 0
 
 
 def _period_for_days(days: int) -> str:
@@ -1272,7 +1416,22 @@ def _print_summary(command: str, results: dict[str, Any], elapsed: float) -> Non
         for d in results["degraded"][:10]:
             print(f"    - {d}")
     risk = results.get("risk")
-    print(f"  risk score    : {risk.payload.total_score if risk else None}")
+    payload = getattr(risk, "payload", None)
+    if payload is None:
+        score_summary = "unavailable"
+    elif payload.evidence_state == "insufficient_evidence":
+        lower = payload.score_lower_bound
+        upper = payload.score_upper_bound
+        interval = f", interval {lower:.1f}–{upper:.1f}" if lower is not None and upper is not None else ""
+        score_summary = (
+            f"withheld (insufficient evidence, {payload.evidence_coverage:.0%} coverage{interval})"
+        )
+    else:
+        score_summary = (
+            f"{payload.total_score:.2f} / 100 ({payload.evidence_state} evidence, "
+            f"{payload.evidence_coverage:.0%} coverage, {payload.calibration_status} calibration)"
+        )
+    print(f"  risk score    : {score_summary}")
 
 
 if __name__ == "__main__":

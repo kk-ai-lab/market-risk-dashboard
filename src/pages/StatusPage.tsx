@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -6,7 +7,8 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatDateTime } from "@/lib/format";
-import { FreshnessDocument, SourcesDocument, utcDateTime, type DomainStatus } from "@/schemas";
+import { currentFreshness, currentSourceFreshness, elapsedFreshness } from "@/lib/freshness";
+import { CONTRACT_CONSTANTS, FreshnessDocument, SourcesDocument, utcDateTime, type CryptoEnvelope, type DomainStatus } from "@/schemas";
 import { displayProvider, displayReasonDetail } from "@/lib/displayLanguage";
 import { useDataset } from "@/hooks/useDataset";
 
@@ -37,10 +39,18 @@ const SchemaVersion = z.object({
 export default function StatusPage() {
   const { t, i18n } = useTranslation("status");
   const locale = i18n.language;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const update = () => setNow(Date.now());
+    const timer = window.setInterval(update, 60_000);
+    window.addEventListener("focus", update);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", update); };
+  }, []);
 
   const sourcesQ = useDataset<z.infer<typeof SourcesDocument>>("sources", {}, SourcesDocument);
   const freshnessQ = useDataset<z.infer<typeof FreshnessDocument>>("freshness", {}, FreshnessDocument);
   const schemaQ = useDataset<z.infer<typeof SchemaVersion>>("schema-version", {}, SchemaVersion);
+  const cryptoQ = useDataset<CryptoEnvelope>("crypto");
 
   const datasets = Object.entries(freshnessQ.data?.datasets ?? {}).filter(([key]) => key !== "analysis");
 
@@ -113,13 +123,20 @@ export default function StatusPage() {
               </thead>
               <tbody>
                 {datasets.map(([key, info]) => {
-                  const status = info.status;
-                  const reasonCode = info.reason?.code;
+                  const isCoinMetrics = key === "crypto" && (cryptoQ.data?.provenance.provider === "coinmetrics" || sourcesQ.data?.domains?.crypto?.provider === "coinmetrics");
+                  const sourceUnavailable = key === "crypto" && (cryptoQ.isError || (!cryptoQ.data && !sourcesQ.data?.domains?.crypto));
+                  const sourceTime = cryptoQ.data?.source_updated_at;
+                  const sourceInterval = isCoinMetrics ? CONTRACT_CONSTANTS.coinmetrics_expected_interval_minutes : undefined;
+                  const baseStatus = currentFreshness(sourceUnavailable ? "degraded" : info.status, key, info.updated_at, now, sourceInterval);
+                  const sourceAge = sourceInterval ? elapsedFreshness(key, sourceTime ?? "", now, sourceInterval) : "fresh";
+                  const status = currentSourceFreshness(baseStatus, sourceAge);
+                  const aged = status !== info.status;
+                  const reasonCode = sourceUnavailable ? "provider_http_error" : aged ? "interval_exceeded" : info.reason?.code;
                   return (
                     <tr key={key} className="border-b border-border/50 last:border-0">
                       <td className="py-1.5 pr-2">{t(`datasets.${key}`, { defaultValue: t("common:empty.translationUnavailable") })}</td>
                       <td className="py-1.5 pr-2">
-                        <StatusBadge status={status} />
+                        <StatusBadge status={sourceUnavailable ? "degraded" : info.status} dataset={key} generatedAt={info.updated_at} fromCache={isCoinMetrics && Boolean(cryptoQ.data?.provenance.from_cache)} sourceUpdatedAt={sourceTime} sourceExpectedMinutes={sourceInterval} />
                       </td>
                       <td className="py-1.5 pr-2 tabular-nums text-muted-foreground">
                         {info.updated_at ? formatDateTime(info.updated_at, locale) : t("common:data.na")}
@@ -130,7 +147,7 @@ export default function StatusPage() {
                             ? t(`freshness.reasonCodes.${reasonCode}`, { defaultValue: t("freshness.unknown") })
                             : t("common:data.na")}
                         </div>
-                        {info.reason?.detail ? (
+                        {!aged && info.reason?.detail ? (
                           <div className="mt-0.5 text-xs">{displayReasonDetail(info.reason.detail, locale)}</div>
                         ) : null}
                       </td>
@@ -148,6 +165,7 @@ export default function StatusPage() {
       {/* Provider health (hairline section, not a card) */}
       <section className="border-t border-hairline pt-4">
         <h2 className="mb-2 text-sm font-medium text-foreground">{t("providers.title")}</h2>
+        <p className="mb-2 text-xs text-muted-foreground">{t("providers.lastRunNote")}</p>
         {sourcesQ.isLoading ? (
           <Skeleton className="h-40 w-full" />
         ) : sourcesQ.isError ? (

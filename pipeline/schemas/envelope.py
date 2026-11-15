@@ -68,9 +68,13 @@ ReasonCode = Literal[
     "cache_invalid",
     "all_providers_failed",
     "not_collected_this_run",
+    "source_policy_excluded",
     "interval_exceeded",
     "input_dataset_unhealthy",
+    "news_translation_incomplete",
 ]
+
+SOURCE_POLICY_EXCLUDED_REASON_CODE: ReasonCode = "source_policy_excluded"
 
 # Data contract version (single source of truth; reused by analysis/contract.py)
 SCHEMA_VERSION = "1.1.0"
@@ -256,12 +260,28 @@ def assemble_dataset(
     # Imported lazily: `pipeline.validation` imports `pipeline.schemas` at package import time,
     # so a module-level import here would be circular.
     from pipeline.utils import now_utc
-    from pipeline.validation.freshness import finalize_freshness
+    from pipeline.validation.freshness import COINMETRICS_EXPECTED_MINUTES, finalize_freshness
 
     generated_at = generated_at or now_utc()
+    freshness_at = generated_at
+    expected_minutes = None
+    source_time_error = ""
+    if dataset == "crypto" and provider == "coinmetrics":
+        expected_minutes = COINMETRICS_EXPECTED_MINUTES
+        try:
+            observed = datetime.fromisoformat((source_updated_at or "").replace("Z", "+00:00"))
+            generated = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+            if observed.tzinfo is None:
+                source_time_error = "Coin Metrics source_updated_at has no timezone"
+            elif observed > (now or datetime.fromisoformat(now_utc().replace("Z", "+00:00"))):
+                source_time_error = "Coin Metrics source_updated_at lies in the future"
+            else:
+                freshness_at = min(observed, generated).isoformat()
+        except (ValueError, TypeError):
+            source_time_error = "Coin Metrics source_updated_at is missing or invalid"
     verdict = finalize_freshness(
         dataset,
-        generated_at,
+        freshness_at,
         degraded,
         now=now,
         row_count=row_count,
@@ -269,6 +289,8 @@ def assemble_dataset(
         detail=detail,
         used_fallback=used_fallback,
         from_cache=from_cache,
+        expected_minutes=expected_minutes,
+        source_time_error=source_time_error,
     )
     env = model(
         generated_at=generated_at,

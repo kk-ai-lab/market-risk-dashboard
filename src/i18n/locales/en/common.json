@@ -31,13 +31,20 @@
     "missingDesc": "Dataset has never been produced; normal content is hidden",
     "degradedDesc": "Some providers degraded/fell back; model confidence has been reduced",
     "cacheReplay": "Cache replay",
-    "cacheReplayDesc": "Served from the last-good cache, not fetched live; treat as stale"
+    "cacheReplayDesc": "Served from the last-good cache, not fetched live; treat as stale",
+    "snapshotAge": { "delayed": "Snapshot delayed", "stale": "Snapshot stale" },
+    "snapshotAgeDesc": "Age of the published snapshot, not the source observation.",
+    "sourceAge": { "delayed": "Source delayed", "stale": "Source stale" },
+    "sourceAgeDesc": "Age of the oldest underlying source observation."
   },
   "error": {
     "title": "Failed to load data",
     "message": "Could not fetch or validate the data file. Please try again later.",
     "retry": "Retry",
-    "dataUnreachable": "Data file unreachable"
+    "dataUnreachable": "Data file unreachable",
+    "pageTitle": "Unable to load this page",
+    "pageMessage": "Something went wrong while loading this page. Reload and try again.",
+    "reload": "Reload"
   },
   "empty": {
     "title": "No data yet",
@@ -54,15 +61,19 @@
     },
     "providerNames": {
       "akshare": "A-share data provider",
+      "bls": "US Bureau of Labor Statistics",
       "calibrationPanel": "Calibration panel",
       "coingecko": "Crypto market data",
+      "coinmetrics": "Coin Metrics reference rates",
       "computed": "Computed indicator",
       "fmp": "Financial market data",
       "fmpQuotes": "Financial market quotes",
       "fred": "US economic data",
       "fredCalendar": "Economic calendar data",
+      "multipleSources": "Multiple data sources",
       "riskModel": "Risk model",
       "rssNews": "News aggregation",
+      "unavailable": "No available source",
       "yfinance": "Yahoo Finance",
       "yfinanceAShare": "Yahoo Finance (A-share)"
     },
@@ -97,6 +108,7 @@
   "direction": {
     "up": "Up",
     "down": "Down",
+    "unknown": "Unknown",
     "flat": "Flat",
     "rising": "Rising",
     "falling": "Falling",
@@ -120,6 +132,7 @@
   },
   "footer": {
     "disclaimer": "The risk score is a modeled estimate of market stress (based on historical data and current market signals). It is not a definitive probability or investment advice.",
-    "calibration": "See the calibration report for methodology and validation."
+    "calibration": "See the calibration report for methodology and validation.",
+    "coinMetricsAttribution": "When shown, crypto reference rates are provided by Coin Metrics Community Data for noncommercial use. Rates are sampled and formatted for this dashboard."
   }
 }

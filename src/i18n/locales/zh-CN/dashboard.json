@@ -22,6 +22,7 @@
     "catSectors": "板块"
   },
   "trend": {
+    "legacyEvidenceUnknown": "部分历史分数未记录证据覆盖情况。",
     "title": "风险趋势（近 30 日）",
     "score": "风险分",
     "empty": "暂无风险趋势数据",
@@ -54,7 +55,7 @@
   "snapshot": {
     "unknown": "未知",
     "age": "快照年龄",
-    "recordedStatus": "生成时的状态",
+    "recordedStatus": "快照状态",
     "minutesOld": "{{minutes}} 分钟前",
     "meaning": "此处是快照生成时间，并非交易所行情观测时间。来源数据可能更早，请同时参考来源状态标签。"
   }

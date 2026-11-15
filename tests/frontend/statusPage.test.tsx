@@ -1,8 +1,9 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, beforeEach } from "vitest";
-import "@/i18n";
+import i18n from "@/i18n";
 import { fixtureForUrl, installCustomFetch, installFixtureFetch } from "./helpers/fetchMock";
+import { sourcesFixture } from "./helpers/fixtureData";
 import StatusPage from "@/pages/StatusPage";
 
 /**
@@ -25,8 +26,9 @@ beforeEach(() => {
   installFixtureFetch();
 });
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  await i18n.changeLanguage("zh");
 });
 
 describe("StatusPage", () => {
@@ -60,6 +62,29 @@ describe("StatusPage", () => {
     expect(screen.getAllByText("数据源拒绝访问").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("数据源连接中断").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("akshare: RemoteDisconnected")).not.toBeInTheDocument();
+  });
+
+  it("labels combined and unavailable providers in both locales", async () => {
+    const sourceMetadata = {
+      ...sourcesFixture,
+      domains: {
+        ...sourcesFixture.domains,
+        macro: { ...sourcesFixture.domains.macro, provider: "mixed" },
+        calendar: { ...sourcesFixture.domains.calendar, provider: "unavailable" },
+      },
+    };
+    installCustomFetch((url) => {
+      if (url.endsWith("/metadata/sources.json")) return { ok: true, body: sourceMetadata };
+      const result = fixtureForUrl(url);
+      return { ok: result.ok, body: result.body };
+    });
+    renderPage();
+
+    expect(await screen.findByText("多个数据源")).toBeInTheDocument();
+    expect(screen.getAllByText("无可用数据源").length).toBeGreaterThan(0);
+    await i18n.changeLanguage("en");
+    expect(await screen.findByText("Multiple data sources")).toBeInTheDocument();
+    expect(screen.getAllByText("No available source").length).toBeGreaterThan(0);
   });
 
   it("shows the empty state when freshness metadata has no datasets", async () => {

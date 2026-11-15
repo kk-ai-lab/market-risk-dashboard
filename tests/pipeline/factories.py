@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Any
 
 from pipeline.lineage import fact_generation_id
-from pipeline.schemas import registry
+from pipeline.schemas import FactLayer, registry
 from pipeline.schemas.envelope import SCHEMA_VERSION
 
 __all__ = [
@@ -821,7 +821,7 @@ def make_facts(**overrides: Any) -> dict[str, Any]:
         overrides,
     )
     if "generation_id" not in overrides:
-        result["generation_id"] = fact_generation_id(result)
+        result["generation_id"] = fact_generation_id(FactLayer.model_validate(result))
     return result
 
 
@@ -1040,6 +1040,7 @@ def default_latest_files() -> dict[str, Any]:
     files: dict[str, Any] = {
         filename: make_envelope(name) for name, filename in DATASET_FILENAMES.items()
     }
+    files["macro.json"] = make_envelope("macro", payload=make_macro_roster_payload())
     files["facts.json"] = make_facts()
     files["analysis.zh-CN.json"] = make_analysis(language="zh-CN")
     files["analysis.en.json"] = make_analysis(language="en")
@@ -1047,8 +1048,41 @@ def default_latest_files() -> dict[str, Any]:
     return files
 
 
+def make_macro_roster_payload(*, include_live_rate: bool = False) -> dict[str, Any]:
+    from pipeline.collectors.macro import SERIES_GROUPS
+    from pipeline.providers.fred import SERIES_CATALOG
+
+    payload = make_macro_payload()
+    for group, series_ids in SERIES_GROUPS.items():
+        payload[group] = []
+        for series_id in series_ids:
+            catalog = SERIES_CATALOG[series_id]
+            if include_live_rate and series_id == "DGS10":
+                indicator = make_macro_indicator(
+                    key=series_id.lower(), label=catalog["label"], unit=catalog["unit"],
+                    source="FRED", updated_at=NOW_ISO,
+                )
+            else:
+                indicator = {
+                    "key": series_id.lower(),
+                    "label": catalog["label"],
+                    "value": None,
+                    "previous": None,
+                    "change_1m": None,
+                    "unit": catalog["unit"],
+                    "source": "unavailable",
+                    "updated_at": None,
+                    "status": "missing",
+                }
+            payload[group].append(indicator)
+    return payload
+
+
 def default_support_files() -> dict[str, Any]:
     """Every ``history/`` ``metadata/`` and ``feeds/`` file the validator looks for, all valid."""
+    from pipeline.collectors.macro import SERIES_GROUPS
+    from pipeline.providers.fred import SERIES_CATALOG
+
     files: dict[str, Any] = {}
     for series in ("risk", "market"):
         for slice_name in ("30d", "90d", "daily"):
@@ -1058,6 +1092,26 @@ def default_support_files() -> dict[str, Any]:
     files["metadata/sources.json"] = make_metadata_sources()
     files["metadata/schema-version.json"] = make_metadata_schema_version()
     files["feeds/fedwatch-history.json"] = make_fedwatch_history()
+    for group in SERIES_GROUPS:
+        for slice_name in ("30d", "90d"):
+            files[f"history/macro/{group}.{slice_name}.json"] = {}
+    files["history/macro/index.json"] = {
+        "series": {
+            series_id: {
+                "group": group,
+                "label": SERIES_CATALOG[series_id]["label"],
+                "frequency": SERIES_CATALOG[series_id]["frequency"],
+                "unit": SERIES_CATALOG[series_id]["unit"],
+                "scale": SERIES_CATALOG[series_id]["scale"],
+                "last_observation": None,
+                "next_expected_release": None,
+                "count": 0,
+            }
+            for group, series_ids in SERIES_GROUPS.items()
+            for series_id in series_ids
+        },
+        "updated_at": None,
+    }
     return files
 
 

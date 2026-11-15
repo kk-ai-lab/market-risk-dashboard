@@ -1,5 +1,10 @@
 # WorkBuddy AI Automation Integration Manual
 
+> **Retired for the public dashboard, 2026-11-15:** the site no longer renders or requires
+> AI-generated briefs. The pipeline may merge an existing news-translation sidecar but does
+> not generate it. This manual is retained as a historical record
+> only. It does not disable any external WorkBuddy automation; no such schedule was changed here.
+
 **Applies to:** WorkBuddy scheduled automation (deepseek v4 flash) generating bilingual AI briefs outside the pipeline.
 **Contract:** input/output are both disk files (architecture §1.5); the pipeline stays deterministic and replayable; AI is a "pluggable external step".
 
@@ -66,7 +71,7 @@ python -m pipeline.analysis.freshness --dataset facts
    - Every `evidence_refs` is findable in `evidence_index`
    - **Bilingual consistency**: `market_state` / `market_regime` / `confidence` / the `evidence_refs` set / all numbers in the text must be exactly identical; only the expression language may differ
    - On failure, retry ≤2 times (regenerate or patch locally).
-7. Publish linkage: after validation passes, run `python -m pipeline.run --analysis-only` — it flips `metadata/freshness.json` `analysis` to `fresh`, merges `news.zh-translations.json` into `news.json` when present (and records `missing` in `metadata/translations.json` when the translations step was skipped), keeping a single source of truth.
+7. Historical publish linkage: the retired `--analysis-only` command validated the brief pair, merged translations, and updated freshness metadata.
 8. `git commit + push (dev)` (`AI:`-prefixed message) → trigger Pages build.
 
 **Bilingual consistency rule (architecture §3.4):** inconsistency → refuse to publish; rather skip this run than publish a wrong conclusion.
@@ -136,7 +141,6 @@ git push origin dev
 
 ## 7. Maintenance notes
 
-- Changing model / automation platform **does not touch the pipeline**: only change the calls in steps 3-4 of this manual.
-- The news translation file is merged into `news.json` by step 7's `--analysis-only` in the same run (`pipeline/collectors/news.py` merge step + `pipeline/run.py`), keeping a single source of truth; the automation **must not** directly modify `news.json`.
-- **Catch-up (backfill) pass:** because the translation step covers every item in `news.json` each run and the merge is keyed by `id`, the next scheduled brief backfills the live file automatically. There are no news history slices (`public/data/history/` holds market/risk only), so no per-slice translation pass exists; the live file is the only news dataset.
-- Terminology follows `docs/glossary.md`; the prompt template `pipeline/analysis/build_prompt.py` already embeds the key term mapping.
+- The manual above records the retired WorkBuddy workflow. Editing it does not change any external WorkBuddy schedule.
+- The pipeline may merge an existing translation sidecar during news collection. It rejects the sidecar when `updated_at` predates the newest article's `published_at`.
+- The pipeline does not generate AI briefs or translations. The dashboard labels missing translations in the active language.

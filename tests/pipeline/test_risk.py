@@ -10,6 +10,7 @@ from pipeline.risk import confidence as conf_mod
 from pipeline.risk import regime as regime_mod
 from pipeline.risk_context import read_prev_risk
 from pipeline.storage import StorageWriter
+from pipeline.settings import Settings
 from pipeline.risk.model import RiskModel
 from pipeline.risk.model import _parse_thresholds
 from pipeline.risk.scoring import (
@@ -47,6 +48,17 @@ def test_percentile_rank_and_zscore() -> None:
     assert z_score(50, []) is None  # too few samples
 
 
+@pytest.mark.parametrize("years", [0, 6, True, 5.0])
+def test_risk_model_rejects_unsupported_history_windows(monkeypatch, years) -> None:
+    settings = Settings(_env_file=None)
+    config = settings.load_risk_model()
+    config["scoring"]["percentile_window_years"] = years
+    monkeypatch.setattr(Settings, "load_risk_model", lambda self: config)
+
+    with pytest.raises(ValueError, match="percentile_window_years must be an integer between 1 and 5"):
+        RiskModel(settings)
+
+
 def test_compute_indicator_score_percentile_primary() -> None:
     """P0-2: with sufficient history the percentile is the primary path; percentile/z_score are non-None."""
     history = list(range(1, 101))
@@ -80,8 +92,8 @@ def test_regime_crisis_on_vix_40() -> None:
 
 def test_intraday_refresh_compares_risk_with_the_previous_day(tmp_path, monkeypatch) -> None:
     writer = StorageWriter(tmp_path / "data")
-    yesterday = {"date": "2026-11-12", "total_score": 60, "dim_scores": {"macro": 40}}
-    today = {"date": "2026-11-13", "total_score": 65, "dim_scores": {"macro": 45}}
+    yesterday = {"date": "2026-11-12", "total_score": 60, "evidence_state": "partial", "dim_scores": {"macro": 40}, "dim_evidence_states": {"macro": "partial"}}
+    today = {"date": "2026-11-13", "total_score": 65, "evidence_state": "complete", "dim_scores": {"macro": 45}, "dim_evidence_states": {"macro": "complete"}}
     writer.write_slices("risk", [yesterday, today])
     previous, dimensions, history = read_prev_risk(writer, as_of_date="2026-11-13")
     assert previous == 60
@@ -92,6 +104,51 @@ def test_intraday_refresh_compares_risk_with_the_previous_day(tmp_path, monkeypa
     assert read_prev_risk(writer, as_of_date="2026-11-14")[0] == 68
     monkeypatch.setattr("pipeline.risk_context.now_utc", lambda: "2026-11-13T12:00:00Z")
     assert read_prev_risk(writer)[0] == 60
+
+
+def test_previous_risk_excludes_insufficient_evidence_from_history(tmp_path) -> None:
+    writer = StorageWriter(tmp_path / "data")
+    writer.write_slices("risk", [
+        {"date": "2026-11-10", "total_score": 60, "evidence_state": "partial"},
+        {"date": "2026-11-11", "total_score": 5, "evidence_state": "insufficient_evidence"},
+    ])
+    previous, _, history = read_prev_risk(writer, as_of_date="2026-11-12")
+    assert previous is None
+    assert [row["date"] for row in history] == ["2026-11-10"]
+    assert read_prev_risk(writer, as_of_date="2026-11-11")[0] == 60
+
+
+def test_legacy_history_and_unobserved_dimensions_are_not_comparison_baselines(tmp_path) -> None:
+    writer = StorageWriter(tmp_path / "data")
+    writer.write_slices("risk", [
+        {"date": "2026-11-01", "total_score": 1},
+        {"date": "2026-11-10", "total_score": 40, "evidence_state": "partial"},
+        {"date": "2026-11-11", "total_score": 50, "evidence_state": "partial",
+         "dim_scores": {"macro": 0, "volatility": 30},
+         "dim_evidence_states": {"macro": "insufficient_evidence", "volatility": "complete"}},
+    ])
+    previous, dimensions, history = read_prev_risk(writer, as_of_date="2026-11-12")
+    assert previous == 50
+    assert dimensions == {"volatility": 30.0}
+    assert [row["date"] for row in history] == ["2026-11-10", "2026-11-11"]
+    writer.write_slices("risk", [{"date": "2026-11-11", "total_score": 50,
+                                   "evidence_state": "partial", "dim_scores": {"macro": 0}}])
+    assert read_prev_risk(writer, as_of_date="2026-11-12")[1] is None
+
+
+def test_corrupt_risk_history_does_not_become_a_baseline() -> None:
+    class History:
+        def read_history(self, *_args):
+            return [
+                {"date": "2026-11-10", "total_score": 30, "evidence_state": "partial"},
+                {"date": "2026-11-11", "total_score": "bad", "evidence_state": "complete"},
+                {"date": "2026-11-09", "total_score": 1, "evidence_state": []},
+                None,
+            ]
+
+    previous, dimensions, rows = read_prev_risk(History(), as_of_date="2026-11-12")
+    assert previous is None and dimensions is None
+    assert [row["date"] for row in rows] == ["2026-11-10"]
 
 
 @pytest.mark.parametrize(
@@ -412,6 +469,18 @@ def test_cross_asset_missing_inputs_do_not_count_as_benign() -> None:
     assert cross_asset.coverage == 0.0
 
 
+def test_dimension_trend_requires_observations_on_both_days() -> None:
+    ctx = _synthetic_context()
+    result = RiskModel().score(ctx)
+    assert all(dimension.trend == "unknown" for dimension in result.dimensions)
+    ctx["_prev_dim_scores"] = {dimension.key: dimension.score for dimension in result.dimensions}
+    result = RiskModel().score(ctx)
+    assert all(
+        dimension.trend == ("unknown" if dimension.evidence_state == "insufficient_evidence" else "flat")
+        for dimension in result.dimensions
+    )
+
+
 def test_risk_model_dimension_trend_computed() -> None:
     """P2-11: after _prev_dim_scores injection the dimension trend is not always flat and the direction is correct."""
     ctx = _synthetic_context()
@@ -429,18 +498,24 @@ def test_risk_model_dimension_trend_computed() -> None:
     assert any(d.trend != "flat" for d in result.dimensions)
 
 
-def test_risk_model_trend_1w_1m_from_history() -> None:
-    """P2-11: after _risk_history injection trend_1w/trend_1m are computable."""
+def test_risk_model_trend_1w_1m_from_history(monkeypatch) -> None:
+    monkeypatch.setattr("pipeline.risk.model.now_utc", lambda: "2026-06-30T12:00:00Z")
     ctx = _synthetic_context()
-    rows = [
-        {"date": f"2026-06-{i:02d}", "total_score": 30.0 + (i % 3)}
-        for i in range(1, 25)
-    ]
+    rows = [{"date": "2026-05-29", "total_score": 30.0}, {"date": "2026-06-22", "total_score": 32.0}]
     ctx["_risk_history"] = rows
     ctx["_prev_total_score"] = rows[-1]["total_score"]
     result = RiskModel().score(ctx)
-    assert result.trend_1w is not None
-    assert result.trend_1m is not None
+    assert result.trend_1w == round(result.total_score - 32.0, 2)
+    assert result.trend_1m == round(result.total_score - 30.0, 2)
+
+
+def test_risk_trends_do_not_label_recent_or_sparse_history_as_a_week_or_month(monkeypatch) -> None:
+    monkeypatch.setattr("pipeline.risk.model.now_utc", lambda: "2026-06-30T12:00:00Z")
+    ctx = _synthetic_context()
+    ctx["_risk_history"] = [{"date": "2026-06-29", "total_score": 40.0}, {"date": "2026-05-01", "total_score": 20.0}]
+    result = RiskModel().score(ctx)
+    assert result.trend_1w is None
+    assert result.trend_1m is None
 
 
 def test_risk_model_level_thresholds() -> None:
@@ -747,6 +822,16 @@ def test_discount_uses_shared_constant(monkeypatch) -> None:
     assert es.effective_coverage == pytest.approx(0.5, abs=1e-4)
 
 
+def test_model_uses_its_own_proxy_discount_configuration() -> None:
+    configured = Settings().load_risk_model()
+    configured["confidence"]["proxy_discount_factor"] = 0.3
+    model = RiskModel(SimpleNamespace(load_risk_model=lambda: configured))
+    result = model.score(_synthetic_context())
+    equity = next(d for d in result.dimensions if d.key == "equity_structure")
+    assert equity.coverage == 1.0
+    assert equity.effective_coverage == pytest.approx(0.3, abs=1e-4)
+
+
 # ---------- #71: the regime says indeterminate when nothing fired ----------
 
 def test_empty_context_yields_indeterminate() -> None:
@@ -815,3 +900,22 @@ def test_dollar_index_removal_changes_no_regime() -> None:
     r_without = RiskModel().score(without)
     assert r_with.regime == r_without.regime
     assert r_with.regime_evidence == r_without.regime_evidence
+
+
+def test_macro_risk_indicators_keep_source_observation_and_worst_status() -> None:
+    from pipeline.schemas import MacroIndicator
+
+    macro = MacroDataset(rates=[
+        MacroIndicator(key="dgs10", label="10Y", value=4.2, source="source", updated_at="2026-11-12T00:00:00Z", status="fresh"),
+        MacroIndicator(key="dgs2", label="2Y", value=4.0, source="source", updated_at="2026-11-11T00:00:00Z", status="delayed"),
+    ])
+    result = RiskModel().score({"macro": macro})
+    indicators = {i.key: i for d in result.dimensions for i in d.indicators}
+    assert indicators["dgs10"].updated_at == "2026-11-12T00:00:00Z"
+    assert indicators["dgs10"].status == "fresh"
+    assert indicators["yield_curve_10y2y"].value is None
+    assert indicators["yield_curve_10y2y"].status == "missing"
+    macro.rates[1].updated_at = None
+    result = RiskModel().score({"macro": macro})
+    indicators = {i.key: i for d in result.dimensions for i in d.indicators}
+    assert indicators["yield_curve_10y2y"].updated_at is None

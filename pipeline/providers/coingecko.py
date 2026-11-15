@@ -6,6 +6,7 @@ Direct httpx connection; Demo key read from .env (DATA_COINGECKO_API_KEY).
 from __future__ import annotations
 
 import time
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -16,9 +17,21 @@ from pipeline.providers.base import (
     ProviderError,
     ProviderHealth,
 )
-from pipeline.utils import now_utc
+from pipeline.metadata import normalize_source_timestamp
 
 CG_BASE = "https://api.coingecko.com/api/v3"
+
+
+def _observation_time(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed > datetime.now(UTC):
+        return None
+    return normalize_source_timestamp(value)
 
 
 class CoinGeckoProvider(BaseProvider):
@@ -126,7 +139,7 @@ class CoinGeckoProvider(BaseProvider):
                     "market_cap": _f(detail.get("market_cap")),
                     "volume_24h": _f(detail.get("total_volume")),
                     "source": "coingecko",
-                    "updated_at": now_utc(),
+                    "updated_at": _observation_time(detail.get("last_updated")),
                 }
             )
 

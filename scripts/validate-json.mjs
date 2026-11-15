@@ -186,14 +186,21 @@ function checkHistory() {
 /** Macro history (#96/#84 §3): per-group sparse bundles + manifest (two layers of #96). */
 const MACRO_GROUPS = ["rates", "credit", "volatility", "inflation", "labor", "liquidity", "fx"];
 
+function isValidDate(value) {
+  if (typeof value !== "string" || !DATE_RE.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 function checkMacroHistory() {
   const macroDir = "history/macro";
+  const bundles = new Map();
   for (const group of MACRO_GROUPS) {
     for (const slice of ["30d", "90d"]) {
       const rel = `${macroDir}/${group}.${slice}.json`;
       const bundle = loadJson(rel);
       if (!bundle) {
-        warnings.push(`${rel} missing`);
+        errors.push(`${rel} missing`);
         continue;
       }
       filesChecked += 1;
@@ -201,33 +208,159 @@ function checkMacroHistory() {
         errors.push(`${rel}: bundle should be a per-series object`);
         continue;
       }
+      bundles.set(`${group}.${slice}`, bundle);
       for (const [series, cols] of Object.entries(bundle)) {
-        if (!cols || typeof cols !== "object" || !Array.isArray(cols.d) || !Array.isArray(cols.v)) {
+        if (!cols || typeof cols !== "object" || Array.isArray(cols)
+          || Object.keys(cols).sort().join(",") !== "d,v"
+          || !Array.isArray(cols.d) || !Array.isArray(cols.v)) {
           errors.push(`${rel}: ${series} should be {d: string[], v: number[]}`);
           continue;
         }
         if (cols.d.length !== cols.v.length) errors.push(`${rel}: ${series} d/v length mismatch`);
-        for (const d of cols.d) if (!DATE_RE.test(String(d))) errors.push(`${rel}: ${series} invalid date ${d}`);
+        if (cols.d.length > (slice === "30d" ? 30 : 90)) {
+          errors.push(`${rel}: ${series} exceeds the ${slice} observation limit`);
+        }
+        let previousDate = "";
+        for (const d of cols.d) {
+          if (!isValidDate(d)) errors.push(`${rel}: ${series} invalid date ${d}`);
+          if (previousDate && d <= previousDate) errors.push(`${rel}: ${series} dates are not strictly increasing`);
+          previousDate = d;
+        }
         for (const v of cols.v) {
           if (typeof v !== "number" || !Number.isFinite(v)) errors.push(`${rel}: ${series} invalid value ${v}`);
         }
       }
     }
   }
-  // Manifest: every roster series has the freshness metadata surface.
-  const manifest = loadJson(`${macroDir}/index.json`);
-  if (manifest) {
-    filesChecked += 1;
-    if (!manifest.series || typeof manifest.series !== "object") {
-      errors.push(`${macroDir}/index.json: series map missing`);
-    } else {
-      for (const group of MACRO_GROUPS) {
-        const anyOfGroup = Object.values(manifest.series).some((m) => m && m.group === group);
-        if (!anyOfGroup) errors.push(`${macroDir}/index.json: no series in group ${group}`);
+
+  const latestMacro = loadJson("latest/macro.json");
+  const payload = latestMacro?.payload;
+  const expected = new Map();
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    errors.push("latest/macro.json: payload missing for macro history roster");
+  } else {
+    for (const group of MACRO_GROUPS) {
+      if (!Array.isArray(payload[group])) {
+        errors.push(`latest/macro.json: payload.${group} must be an array`);
+        continue;
+      }
+      for (const indicator of payload[group]) {
+        const series = typeof indicator?.key === "string" ? indicator.key.toUpperCase() : "";
+        if (!series) {
+          errors.push(`latest/macro.json: payload.${group} has an indicator without a key`);
+          continue;
+        }
+        if (expected.has(series)) {
+          errors.push(`latest/macro.json: duplicate macro series ${series}`);
+          continue;
+        }
+        expected.set(series, { group, indicator });
       }
     }
-  } else {
-    warnings.push(`${macroDir}/index.json missing`);
+  }
+
+  const manifest = loadJson(`${macroDir}/index.json`);
+  if (!manifest) {
+    errors.push(`${macroDir}/index.json missing`);
+    return;
+  }
+  filesChecked += 1;
+  if (!manifest.series || typeof manifest.series !== "object" || Array.isArray(manifest.series)) {
+    errors.push(`${macroDir}/index.json: series map missing`);
+    return;
+  }
+
+  const manifestSeries = manifest.series;
+  for (const series of expected.keys()) {
+    if (!(series in manifestSeries)) errors.push(`${macroDir}/index.json: missing roster series ${series}`);
+  }
+  for (const series of Object.keys(manifestSeries)) {
+    if (!expected.has(series)) errors.push(`${macroDir}/index.json: unknown series ${series}`);
+  }
+  for (const group of MACRO_GROUPS) {
+    for (const slice of ["30d", "90d"]) {
+      const bundle = bundles.get(`${group}.${slice}`) || {};
+      for (const series of Object.keys(bundle)) {
+        const expectedEntry = expected.get(series);
+        if (!expectedEntry) errors.push(`${macroDir}/${group}.${slice}.json: unknown series ${series}`);
+        else if (expectedEntry.group !== group) {
+          errors.push(`${macroDir}/${group}.${slice}.json: ${series} belongs to ${expectedEntry.group}`);
+        }
+      }
+    }
+  }
+
+  for (const [series, { group, indicator }] of expected) {
+    const metadata = manifestSeries[series];
+    if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) continue;
+    if (metadata.group !== group) {
+      errors.push(`${macroDir}/index.json: ${series} group ${metadata.group} does not match ${group}`);
+    }
+    if (!Number.isInteger(metadata.count) || metadata.count < 0) {
+      errors.push(`${macroDir}/index.json: ${series} count must be a nonnegative integer`);
+      continue;
+    }
+    const lastObservation = metadata.last_observation;
+    const nextRelease = metadata.next_expected_release;
+    const latestValue = indicator?.value;
+    if (metadata.count === 0) {
+      if (lastObservation !== null || nextRelease !== null) {
+        errors.push(`${macroDir}/index.json: ${series} zero count requires null observation dates`);
+      }
+      if (latestValue !== null) errors.push(`${macroDir}/index.json: ${series} has a latest value but zero history`);
+      for (const slice of ["30d", "90d"]) {
+        if (Object.hasOwn(bundles.get(`${group}.${slice}`) || {}, series)) {
+          errors.push(`${macroDir}/${group}.${slice}.json: ${series} has rows with zero count`);
+        }
+      }
+      continue;
+    }
+
+    if (!isValidDate(lastObservation) || !isValidDate(nextRelease) || nextRelease <= lastObservation) {
+      errors.push(`${macroDir}/index.json: ${series} has inconsistent observation dates`);
+    }
+    const sliceColumns = {};
+    for (const slice of ["30d", "90d"]) {
+      const columns = bundles.get(`${group}.${slice}`)?.[series];
+      if (!columns || columns.d.length === 0) {
+        errors.push(`${macroDir}/${group}.${slice}.json: ${series} missing positive-count history`);
+        continue;
+      }
+      if (columns.d.at(-1) !== lastObservation) {
+        errors.push(`${macroDir}/${group}.${slice}.json: ${series} last date disagrees with manifest`);
+      }
+      if (metadata.count < columns.d.length) {
+        errors.push(`${macroDir}/index.json: ${series} count is smaller than ${slice} history`);
+      }
+      sliceColumns[slice] = columns;
+    }
+    const short = sliceColumns["30d"];
+    const long = sliceColumns["90d"];
+    if (short && long) {
+      if (short.d.length > long.d.length) errors.push(`${macroDir}: ${series} 30d history exceeds 90d history`);
+      const offset = long.d.length - short.d.length;
+      for (let index = 0; index < short.d.length; index += 1) {
+        if (short.d[index] !== long.d[offset + index] || short.v[index] !== long.v[offset + index]) {
+          errors.push(`${macroDir}: ${series} 30d history is not the tail of 90d history`);
+          break;
+        }
+      }
+    }
+
+    if (latestValue !== null) {
+      const actualDate = indicator.observation_date
+        ?? (typeof indicator.observation_period === "string" ? `${indicator.observation_period}-01` : null)
+        ?? (typeof indicator.updated_at === "string" ? indicator.updated_at.slice(0, 10) : null);
+      if (!actualDate || !isValidDate(actualDate)) {
+        errors.push(`latest/macro.json: ${series} has a value without a valid observation date`);
+      } else if (indicator.observation_period) {
+        if (actualDate.slice(0, 7) !== lastObservation?.slice(0, 7)) {
+          errors.push(`${macroDir}/index.json: ${series} last date disagrees with latest macro observation`);
+        }
+      } else if (actualDate !== lastObservation) {
+        errors.push(`${macroDir}/index.json: ${series} last date disagrees with latest macro observation`);
+      }
+    }
   }
 }
 

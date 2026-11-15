@@ -27,7 +27,7 @@ MarketRegime = Literal[
     "late_cycle", "stagflation", "liquidity_stress", "risk_off", "crisis",
     "indeterminate",
 ]
-RiskTrend = Literal["rising", "falling", "flat"]
+RiskTrend = Literal["rising", "falling", "flat", "unknown"]
 RiskEvidenceState = Literal["complete", "partial", "insufficient_evidence"]
 RiskCalibrationStatus = Literal["provisional", "calibrated"]
 
@@ -45,6 +45,8 @@ class RiskIndicator(ContractModel):
     weight: float = Field(default=0.0, ge=0.0)
     source: str = Field(min_length=1)
     updated_at: UTCDateTime | None = None
+    observation_date: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])$")
+    fetched_at: UTCDateTime | None = None
     status: FreshnessStatus = "fresh"
     # No default (#69/#101): an omitted disclosure would read as "not a proxy", which is the
     # silent under-claim #69 exists to prevent. Every producer already states it explicitly.
@@ -86,7 +88,7 @@ class RiskDimension(ContractModel):
         default=None, ge=0.0, le=1.0,
         description="coverage after proxy trust discount; used for confidence",
     )
-    trend: RiskTrend = "flat"
+    trend: RiskTrend = "unknown"
     evidence_state: RiskEvidenceState | None = None
     missing_indicators: list[str] = Field(default_factory=list)
 

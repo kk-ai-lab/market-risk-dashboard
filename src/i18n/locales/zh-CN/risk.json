@@ -23,6 +23,7 @@
     "complete": "证据完整",
     "partial": "证据不完整",
     "insufficient": "证据不足",
+    "unknown": "证据状态未知",
     "coverage": "有效覆盖度",
     "scoreRange": "证据分数区间",
     "missingIndicators": "缺失指标",
@@ -130,6 +131,13 @@
     "status": "状态",
     "freshnessUnknown": "时效未知",
     "proxy": "代理"
+  },
+  "breadth": {
+    "title": "市场广度样本",
+    "above200": "高于 200 日均线",
+    "newHighs": "创新高",
+    "newLows": "创新低",
+    "explanation": "数量仅覆盖配置样本中符合条件的标的，不代表整个市场。"
   },
   "confidenceFactors": {
     "title": "数据可信度因子",

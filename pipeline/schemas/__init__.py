@@ -21,7 +21,14 @@ from .envelope import (
 )
 from .equities import EquitiesDataset, EquitiesEnvelope, EquityAsset
 from .factlayer import EvidenceRef, FactLayer
-from .macro import FedWatchRateProb, FedWatchSnapshot, MacroDataset, MacroEnvelope, MacroIndicator
+from .macro import (
+    FedWatchRateProb,
+    FedWatchSnapshot,
+    MacroDataset,
+    MacroEnvelope,
+    MacroFreshnessPolicy,
+    MacroIndicator,
+)
 from .metadata import ProviderResolution
 from .news import NewsDataset, NewsEnvelope, NewsItem, NewsTranslation, NewsTranslationsDataset
 from .risk import (
@@ -76,6 +83,7 @@ __all__ = [
     "FreshnessStatus",
     "MacroDataset",
     "MacroEnvelope",
+    "MacroFreshnessPolicy",
     "MacroIndicator",
     "MarketRegime",
     "MemoryProxy",

@@ -4,20 +4,30 @@ from __future__ import annotations
 
 import json
 import subprocess
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-import pipeline.analysis_pair as legacy_ai
 import pipeline.run as run_mod
-from pipeline.schemas import registry
+from pipeline.collectors.news import NewsCollector
+from pipeline.schemas import (
+    NewsDataset,
+    NewsItem,
+    NewsTranslation,
+    NewsTranslationsDataset,
+    registry,
+)
 from pipeline.settings import Settings
+from pipeline.storage.writer import StorageWriter
 from pipeline.validation.ci_checks import run_all
 from tests.pipeline.factories import (
     DEFAULT_NOW,
     PAYLOAD_BUILDERS,
     REMOVE,
+    TODAY_ISO_DATE,
+    make_macro_roster_payload,
 )
 
 LEGACY_FILES = tuple(
@@ -32,6 +42,113 @@ def _publish_production_metadata(root: Path) -> None:
     for key in run_mod.FULL_RUN_DATASETS:
         outcomes.record(key, "fresh", run_mod.FreshnessReason(code="ok"), provider="test")
     run_mod._publish_metadata(run_mod.StorageWriter(root), outcomes, {})
+
+
+def test_legacy_ai_command_is_not_available() -> None:
+    with pytest.raises(SystemExit) as error:
+        run_mod.build_parser().parse_args(["--analysis-only"])
+
+    assert error.value.code == 2
+
+
+def test_news_collection_merges_an_existing_translation_sidecar(tmp_path, monkeypatch):
+    settings = Settings(_env_file=None, data_dir=tmp_path)
+    article = NewsItem(
+        id="news-1", title="Fed holds rates", source="Example", url="https://example.com/news",
+        published_at=DEFAULT_NOW.isoformat().replace("+00:00", "Z"), importance=50, summary="The Fed held rates unchanged.",
+    )
+    payload = NewsDataset(items=[article], total=1, updated_at=DEFAULT_NOW.isoformat().replace("+00:00", "Z"))
+
+    class Collector:
+        def __init__(self, registry, settings):
+            pass
+
+        def collect(self):
+            return payload, {"degraded": [], "provider": "rss_news", "data_quality": 1.0}
+
+        def merge_translations(self, news, translations):
+            return NewsCollector.merge_translations(self, news, translations)
+
+
+    sidecar = NewsTranslationsDataset(items=[NewsTranslation(
+        id="news-1", title_zh="美联储维持利率", summary_zh="美联储维持利率不变。",
+    )], updated_at=DEFAULT_NOW.isoformat().replace("+00:00", "Z"))
+    StorageWriter(tmp_path).write_standalone("news.zh-translations", sidecar.model_dump(mode="json"))
+    monkeypatch.setattr(run_mod, "settings", settings)
+    monkeypatch.setattr(run_mod, "build_registry", lambda _settings: object())
+    monkeypatch.setattr(run_mod.AssetUniverse, "load", lambda _settings: object())
+    monkeypatch.setattr(run_mod, "NewsCollector", Collector)
+
+    results = run_mod._run_collection("news-only")
+
+    assert results["news"].items[0].title_zh == "美联储维持利率"
+    assert not results["news_degraded"]
+    assert results["news_meta"]["translation_record"]["status"] == "merged"
+
+
+def test_news_collection_rejects_translation_sidecar_from_an_older_batch(tmp_path, monkeypatch):
+    settings = Settings(_env_file=None, data_dir=tmp_path)
+    article = NewsItem(
+        id="news-2", title="Fed holds rates", source="Example", url="https://example.com/news",
+        published_at=(DEFAULT_NOW + timedelta(days=1)).isoformat().replace("+00:00", "Z"),
+        importance=50, summary="The Fed held rates unchanged.",
+    )
+    payload = NewsDataset(items=[article], total=1, updated_at=DEFAULT_NOW.isoformat().replace("+00:00", "Z"))
+
+    class Collector:
+        def __init__(self, registry, settings):
+            pass
+
+        def collect(self):
+            return payload, {"degraded": [], "provider": "rss_news", "data_quality": 1.0}
+
+        def merge_translations(self, news, translations):
+            return NewsCollector.merge_translations(self, news, translations)
+
+    sidecar = NewsTranslationsDataset(items=[NewsTranslation(
+        id="news-2", title_zh="美联储维持利率", summary_zh="美联储维持利率不变。",
+    )], updated_at=DEFAULT_NOW.isoformat().replace("+00:00", "Z"))
+    StorageWriter(tmp_path).write_standalone("news.zh-translations", sidecar.model_dump(mode="json"))
+    monkeypatch.setattr(run_mod, "settings", settings)
+    monkeypatch.setattr(run_mod, "build_registry", lambda _settings: object())
+    monkeypatch.setattr(run_mod.AssetUniverse, "load", lambda _settings: object())
+    monkeypatch.setattr(run_mod, "NewsCollector", Collector)
+
+    results = run_mod._run_collection("news-only")
+
+    assert results["news"].items[0].title_zh is None
+    assert results["news_degraded"]
+    assert results["news_meta"]["translation_record"]["status"] == "stale"
+
+
+def test_news_collection_marks_missing_translation_coverage_degraded(tmp_path, monkeypatch):
+    settings = Settings(_env_file=None, data_dir=tmp_path)
+    article = NewsItem(
+        id="news-1", title="Fed holds rates", source="Example", url="https://example.com/news",
+        published_at=DEFAULT_NOW.isoformat().replace("+00:00", "Z"), importance=50, summary="The Fed held rates unchanged.",
+    )
+    payload = NewsDataset(items=[article], total=1, updated_at=DEFAULT_NOW.isoformat().replace("+00:00", "Z"))
+
+    class Collector:
+        def __init__(self, registry, settings):
+            pass
+
+        def collect(self):
+            return payload, {"degraded": [], "provider": "rss_news", "data_quality": 1.0}
+
+        def merge_translations(self, news, translations):
+            return NewsCollector.merge_translations(self, news, translations)
+
+    monkeypatch.setattr(run_mod, "settings", settings)
+    monkeypatch.setattr(run_mod, "build_registry", lambda _settings: object())
+    monkeypatch.setattr(run_mod.AssetUniverse, "load", lambda _settings: object())
+    monkeypatch.setattr(run_mod, "NewsCollector", Collector)
+
+    results = run_mod._run_collection("news-only")
+
+    assert results["news_degraded"]
+    assert results["news_meta"]["error_code"] == "news_translation_incomplete"
+    assert results["news_meta"]["translation_record"]["status"] == "skipped"
 
 
 @pytest.mark.parametrize("legacy_state", ["missing", "malformed"])
@@ -95,24 +212,32 @@ def test_full_collection_keeps_source_news_without_ai(tmp_path: Path, monkeypatc
 
     monkeypatch.setattr(run_mod, "build_registry", lambda _settings: NewsRegistry())
 
-    def forbid_ai(*args, **kwargs):
-        pytest.fail("production collection must not consume AI output")
-
-    monkeypatch.setattr(legacy_ai, "record_ai_outcomes", forbid_ai)
-    monkeypatch.setattr(run_mod, "_merge_news_translations", forbid_ai)
     payloads = {
         key: registry.require(key).model.model_fields["payload"].annotation.model_validate(builder())
         for key, builder in PAYLOAD_BUILDERS.items()
+    }
+    from pipeline.collectors.macro import DEFAULT_SERIES
+
+    payloads["macro"] = registry.require("macro").model.model_fields["payload"].annotation.model_validate(
+        make_macro_roster_payload(include_live_rate=True)
+    )
+    series_history = {
+        series_id.lower(): ([{"date": TODAY_ISO_DATE, "value": 4.25}] if series_id == "DGS10" else [])
+        for series_id in DEFAULT_SERIES
     }
     market = {
         key: payloads[key] for key in ("equities", "sectors", "crypto", "commodities")
     }
     market.update(histories={}, degraded=[], provider_status={}, data_quality=1.0)
     monkeypatch.setattr(run_mod, "MarketCollector", lambda *args: SimpleNamespace(collect=lambda: market))
-    for name, key in (("MacroCollector", "macro"), ("CalendarCollector", "calendar")):
-        monkeypatch.setattr(run_mod, name, lambda *args, key=key: SimpleNamespace(
-            collect=lambda: (payloads[key], {"degraded": [], "provider_status": {}, "data_quality": 1.0}),
-        ))
+    monkeypatch.setattr(run_mod, "MacroCollector", lambda *args, **kwargs: SimpleNamespace(
+        collect=lambda: (payloads["macro"], {
+            "degraded": [], "provider_status": {}, "data_quality": 1.0, "series_history": series_history,
+        }),
+    ))
+    monkeypatch.setattr(run_mod, "CalendarCollector", lambda *args: SimpleNamespace(
+        collect=lambda: (payloads["calendar"], {"degraded": [], "provider_status": {}, "data_quality": 1.0}),
+    ))
 
     latest = settings.data_dir / "latest"
     latest.mkdir(parents=True)
@@ -130,7 +255,9 @@ def test_full_collection_keeps_source_news_without_ai(tmp_path: Path, monkeypatc
         assert {key: by_url[original["url"]][key] for key in original} == original
     freshness = json.loads((settings.data_dir / "metadata" / "freshness.json").read_text(encoding="utf-8"))
     assert not registry.LEGACY_AI_DATASET_KEYS.intersection(freshness["datasets"])
-    assert not (settings.data_dir / "metadata" / "translations.json").exists()
+    translations = json.loads((settings.data_dir / "metadata" / "translations.json").read_text(encoding="utf-8"))
+    assert translations["last_merge"]["status"] == "skipped"
+    assert "bilingual translations cover 0/2" in translations["last_merge"]["reason"]
     for name in LEGACY_FILES:
         assert (latest / name).read_text(encoding="utf-8") == "{"
     for name in ("risk.json", "dashboard.json", "facts.json"):
@@ -140,3 +267,12 @@ def test_full_collection_keeps_source_news_without_ai(tmp_path: Path, monkeypatc
         text=True, capture_output=True, check=False,
     )
     assert node.returncode == 0, node.stdout + node.stderr
+    previous_files = {p.relative_to(settings.data_dir): p.read_bytes() for p in settings.data_dir.rglob("*.json")}
+    empty_market = {key: type(payloads[key])() for key in ("equities", "sectors", "crypto", "commodities")}
+    empty_market.update(histories={}, degraded=["all market sources unavailable"], provider_status={}, data_quality=0.0)
+    monkeypatch.setattr(run_mod, "MarketCollector", lambda *args: SimpleNamespace(collect=lambda: empty_market))
+    monkeypatch.setattr(run_mod, "MacroCollector", lambda *args: SimpleNamespace(collect=lambda: (
+        type(payloads["macro"])(), {"degraded": ["macro unavailable"], "provider_status": {}, "data_quality": 0.0}
+    )))
+    assert run_mod.main(["--full"]) != 0
+    assert {p.relative_to(settings.data_dir): p.read_bytes() for p in settings.data_dir.rglob("*.json")} == previous_files

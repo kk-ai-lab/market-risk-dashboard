@@ -65,9 +65,11 @@ from pipeline.schemas.metadata import (  # noqa: E402
     FreshnessDocument,
     SourcesDocument,
 )
+from pipeline.validation.freshness import COINMETRICS_EXPECTED_MINUTES  # noqa: E402
 
 OUT_DIR = ROOT / "src" / "schemas" / "generated"
 SOURCES_YAML = ROOT / "config" / "sources.yaml"
+RISK_MODEL_YAML = ROOT / "config" / "risk_model.yaml"
 
 #: Modules scanned for module-level ``Literal[...]`` aliases. A named alias in Python becomes a
 #: named ``z.enum`` in TypeScript; without this the emitter would inline every enum and the
@@ -371,7 +373,6 @@ HEADER = """// =================================================================
 // a field to a dataset cannot take a page down. Unknown fields are reported by
 // src/lib/api.ts.
 // ============================================================================
-/* eslint-disable */
 import { z } from "zod";
 
 /** ISO 8601 UTC + Z timestamp, e.g. 2026-08-03T10:00:00Z. */
@@ -411,6 +412,7 @@ def render_index(defs: dict[str, Any]) -> str:
 def build_constants(named_enums: dict[tuple[str, ...], str]) -> dict[str, Any]:
     """The non-schema half of the contract: vocabularies, the registry, and the intervals."""
     config = yaml.safe_load(SOURCES_YAML.read_text(encoding="utf-8"))
+    risk_model = yaml.safe_load(RISK_MODEL_YAML.read_text(encoding="utf-8"))
     expectations = config.get("expectations") or {}
 
     unregistered = sorted(set(expectations) - set(registry.CANONICAL_KEYS))
@@ -430,6 +432,8 @@ def build_constants(named_enums: dict[tuple[str, ...], str]) -> dict[str, Any]:
         "metadata_schema_version": METADATA_SCHEMA_VERSION,
         "freshness_status": by_name["FreshnessStatus"],
         "reason_codes": by_name["ReasonCode"],
+        "coinmetrics_expected_interval_minutes": COINMETRICS_EXPECTED_MINUTES,
+        "risk_level_thresholds": risk_model["thresholds"]["risk_level"],
         "canonical_dataset_keys": list(registry.CANONICAL_KEYS),
         "expected_interval_minutes": {
             key: int(expectations[key]["interval_minutes"]) for key in registry.CANONICAL_KEYS

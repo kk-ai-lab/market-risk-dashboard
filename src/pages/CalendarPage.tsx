@@ -30,7 +30,7 @@ export default function CalendarPage() {
           {t("title")}
         </h1>
         <p className="text-xs text-muted-foreground">{t("subtitle")}</p>
-        {calendarQ.data ? <span className="ml-auto"><StatusBadge status={calendarQ.data.freshness_status} fromCache={calendarQ.data.provenance?.from_cache} withDescription /></span> : null}
+        {calendarQ.data ? <span className="ml-auto"><StatusBadge dataset="calendar" generatedAt={calendarQ.data.generated_at} status={calendarQ.data.freshness_status} fromCache={calendarQ.data.provenance?.from_cache} withDescription /></span> : null}
       </header>
 
       {calendarQ.isLoading ? (

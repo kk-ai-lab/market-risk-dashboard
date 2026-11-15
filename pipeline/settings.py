@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import yaml
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 if TYPE_CHECKING:  # pragma: no cover - import-time only, resolves the lazy-typed annotations
@@ -20,6 +20,7 @@ if TYPE_CHECKING:  # pragma: no cover - import-time only, resolves the lazy-type
     # settings).
     from pipeline.config.models import (
         NewsSourcesConfig,
+        PublicSourcePolicy,
         SourcesConfig,
         ThemesConfig,
         UniverseConfig,
@@ -45,6 +46,18 @@ class Settings(BaseSettings):
     fred_api_key: str | None = Field(default=None, description="FRED API key (local .env)")
     coingecko_api_key: str | None = Field(default=None, description="CoinGecko Demo key")
     fmp_api_key: str | None = Field(default=None, description="FMP free-tier key")
+    coinmetrics_enabled: bool = Field(default=False, description="Opt in to Coin Metrics Community BTC/ETH reference rates for noncommercial publication (CC BY-NC 4.0)")
+    treasury_enabled: bool = Field(default=False, description="Opt in to the local Treasury daily yield snapshot")
+    bls_enabled: bool = Field(default=False, description="Use the local BLS snapshot for supported macro indicators")
+    approved_sources_only: bool = Field(default=False, description="Restrict collection and cache replay to config/public_sources.yaml")
+
+    bls_cloud_enabled: bool = Field(default=False, description="Opt in to the durable cloud BLS ledger instead of the local snapshot")
+    treasury_cloud_enabled: bool = Field(default=False, description="Opt in to the durable cloud Treasury ledger instead of the local snapshot")
+    cloud_state_repo: str | None = Field(default=None, description="Explicit owner/repository for the pre-provisioned cloud-state branch")
+    cloud_state_branch: str = Field(default="cloud-state", description="Pre-provisioned shared state branch; never reset while writers run")
+    cloud_state_token: SecretStr | None = Field(default=None, description="Credential with contents write access to the cloud-state branch")
+    bls_checkpoint_path: str = Field(default="bls/ledger.json", description="Pre-provisioned cloud BLS ledger path")
+    treasury_checkpoint_path: str = Field(default="treasury/ledger.json", description="Pre-provisioned cloud Treasury ledger path")
 
     # Directories (relative to project root)
     project_root: Path = PROJECT_ROOT
@@ -98,6 +111,12 @@ class Settings(BaseSettings):
         from pipeline.config.models import SourcesConfig, load_config
 
         return load_config(self.config_dir / "sources.yaml", SourcesConfig)
+
+    def load_public_source_policy(self) -> PublicSourcePolicy:
+        """Validated allowlist for public redistribution and provider/cache access."""
+        from pipeline.config.models import PublicSourcePolicy, load_config
+
+        return load_config(self.config_dir / "public_sources.yaml", PublicSourcePolicy)
 
     def load_universe_config(self) -> "UniverseConfig":
         """Validated universe.yaml — no theme tags (#102)."""

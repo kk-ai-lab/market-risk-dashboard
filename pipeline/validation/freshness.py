@@ -28,6 +28,9 @@ from pipeline.utils import now_utc
 # only as fresh as its stalest input, so the worst status among its constituents wins.
 
 
+COINMETRICS_EXPECTED_MINUTES = 15
+
+
 class FreshnessVerdict(NamedTuple):
     """The single authoritative answer to "how fresh is this dataset, and why".
 
@@ -133,6 +136,8 @@ def finalize_freshness(
     detail: str = "",
     used_fallback: bool = False,
     from_cache: bool = False,
+    expected_minutes: int | None = None,
+    source_time_error: str = "",
 ) -> FreshnessVerdict:
     """Unified six-state determination — the only producer of status *and* reason (#89).
 
@@ -174,7 +179,13 @@ def finalize_freshness(
             code = "provider_http_error"
         return FreshnessVerdict("degraded", _reason(code, detail))
 
-    status = evaluate_freshness(generated_at, expected_interval_minutes_for(dataset, 480), now)
+    if source_time_error:
+        source_detail = f"{source_time_error}; {detail}" if detail else source_time_error
+        return FreshnessVerdict("stale", _reason(error_code or "provider_parse_error", source_detail))
+
+    status = evaluate_freshness(
+        generated_at, expected_minutes if expected_minutes is not None else expected_interval_minutes_for(dataset, 480), now,
+    )
     code = "ok" if status == "fresh" else "interval_exceeded"
     # A future-dated timestamp degrades to the same stale STATUS as a mundane late fetch,
     # but the closed reason vocabulary alone would mislabel the anomaly (#187 review): name
