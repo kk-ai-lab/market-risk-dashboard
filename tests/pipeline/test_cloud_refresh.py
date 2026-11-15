@@ -1,3 +1,4 @@
+import json
 from uuid import uuid4
 
 import httpx
@@ -359,6 +360,83 @@ def test_pipeline_adapter_forces_approved_mode_and_shared_cloud_branch(tmp_path,
     assert env["DATA_BLS_CLOUD_ENABLED"] == env["DATA_TREASURY_CLOUD_ENABLED"] == "true"
     assert env["DATA_CLOUD_STATE_BRANCH"] == "cloud-state"
     assert "DATA_FRED_API_KEY" not in env
+
+
+def test_child_failure_logs_only_allowlisted_collection_summary(
+    tmp_path, monkeypatch, capsys
+):
+    settings = Settings(
+        _env_file=None,
+        data_dir=tmp_path / "data",
+        artifacts_dir=tmp_path / "artifacts",
+        cloud_state_repo="owner/repo",
+        cloud_state_token="test-token",
+        cloud_state_branch="cloud-state",
+    )
+    report_dir = settings.artifacts_dir / "logs"
+    report_dir.mkdir(parents=True)
+    (report_dir / "run-report-20261115T120000Z.json").write_text(
+        json.dumps(
+            {
+                "ok": True,
+                "clean": False,
+                "failed_datasets": ["equities", "report-token-secret"],
+                "skipped_datasets": [],
+                "degraded_datasets": ["macro"],
+                "error": "report-error-secret",
+                "degraded": ["provider-note-secret"],
+                "provider_status": {"credential": "provider-secret"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        cloud.subprocess,
+        "run",
+        lambda *_args, **_kwargs: type(
+            "Result",
+            (),
+            {
+                "returncode": 1,
+                "stdout": "child-stdout-secret",
+                "stderr": "child-stderr-secret",
+            },
+        )(),
+    )
+    diagnostics = cloud.RefreshDiagnostics(enabled=True)
+    diagnostics.enter(cloud.RefreshStage.APPROVED_COLLECTION)
+
+    with pytest.raises(cloud.CloudRefreshError, match="Approved-source collection"):
+        cloud._collect_approved(settings, diagnostics=diagnostics)
+    diagnostics.emit_failure()
+
+    output = capsys.readouterr().err
+    events = [json.loads(line) for line in output.splitlines()]
+    assert events == [
+        {"event": "cloud_refresh.phase", "stage": "approved_source_collection"},
+        {
+            "event": "cloud_refresh.failure",
+            "stage": "approved_source_collection",
+            "code": "child_exit_nonzero",
+            "exit_code": 1,
+            "collection": {
+                "ok": True,
+                "clean": False,
+                "failed_datasets": ["equities"],
+                "skipped_datasets": [],
+                "degraded_datasets": ["macro"],
+            },
+        },
+    ]
+    for secret in (
+        "report-token-secret",
+        "report-error-secret",
+        "provider-note-secret",
+        "provider-secret",
+        "child-stdout-secret",
+        "child-stderr-secret",
+    ):
+        assert secret not in output
 
 
 def test_scheduled_collects_with_verified_parent_and_stages_validated_child(
