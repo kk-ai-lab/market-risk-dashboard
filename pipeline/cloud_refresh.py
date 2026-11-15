@@ -523,6 +523,7 @@ def main(argv: list[str] | None = None) -> int:
         settings = Settings()
         repository = (settings.cloud_state_repo or "").split("/")
         if len(repository) != 2 or settings.cloud_state_token is None:
+            diagnostics.emit_failure()
             parser.error("Cloud state repository and token must be configured")
         checkpoint = GitHubCheckpoint(
             *repository, settings.cloud_state_branch, settings.cloud_state_token.get_secret_value()
