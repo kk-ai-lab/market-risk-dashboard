@@ -1,0 +1,1 @@
+{"version":1,"nonce":null,"snapshot":{"version":1,"attempted_on":null,"attempt_status":"never","series":{"CPIAUCSL":{"rows":[],"fetched_at":null,"status":"missing"},"CPILFESL":{"rows":[],"fetched_at":null,"status":"missing"},"UNRATE":{"rows":[],"fetched_at":null,"status":"missing"},"PAYEMS":{"rows":[],"fetched_at":null,"status":"missing"}}}}
