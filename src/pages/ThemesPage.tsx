@@ -193,7 +193,7 @@ export default function ThemesPage() {
               cryptoQ.data?.payload.market_cap_total !== undefined ? (
                 <span>
                   {t("crypto.marketCap")}:{" "}
-                  <span className="font-semibold text-foreground">
+                  <span className="font-semibold tabular-nums text-foreground">
                     {formatCompactNumber(cryptoQ.data.payload.market_cap_total, locale)}
                   </span>
                 </span>
@@ -201,7 +201,7 @@ export default function ThemesPage() {
               {cryptoQ.data?.payload.btc_dominance !== null && cryptoQ.data?.payload.btc_dominance !== undefined ? (
                 <span>
                   {t("crypto.dominance")}:{" "}
-                  <span className="font-semibold text-foreground">
+                  <span className="font-semibold tabular-nums text-foreground">
                     {formatRatio(cryptoQ.data.payload.btc_dominance, locale)}
                   </span>
                 </span>
