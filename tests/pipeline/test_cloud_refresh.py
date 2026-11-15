@@ -557,3 +557,93 @@ def test_pages_paths_cannot_escape_generation(tmp_path, files):
     with pytest.raises(cloud.PublicationError):
         reader.restore(malformed, tmp_path / "restore")
     assert not (tmp_path / "outside.json").exists()
+
+
+def test_main_settings_initialization_failure_emits_startup_diagnostic(monkeypatch, capsys):
+    def fail_settings():
+        raise ValueError("settings-secret")
+
+    monkeypatch.setattr(cloud, "Settings", fail_settings)
+
+    result = cloud.main(
+        [
+            "--mode",
+            "code-only",
+            "--app-revision",
+            REVISION,
+            "--site-url",
+            "https://example.test",
+        ]
+    )
+
+    assert result == 1
+    output = capsys.readouterr()
+    events = [json.loads(line) for line in output.err.splitlines() if line.startswith("{")]
+    assert events == [
+        {"event": "cloud_refresh.phase", "stage": "startup"},
+        {
+            "event": "cloud_refresh.failure",
+            "stage": "startup",
+            "code": "refresh_failed",
+        },
+    ]
+    assert "settings-secret" not in output.err
+    assert "Cloud candidate preparation failed; no publication was performed" in output.err
+
+
+def test_main_checkpoint_initialization_failure_emits_startup_diagnostic(monkeypatch, capsys):
+    settings = Settings(
+        _env_file=None,
+        cloud_state_repo="owner/repo",
+        cloud_state_token="test-token",
+    )
+    monkeypatch.setattr(cloud, "Settings", lambda: settings)
+
+    def fail_checkpoint(*_args, **_kwargs):
+        raise ValueError("checkpoint-secret")
+
+    monkeypatch.setattr(cloud, "GitHubCheckpoint", fail_checkpoint)
+
+    result = cloud.main(
+        [
+            "--mode",
+            "code-only",
+            "--app-revision",
+            REVISION,
+            "--site-url",
+            "https://example.test",
+        ]
+    )
+
+    assert result == 1
+    output = capsys.readouterr()
+    events = [json.loads(line) for line in output.err.splitlines() if line.startswith("{")]
+    assert events == [
+        {"event": "cloud_refresh.phase", "stage": "startup"},
+        {
+            "event": "cloud_refresh.failure",
+            "stage": "startup",
+            "code": "refresh_failed",
+        },
+    ]
+    assert "checkpoint-secret" not in output.err
+
+
+def test_main_missing_cloud_config_keeps_argparse_exit(monkeypatch, capsys):
+    monkeypatch.setattr(cloud, "Settings", lambda: Settings(_env_file=None))
+
+    with pytest.raises(SystemExit) as error:
+        cloud.main(
+            [
+                "--mode",
+                "code-only",
+                "--app-revision",
+                REVISION,
+                "--site-url",
+                "https://example.test",
+            ]
+        )
+
+    assert error.value.code == 2
+    output = capsys.readouterr().err
+    assert "error: Cloud state repository and token must be configured" in output
