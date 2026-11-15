@@ -1,10 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { webcrypto } from "node:crypto";
 import { existsSync } from "node:fs";
 import { afterEach, expect, it, vi } from "vitest";
 import { DatasetClient } from "@/lib/api";
 import { RiskEnvelope, FreshnessDocument } from "@/schemas";
 import { RiskTrendSlice } from "@/schemas/history";
+import { nodeWebCrypto } from "./helpers/nodeWebCrypto";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -29,7 +29,7 @@ files = ["latest/risk.json", "history/risk/30d.json", "metadata/freshness.json"]
 print(json.dumps({"pointer": (root / "store" / "current.json").read_text(), "manifest": (generation / "manifest.json").read_text(), "data": {name: (generation / name).read_text() for name in files}}))
 `;
   const output = JSON.parse(execFileSync(python, ["-c", script], { encoding: "utf8", timeout: 30_000 })) as { pointer: string; manifest: string; data: Record<string, string> };
-  vi.stubGlobal("crypto", webcrypto);
+  vi.stubGlobal("crypto", nodeWebCrypto());
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     if (url.endsWith("/current.json")) return new Response(output.pointer);
     if (url.endsWith("/manifest.json")) return new Response(output.manifest);

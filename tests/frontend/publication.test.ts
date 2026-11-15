@@ -1,8 +1,9 @@
-import { createHash, webcrypto } from "node:crypto";
+import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { DatasetClient } from "@/lib/api";
 import { watchPublication } from "@/lib/publication";
+import { nodeWebCrypto } from "./helpers/nodeWebCrypto";
 
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 const firstId = "a".repeat(64);
@@ -24,7 +25,7 @@ describe("versioned publication session", () => {
     const second = generation(secondId, 2);
     let current = first;
     const calls: string[] = [];
-    vi.stubGlobal("crypto", webcrypto);
+    vi.stubGlobal("crypto", nodeWebCrypto());
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       calls.push(url);
       if (url === "/site/data/current.json") return new Response(current.pointer);
@@ -44,7 +45,7 @@ describe("versioned publication session", () => {
   it("rejects corrupt data instead of falling back to a mutable path", async () => {
     const first = generation(firstId, 1);
     const calls: string[] = [];
-    vi.stubGlobal("crypto", webcrypto);
+    vi.stubGlobal("crypto", nodeWebCrypto());
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       calls.push(url);
       if (url.endsWith("current.json")) return new Response(first.pointer);
@@ -57,7 +58,7 @@ describe("versioned publication session", () => {
 
   it("rejects a pointer with a bad manifest hash", async () => {
     const first = generation(firstId, 1);
-    vi.stubGlobal("crypto", webcrypto);
+    vi.stubGlobal("crypto", nodeWebCrypto());
     vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(url.endsWith("current.json") ? first.pointer : "{}")));
     await expect(new DatasetClient("/site", true).fetch("risk", {}, schema)).rejects.toThrow("manifest hash mismatch");
   });
@@ -65,7 +66,7 @@ describe("versioned publication session", () => {
   it("shares the same initial generation across concurrent requests", async () => {
     const first = generation(firstId, 1);
     const calls: string[] = [];
-    vi.stubGlobal("crypto", webcrypto);
+    vi.stubGlobal("crypto", nodeWebCrypto());
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       calls.push(url);
       if (url.endsWith("current.json")) return new Response(first.pointer);
@@ -83,7 +84,7 @@ describe("versioned publication session", () => {
     const first = generation(firstId, 1);
     const second = generation(secondId, 2);
     let current = first;
-    vi.stubGlobal("crypto", webcrypto);
+    vi.stubGlobal("crypto", nodeWebCrypto());
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (url.endsWith("current.json")) return new Response(current.pointer);
       if (url.includes(first.id) && url.endsWith("manifest.json")) return new Response(first.manifest);
@@ -104,7 +105,7 @@ describe("versioned publication session", () => {
     const first = generation(firstId, 1);
     const second = generation(secondId, 2);
     let current = first;
-    vi.stubGlobal("crypto", webcrypto);
+    vi.stubGlobal("crypto", nodeWebCrypto());
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (url.endsWith("current.json")) return new Response(current.pointer);
       if (url.includes(first.id) && url.endsWith("manifest.json")) return new Response(first.manifest);
@@ -121,7 +122,7 @@ describe("versioned publication session", () => {
 
   it("fails rather than mixing generations if a pinned file disappears", async () => {
     const first = generation(firstId, 1);
-    vi.stubGlobal("crypto", webcrypto);
+    vi.stubGlobal("crypto", nodeWebCrypto());
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (url.endsWith("current.json")) return new Response(first.pointer);
       if (url.endsWith("manifest.json")) return new Response(first.manifest);
