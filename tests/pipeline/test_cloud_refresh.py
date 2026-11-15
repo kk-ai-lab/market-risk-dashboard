@@ -656,8 +656,15 @@ def test_main_checkpoint_initialization_failure_emits_startup_diagnostic(monkeyp
     assert "checkpoint-secret" not in output.err
 
 
-def test_main_missing_cloud_config_keeps_argparse_exit(monkeypatch, capsys):
-    monkeypatch.setattr(cloud, "Settings", lambda: Settings(_env_file=None))
+@pytest.mark.parametrize(
+    ("repo", "token"), [(None, None), ("owner/repo", None), (None, "test-token")]
+)
+def test_main_missing_cloud_config_keeps_argparse_exit(repo, token, monkeypatch, capsys):
+    monkeypatch.setattr(
+        cloud,
+        "Settings",
+        lambda: Settings(_env_file=None, cloud_state_repo=repo, cloud_state_token=token),
+    )
 
     with pytest.raises(SystemExit) as error:
         cloud.main(
@@ -674,3 +681,12 @@ def test_main_missing_cloud_config_keeps_argparse_exit(monkeypatch, capsys):
     assert error.value.code == 2
     output = capsys.readouterr().err
     assert "error: Cloud state repository and token must be configured" in output
+    events = [json.loads(line) for line in output.splitlines() if line.startswith("{")]
+    assert events == [
+        {"event": "cloud_refresh.phase", "stage": "startup"},
+        {
+            "event": "cloud_refresh.failure",
+            "stage": "startup",
+            "code": "refresh_failed",
+        },
+    ]
