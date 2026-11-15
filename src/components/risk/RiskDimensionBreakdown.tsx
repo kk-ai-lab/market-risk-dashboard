@@ -130,7 +130,7 @@ export function RiskDimensionBreakdown({ result }: RiskDimensionBreakdownProps) 
               <CardContent className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className={`text-2xl font-bold tabular-nums ${classes.text}`}>{available ? formatNumber(dim.score, locale) : t("common:data.na")}</span>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-2 text-xs tabular-nums text-muted-foreground">
                     <span>{t("dimension.weight")}: {formatNumber(dim.weight, locale, 1)}%</span>
                     <span>{t("dimension.effectiveWeight")}: {formatNumber(dim.effective_weight, locale, 1)}%</span>
                     <span>{t("dimension.coverage")}: {formatRatio(dim.coverage, locale)}</span>
@@ -150,9 +150,9 @@ export function RiskDimensionBreakdown({ result }: RiskDimensionBreakdownProps) 
                       <span className="font-medium text-foreground">{t("breadth.title")}</span>
                       {result.breadth.is_proxy ? <Badge variant="outline">{t("indicator.proxy")}</Badge> : null}
                     </div>
-                    <p className="mt-2">{t("breadth.above200")}: {result.breadth.breadth_considered > 0 ? `${result.breadth.breadth_qualifying} / ${result.breadth.breadth_considered}` : t("common:data.na")}</p>
-                    <p className="mt-1">{t("breadth.newHighs")}: {result.breadth.new_considered > 0 ? `${result.breadth.new_highs_qualifying} / ${result.breadth.new_considered}` : t("common:data.na")}</p>
-                    <p className="mt-1">{t("breadth.newLows")}: {result.breadth.new_considered > 0 ? `${result.breadth.new_lows_qualifying} / ${result.breadth.new_considered}` : t("common:data.na")}</p>
+                    <p className="mt-2 tabular-nums">{t("breadth.above200")}: {result.breadth.breadth_considered > 0 ? `${result.breadth.breadth_qualifying} / ${result.breadth.breadth_considered}` : t("common:data.na")}</p>
+                    <p className="mt-1 tabular-nums">{t("breadth.newHighs")}: {result.breadth.new_considered > 0 ? `${result.breadth.new_highs_qualifying} / ${result.breadth.new_considered}` : t("common:data.na")}</p>
+                    <p className="mt-1 tabular-nums">{t("breadth.newLows")}: {result.breadth.new_considered > 0 ? `${result.breadth.new_lows_qualifying} / ${result.breadth.new_considered}` : t("common:data.na")}</p>
                     <p className="mt-2">{t("breadth.explanation")}</p>
                   </div>
                 ) : null}
