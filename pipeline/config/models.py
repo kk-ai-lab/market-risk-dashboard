@@ -96,6 +96,67 @@ class SourcesConfig(BaseModel):
     operations: OperationsConfig = Field(default_factory=OperationsConfig)
 
 
+class PublicDataSource(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(min_length=1)
+    registry_domain: str | None = None
+    datasets: list[str] = Field(default_factory=list)
+    macro_series: list[str] = Field(default_factory=list)
+    market_symbols: list[str] = Field(default_factory=list)
+    license_id: str = Field(min_length=1)
+    license_url: str = Field(min_length=1)
+    attribution: str = Field(min_length=1)
+    permitted_use: Literal["public-domain", "noncommercial"]
+    cadence_minutes: int = Field(ge=1)
+
+
+class PublicSourcePolicy(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str = Field(min_length=1)
+    sources: dict[str, PublicDataSource]
+
+    @model_validator(mode="after")
+    def _source_targets_are_unambiguous(self) -> PublicSourcePolicy:
+        series: set[str] = set()
+        symbols: set[str] = set()
+        for source_id, source in self.sources.items():
+            if not source_id or not source.datasets:
+                raise ValueError("each public source needs an id and at least one dataset")
+            if source.permitted_use == "noncommercial" and not source.attribution.strip():
+                raise ValueError(f"{source_id} requires attribution")
+            repeated_series = series.intersection(source.macro_series)
+            repeated_symbols = symbols.intersection(source.market_symbols)
+            if repeated_series or repeated_symbols:
+                raise ValueError("public source series and symbols must have one owner")
+            series.update(source.macro_series)
+            symbols.update(source.market_symbols)
+        return self
+
+    def allows_provider(self, domain: str, provider: str) -> bool:
+        return any(
+            source.registry_domain == domain and source.provider == provider
+            for source in self.sources.values()
+        )
+
+    def providers_for_domain(self, domain: str) -> tuple[str, ...]:
+        return tuple(
+            source.provider for source in self.sources.values()
+            if source.registry_domain == domain
+        )
+
+    def source_for_macro_series(self, series_id: str) -> tuple[str, PublicDataSource] | None:
+        return next(
+            ((source_id, source) for source_id, source in self.sources.items()
+             if series_id in source.macro_series),
+            None,
+        )
+
+    def allows_dataset(self, dataset: str) -> bool:
+        return any(dataset in source.datasets for source in self.sources.values())
+
+
 # -------------------------------------------------------------------------------------
 # universe.yaml
 # -------------------------------------------------------------------------------------

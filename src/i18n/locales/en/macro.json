@@ -17,6 +17,9 @@
     "volatility": "Volatility"
   },
   "indicator": {
+    "observationPeriod": "Observation month",
+    "observationDate": "Observation date",
+    "fetchedAt": "Fetched",
     "name": "Indicator",
     "change1m": "MoM",
     "value": "Value",

@@ -13,6 +13,7 @@ from pipeline.providers.base import (
     QuoteResult,
 )
 from pipeline.providers.coingecko import CoinGeckoProvider
+from pipeline.providers.coinmetrics import CoinMetricsProvider
 from pipeline.providers.fedwatch import FedWatchProvider
 from pipeline.providers.fmp import FmpProvider, FmpQuotesProvider
 from pipeline.providers.fred import FredProvider
@@ -31,6 +32,7 @@ _PROVIDER_CLASSES: dict[str, type[BaseProvider]] = {
     "yfinance_a_share": YahooAShareProvider,
     "fred": FredProvider,
     "coingecko": CoinGeckoProvider,
+    "coinmetrics": CoinMetricsProvider,
     "fmp": FmpProvider,
     "fmp_quotes": FmpQuotesProvider,
     "nasdaq": NasdaqCalendarProvider,
@@ -51,9 +53,33 @@ def build_default_providers(settings=None) -> list[BaseProvider]:
     :class:`~pipeline.config.models.ConfigError` before any provider is constructed.
     """
     s = settings or Settings()
+    if s.approved_sources_only:
+        policy = s.load_public_source_policy()
+        providers: list[BaseProvider] = []
+        for source in policy.sources.values():
+            domain = source.registry_domain
+            if domain is None:
+                continue
+            cls = _PROVIDER_CLASSES.get(source.provider)
+            if cls is None:
+                raise ConfigError(
+                    f"public_sources.yaml: unknown provider {source.provider!r}"
+                )
+            provider = cls(s)
+            if provider.domain != domain:
+                raise ConfigError(
+                    f"public_sources.yaml: {source.provider!r} is a {provider.domain!r} "
+                    f"provider, not {domain!r}"
+                )
+            provider.priority = len(providers)
+            providers.append(provider)
+        return providers
     cfg = s.load_sources_config()
     providers: list[BaseProvider] = []
     for domain, entries in cfg.providers.items():
+        if domain == "crypto" and s.coinmetrics_enabled:
+            providers.append(CoinMetricsProvider(s))
+            continue
         for entry in sorted(entries, key=lambda e: e.priority):
             if not entry.enabled:
                 continue

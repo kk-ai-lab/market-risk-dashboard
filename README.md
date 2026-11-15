@@ -1,8 +1,9 @@
 # Market Risk Dashboard
 
 **Global Market Risk Intelligence Dashboard** — a cross-asset, bilingual (zh-CN / en) market risk
-intelligence board for personal investment research. A local data pipeline produces deterministic
-JSON facts, an optional AI step generates bilingual briefs, and a static site serves the result.
+intelligence board for personal investment research. A data pipeline produces deterministic
+market facts and a modeled risk estimate, and a bilingual static site serves the result. The
+public dashboard does not generate or consume AI-written market briefs.
 
 > ⚠️ Risk scores are a **modeled estimate of market stress**, not an exact crash probability, and do
 > not constitute investment advice.

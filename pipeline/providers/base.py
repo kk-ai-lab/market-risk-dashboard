@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import random
 import re
 import time
@@ -143,12 +144,12 @@ _RELAY_VOUCH = object()
 
 
 class GuardedClient(httpx.Client):
-    """An httpx client whose outbound requests are allowlisted **per hop** (S-3/#92).
+    """An httpx client with HTTPS and host checks on every outbound request.
 
-    ``follow_redirects`` is disabled and redirects are walked manually (≤ :data:`MAX_REDIRECT_HOPS`),
-    so every hop is checked against the allowlist and for https before its body is fetched.
-    A response larger than 2 MB is refused. Used by every httpx-based provider instead of a
-    bare ``httpx.Client``.
+    ``get()`` disables automatic redirects, validates each hop in a bounded manual walk, and
+    refuses decoded bodies larger than 2 MB. Inherited streaming methods send one request by
+    default; callers must choose redirect behavior and enforce their own decoded-body limit.
+    Used by every httpx-based provider instead of a bare ``httpx.Client``.
     """
 
     def __init__(
@@ -418,7 +419,7 @@ class CryptoAssetRow(BaseModel):
     market_cap: float | None = None
     volume_24h: float | None = None
     source: str = Field(min_length=1)
-    updated_at: str = Field(min_length=1)
+    updated_at: str | None = Field(default=None, min_length=1)
 
 
 class CryptoMarketResult(BaseModel):
@@ -593,6 +594,10 @@ class ProviderRegistry:
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or Settings()
+        self.public_source_policy = (
+            self.settings.load_public_source_policy()
+            if self.settings.approved_sources_only else None
+        )
         # #102: retries/backoff/jitter and the cache directory come from the VALIDATED
         # SourcesConfig.degrade, not the raw dict — a typo in the degrade block now fails
         # loudly at construction instead of silently falling back to a Python default.
@@ -631,6 +636,15 @@ class ProviderRegistry:
     # ---- Registration ----
 
     def register(self, domain: str, provider: BaseProvider) -> None:
+        if (
+            self.public_source_policy is not None
+            and not self.public_source_policy.allows_provider(domain, provider.name)
+        ):
+            raise ValueError(
+                f"public source policy does not allow {provider.name!r} in {domain!r}"
+            )
+        if domain == "crypto" and self.settings.coinmetrics_enabled and provider.name != "coinmetrics":
+            raise ValueError("Coin Metrics opt-in forbids other crypto providers")
         providers = self._providers.setdefault(domain, [])
         providers.append(provider)
         providers.sort(key=lambda p: p.priority)
@@ -645,6 +659,14 @@ class ProviderRegistry:
     # ---- last-good cache ----
 
     def _cache_path(self, domain: str, key: str) -> Path:
+        if domain == "crypto" and (
+            self.settings.coinmetrics_enabled
+            or (
+                self.public_source_policy is not None
+                and self.public_source_policy.allows_provider(domain, "coinmetrics")
+            )
+        ):
+            return self.cache_dir / f"{domain}__coinmetrics__{key}.json"
         return self.cache_dir / f"{domain}__{key}.json"
 
     def _quarantine(self, path: Path) -> None:
@@ -665,6 +687,13 @@ class ProviderRegistry:
         undated entry (the pre-#66 disk format) is beyond the maximum age.
         """
         from pipeline.degrade import cache_max_age_hours
+
+        allowed_cache_providers = (
+            self.public_source_policy.providers_for_domain(domain)
+            if self.public_source_policy is not None else None
+        )
+        if allowed_cache_providers is not None and not allowed_cache_providers:
+            return None
 
         path = self._cache_path(domain, key)
         if not path.exists():
@@ -701,7 +730,39 @@ class ProviderRegistry:
             return None
 
         data = cached.get("data")
+        if method == "get_crypto_market" and cached.get("observation_time_basis") != "provider":
+            if isinstance(data, dict) and isinstance(data.get("assets"), list):
+                data = {**data, "assets": [
+                    {**row, "updated_at": None} if isinstance(row, dict) else row
+                    for row in data["assets"]
+                ]}
         provider = str(cached.get("provider", "unknown"))
+        if allowed_cache_providers is not None and provider not in allowed_cache_providers:
+            return None
+        if domain == "crypto" and (
+            self.settings.coinmetrics_enabled
+            or (
+                self.public_source_policy is not None
+                and self.public_source_policy.allows_provider(domain, "coinmetrics")
+            )
+        ):
+            if provider != "coinmetrics" or cached.get("observation_time_basis") != "provider":
+                return None
+            rows = data.get("assets") if isinstance(data, dict) else None
+            if not isinstance(rows, list) or len(rows) != 2:
+                return None
+            if any(not isinstance(row, dict) or row.get("source") != "coinmetrics" for row in rows):
+                return None
+            if {row.get("symbol") for row in rows} != {"BTC", "ETH"}:
+                return None
+            for row in rows:
+                try:
+                    observed = datetime.fromisoformat(row["updated_at"].replace("Z", "+00:00"))
+                    price = float(row["price"])
+                    if observed.tzinfo is None or observed > now or not math.isfinite(price) or price <= 0:
+                        return None
+                except (KeyError, TypeError, ValueError, AttributeError, OverflowError):
+                    return None
         restore_type = _RESULT_MODELS.get(method)
         if restore_type is not None:
             try:
@@ -722,6 +783,11 @@ class ProviderRegistry:
         return data, {"provider": provider, "fetched_at": fetched_at}
 
     def _save_last_good(self, domain: str, key: str, method: str, payload: Any, provider: str) -> None:
+        if (
+            self.public_source_policy is not None
+            and not self.public_source_policy.allows_provider(domain, provider)
+        ):
+            return
         data = payload.model_dump(mode="json") if isinstance(payload, BaseModel) else payload
         try:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -733,6 +799,7 @@ class ProviderRegistry:
                         "fetched_at": now_utc(),
                         "provider": provider,
                         "schema_version": SCHEMA_VERSION,
+                        **({"observation_time_basis": "provider"} if method == "get_crypto_market" and provider in {"coingecko", "coinmetrics"} else {}),
                     },
                     ensure_ascii=False,
                     default=str,

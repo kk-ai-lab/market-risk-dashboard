@@ -88,6 +88,10 @@ class MarketCollector:
         self.registry = registry
         self.universe = universe
         self.settings = settings or Settings()
+        self.public_source_policy = (
+            self.settings.load_public_source_policy()
+            if self.settings.approved_sources_only else None
+        )
         # #102 (C-1): the sector/theme taxonomy lives in config/themes.yaml, not in this
         # module. Loading it validates every constituent resolves in universe.yaml and
         # raises ConfigError before any provider is constructed. Labels are nowhere here —
@@ -115,6 +119,7 @@ class MarketCollector:
         self._history_missing: list[dict[str, Any]] = []
         self._history_degraded: list[dict[str, Any]] = []
         self._dataset_degraded: set[str] = set()
+        self._unavailable_detail_by_dataset: dict[str, str] = {}
         self._risk_history_degraded = False
         # #103/P-1: collection runs in a bounded thread pool; the per-(provider, host)
         # circuit breaker lives in the registry (threshold 3 consecutive transient
@@ -632,7 +637,16 @@ class MarketCollector:
         self._history_missing.clear()
         self._history_degraded.clear()
         self._dataset_degraded.clear()
+        self._unavailable_detail_by_dataset.clear()
         self._risk_history_degraded = False
+
+    def _mark_unavailable(self, dataset: str) -> str:
+        detail = f"No approved public source configured for {dataset}"
+        self._dataset_degraded.add(dataset)
+        self._unavailable_detail_by_dataset[dataset] = detail
+        self.degraded.append(detail)
+        self.provider_status[dataset] = {"provider": "unavailable", "degraded": True}
+        return detail
 
     def _sectors_degraded_detail(self) -> str:
         """A human-readable detail behind the sectors degraded flag (#174).
@@ -665,11 +679,33 @@ class MarketCollector:
 
     def collect(self) -> dict[str, Any]:
         self._reset_collection_state()
-        self._collect_history_plan()
-        equities = self._collect_equities()
-        crypto = self._collect_crypto()
-        commodities = self._collect_commodities()
-        sectors = self._collect_sectors()
+        if self.public_source_policy is None:
+            self._collect_history_plan()
+            equities = self._collect_equities()
+            crypto = self._collect_crypto()
+            commodities = self._collect_commodities()
+            sectors = self._collect_sectors()
+        else:
+            if self.public_source_policy.allows_dataset("equities"):
+                equities = self._collect_equities()
+            else:
+                self._mark_unavailable("equities")
+                equities = EquitiesDataset()
+            if self.public_source_policy.allows_dataset("crypto"):
+                crypto = self._collect_crypto()
+            else:
+                self._mark_unavailable("crypto")
+                crypto = CryptoDataset()
+            if self.public_source_policy.allows_dataset("commodities"):
+                commodities = self._collect_commodities()
+            else:
+                self._mark_unavailable("commodities")
+                commodities = CommoditiesDataset()
+            if self.public_source_policy.allows_dataset("sectors"):
+                sectors = self._collect_sectors()
+            else:
+                self._mark_unavailable("sectors")
+                sectors = SectorsDataset()
         quality_by_dataset = {
             name: quality_for_outcomes([name in self._dataset_degraded], settings=self.settings)
             for name in ("equities", "crypto", "commodities", "sectors")
@@ -689,9 +725,14 @@ class MarketCollector:
             # combines that quote with historical observations. One unknown contributor
             # makes the dataset-level provenance unknown.
             "equities": None,
-            # CoinGecko currently does not expose a trustworthy dataset-level timestamp in its
-            # normalized provider result; do not substitute the local fetch time.
-            "crypto": None,
+            "crypto": (
+                oldest_source_timestamp(asset.updated_at for asset in crypto.assets)
+                if (
+                    (self.settings.coinmetrics_enabled or self.public_source_policy is not None)
+                    and len(crypto.assets) == 2
+                )
+                else None
+            ),
             # Quote adapters expose local fetch time only; no upstream observation timestamp is
             # published as provenance until a provider supplies one explicitly.
             "commodities": None,
@@ -733,8 +774,16 @@ class MarketCollector:
             # request keys were already in collection_telemetry, this surfaces them on the
             # Status page reason instead of burying them in sources.json.
             "degraded_detail_by_dataset": {
-                "sectors": self._sectors_degraded_detail(),
+                "sectors": self._unavailable_detail_by_dataset.get(
+                    "sectors", self._sectors_degraded_detail()
+                ),
+                **{
+                    name: detail
+                    for name, detail in self._unavailable_detail_by_dataset.items()
+                    if name != "sectors"
+                },
             },
+            "source_policy_excluded_datasets": sorted(self._unavailable_detail_by_dataset),
             "source_updated_at_by_dataset": source_by_dataset,
             "risk_data_quality": risk_data_quality,
             "risk_history_degraded": self._risk_history_degraded,

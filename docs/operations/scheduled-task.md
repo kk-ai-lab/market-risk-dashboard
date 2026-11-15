@@ -1,5 +1,11 @@
 # Local Scheduled Task Operations Manual
 
+> **Legacy runbook, updated 2026-11-15:** this describes local collection, not the planned
+> 15-minute cloud publisher. The dashboard no longer consumes AI briefs. `--analysis-only` is
+> retained only for explicit legacy artifact handling; it is not part of new public data runs.
+> The GitHub cloud publisher remains unpublished; see
+> `docs/operations/cloud-refresh-plan.md` for source and rollout gates.
+
 **Applies to:** scheduled local tasks of the data pipeline (Windows Task Scheduler / macOS launchd / cron).
 **Goal:** automatically collect → compute → validate → push 2-3 times per day to keep `public/data` fresh and drive GitHub Pages auto-deployment.
 

@@ -100,6 +100,15 @@ def _breadth_history(considered: int) -> dict[str, list[dict]]:
     return rows
 
 
+def test_new_high_low_ratios_distinguish_missing_sample_from_zero() -> None:
+    missing = breadth.breadth_snapshot({})
+    assert missing["new_highs_ratio"] is None
+    assert missing["new_lows_ratio"] is None
+    observed = breadth.new_highs_lows({"A": _rows(list(range(1, 65)))})
+    assert observed["new_highs"] == 1.0
+    assert observed["new_lows"] == 0.0
+
+
 def test_breadth_publishes_qualifying_and_considered() -> None:
     """#69: breadth_snapshot publishes qualifying + considered counts alongside the ratio."""
     from pipeline.indicators.breadth import breadth_snapshot

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -41,3 +42,25 @@ def test_run_write_path_manifest_is_stable(data_root: Path) -> None:
         f"extra={sorted(set(actual) - set(expected))} "
         f"changed={sorted(k for k in set(actual) & set(expected) if actual[k] != expected[k])}"
     )
+
+
+def test_dashboard_cross_asset_keeps_the_selected_quote_source() -> None:
+    from pipeline.run import _build_dashboard
+    from pipeline.schemas.risk import RiskModelResult
+    from tests.pipeline.factories import make_risk_payload
+
+    risk = RiskModelResult.model_validate(make_risk_payload())
+    equities = SimpleNamespace(payload=SimpleNamespace(assets=[
+        SimpleNamespace(symbol="SPY", change_1d=0.2, source="yahoo"),
+    ]))
+    crypto = SimpleNamespace(payload=SimpleNamespace(assets=[
+        SimpleNamespace(symbol="BTC", change_1d=-0.4, source="coinmetrics"),
+    ]))
+    calendar = SimpleNamespace(payload=SimpleNamespace(events=[]))
+    payload = _build_dashboard(
+        risk_env=SimpleNamespace(payload=risk), equities=equities, crypto=crypto,
+        sectors=None, calendar=calendar,
+    )
+
+    assert payload.cross_asset[0].source == "yahoo"
+    assert payload.cross_asset[1].source == "coinmetrics"

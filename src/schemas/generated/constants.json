@@ -24,9 +24,35 @@
     "cache_invalid",
     "all_providers_failed",
     "not_collected_this_run",
+    "source_policy_excluded",
     "interval_exceeded",
     "input_dataset_unhealthy"
   ],
+  "coinmetrics_expected_interval_minutes": 15,
+  "risk_level_thresholds": {
+    "risk_on": {
+      "lt": 20
+    },
+    "low_risk": {
+      "gte": 20,
+      "lt": 40
+    },
+    "caution": {
+      "gte": 40,
+      "lt": 60
+    },
+    "high_risk": {
+      "gte": 60,
+      "lt": 80
+    },
+    "severe_risk": {
+      "gte": 80,
+      "lt": 90
+    },
+    "crisis": {
+      "gte": 90
+    }
+  },
   "canonical_dataset_keys": [
     "equities",
     "sectors",

@@ -2,14 +2,15 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight } from "lucide-react";
 import { useDataset } from "@/hooks/useDataset";
-import type { CommoditiesEnvelope, CryptoEnvelope, EquitiesEnvelope, SectorsEnvelope } from "@/schemas";
+import { CONTRACT_CONSTANTS, type CommoditiesEnvelope, type CryptoEnvelope, type EquitiesEnvelope, type SectorsEnvelope } from "@/schemas";
 import { MemorySectorTable } from "@/components/equities/MemorySectorTable";
 import { AssetCard } from "@/components/cross-asset/AssetCard";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/layout/StatusBadge";
-import { formatChange, formatCompactNumber, formatRatio } from "@/lib/format";
+import { CoinMetricsAttribution } from "@/components/crypto/CoinMetricsAttribution";
+import { formatChange, formatCompactNumber, formatDateTime, formatRatio } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent } from "@/components/ui/Card";
 import { dirTone, dirClasses } from "@/lib/riskColors";
@@ -113,7 +114,7 @@ export default function ThemesPage() {
           {t("title")}
         </h1>
         <p className="text-xs text-muted-foreground">{t("subtitle")}</p>
-        {sectorsQ.data ? <span className="ml-auto"><StatusBadge status={sectorsQ.data.freshness_status} fromCache={sectorsQ.data.provenance?.from_cache} withDescription /></span> : null}
+        {sectorsQ.data ? <span className="ml-auto"><StatusBadge dataset="sectors" generatedAt={sectorsQ.data.generated_at} status={sectorsQ.data.freshness_status} fromCache={sectorsQ.data.provenance?.from_cache} withDescription /></span> : null}
       </header>
 
       {/* Semiconductors */}
@@ -171,13 +172,22 @@ export default function ThemesPage() {
 
       {/* Crypto */}
       <section className="border-t border-hairline pt-4" data-testid="section-crypto">
-        <h2 className="mb-2 text-sm font-medium text-foreground">{t("section.crypto")}</h2>
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <h2 className="text-sm font-medium text-foreground">{t("section.crypto")}</h2>
+          {cryptoQ.data ? <StatusBadge dataset="crypto" generatedAt={cryptoQ.data.generated_at} status={cryptoQ.data.freshness_status} fromCache={cryptoQ.data.provenance?.from_cache} sourceUpdatedAt={cryptoQ.data.source_updated_at} sourceExpectedMinutes={cryptoQ.data.provenance?.provider === "coinmetrics" ? CONTRACT_CONSTANTS.coinmetrics_expected_interval_minutes : undefined} withDescription /> : null}
+        </div>
         {cryptoQ.isLoading ? (
           <Skeleton className="h-32 w-full" />
         ) : cryptoQ.isError ? (
           <ErrorState onRetry={cryptoQ.refetch} />
         ) : cryptoAssets.length > 0 ? (
           <>
+            {cryptoAssets.some((asset) => asset.source === "coinmetrics") ? (
+              <p className="mb-3 text-xs text-muted-foreground" data-testid="coinmetrics-disclosure">{t("crypto.referenceDisclosure")}</p>
+            ) : null}
+            <div className="mb-3">
+              <CoinMetricsAttribution show={cryptoAssets.some((asset) => asset.source === "coinmetrics")} />
+            </div>
             <div className="mb-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
               {cryptoQ.data?.payload.market_cap_total !== null &&
               cryptoQ.data?.payload.market_cap_total !== undefined ? (
@@ -204,14 +214,16 @@ export default function ThemesPage() {
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {cryptoAssets.map((c) => (
+                <div key={c.symbol}>
                 <AssetCard
-                  key={c.symbol}
                   symbol={c.symbol}
                   name={displayCryptoName(c.symbol, c.name, locale)}
                   value={c.price}
                   change1d={c.change_1d}
-                  sub={t("crypto.volume24h")}
+                  sub={`${t("crypto.volume24h")}: ${c.volume_24h === null ? t("common:data.na") : formatCompactNumber(c.volume_24h, locale)}`}
                 />
+                {c.source === "coinmetrics" ? <p className="mt-1 text-xs text-muted-foreground">{t("crypto.observedAt")}: {c.updated_at ? formatDateTime(c.updated_at, locale) : t("common:data.na")}</p> : null}
+                </div>
               ))}
             </div>
           </>

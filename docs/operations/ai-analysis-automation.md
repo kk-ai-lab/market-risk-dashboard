@@ -1,5 +1,9 @@
 # WorkBuddy AI Automation Integration Manual
 
+> **Retired for the public dashboard, 2026-11-15:** the site no longer renders or requires
+> AI-generated briefs or AI news translations. This manual is retained as a historical record
+> only. It does not disable any external WorkBuddy automation; no such schedule was changed here.
+
 **Applies to:** WorkBuddy scheduled automation (deepseek v4 flash) generating bilingual AI briefs outside the pipeline.
 **Contract:** input/output are both disk files (architecture §1.5); the pipeline stays deterministic and replayable; AI is a "pluggable external step".
 

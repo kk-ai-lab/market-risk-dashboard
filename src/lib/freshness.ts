@@ -1,4 +1,28 @@
-import type { FreshnessStatus } from "@/schemas";
+import { CONTRACT_CONSTANTS, type FreshnessStatus } from "@/schemas";
+
+/** Age a published run status without treating collection time as source observation time. */
+export function currentFreshness(status: FreshnessStatus, dataset: string, generatedAt: string, now = Date.now(), expectedMinutes?: number): FreshnessStatus {
+  if (status !== "fresh" && status !== "delayed" && status !== "stale") return status;
+  const elapsed = elapsedFreshness(dataset, generatedAt, now, expectedMinutes);
+  const rank = { fresh: 0, delayed: 1, stale: 2 } as const;
+  return rank[elapsed] > rank[status] ? elapsed : status;
+}
+
+/** Preserve provider failures while aging a known source observation. */
+export function currentSourceFreshness(status: FreshnessStatus, sourceAge: "fresh" | "delayed" | "stale"): FreshnessStatus {
+  if (status !== "fresh" && status !== "delayed" && status !== "stale") return status;
+  const rank = { fresh: 0, delayed: 1, stale: 2 } as const;
+  return rank[sourceAge] > rank[status] ? sourceAge : status;
+}
+
+export function elapsedFreshness(dataset: string, generatedAt: string, now = Date.now(), expectedMinutes?: number): "fresh" | "delayed" | "stale" {
+  const intervals: Record<string, number> = CONTRACT_CONSTANTS.expected_interval_minutes;
+  const interval = expectedMinutes ?? intervals[dataset];
+  const timestamp = Date.parse(generatedAt);
+  if (!interval || interval <= 0 || !Number.isFinite(timestamp)) return "stale";
+  const age = (now - timestamp) / 60_000;
+  return age < -5 || age > interval * 3 ? "stale" : age > interval * 1.5 ? "delayed" : "fresh";
+}
 
 /**
  * Freshness semantics and UI (architecture §8.5, six states after #89).

@@ -1,6 +1,6 @@
 # Market Risk Dashboard
 
-A dark-first market intelligence terminal: global macro risk scores, regimes, and evidence-driven AI briefs served as a static site. This glossary covers the design-system vocabulary introduced by the 2026-08 UI redesign; domain/market vocabulary lives in `docs/glossary.en.md`.
+A dark-first market intelligence terminal: global macro risk scores, regimes, source evidence, and freshness served as a bilingual static site. The public dashboard does not generate or consume AI-written market briefs. This glossary covers the design-system vocabulary introduced by the 2026-08 UI redesign; domain/market vocabulary lives in `docs/glossary.en.md`.
 
 ## Language
 
@@ -46,8 +46,8 @@ _Avoid_: container, widget box
 All numeric readouts use `font-variant-numeric: tabular-nums`; true monospace is reserved for ticker symbols, IDs, timestamps, and citations.
 _Avoid_: mono numbers, digital font
 
-**AI brief**:
-The LLM-generated research summary block, visually quarantined by a 2px accent left border + "AI" label, with inline evidence chips (source + timestamp) on every claim. Degraded AI renders an honest empty state.
+**AI brief (legacy term)**:
+The retired LLM-generated research block formerly shown on the dashboard. Historical analysis artifacts and validation code remain in the repository, but the public application and new data runs do not produce or consume briefs.
 _Avoid_: AI summary card, insights panel
 
 ## News data contract
@@ -74,14 +74,18 @@ _Avoid_: summary overwrite, in-place language flip
 
 ## Scheduling
 
-**Weekend news-only policy**:
-The schedule rule that weekends trigger exactly one automation — the overnight news refresh. The data pipeline refreshes and the AI briefs never trigger on Sat/Sun: their RRULE excludes weekends entirely, so a weekend run is skipped by the scheduler itself, never started (ADR-0006).
+> The following scheduling terms describe the legacy local WorkBuddy workflow documented in
+> August 2026. It does not describe the target cloud publisher, and no external WorkBuddy task
+> was modified as part of the dashboard changes.
+
+**Weekend news-only policy (legacy)**:
+The former local schedule rule that weekends triggered only overnight news refresh. It is retained as an operational history in ADR-0006, not as a current cloud scheduling requirement.
 _Avoid_: weekend mode, weekend schedule, holiday mode
 
-**Trading-day gate**:
-The step-0 check market-sensitive automations run before any work: query the relevant exchange calendar and skip (with a logged one-line note, no data writes) when the exchange is closed for a holiday. The morning pair (11:30 pipeline + 12:30 pre-market brief) gates on the SSE (XSHG); the evening pair (20:30 pipeline + 21:30 post-market brief) gates on the NYSE (XNYS). Fails open: a broken check is logged and treated as a trading day, so a check bug can never block a run (ADR-0006).
+**Trading-day gate (legacy)**:
+The exchange-calendar check formerly used by local market-sensitive automations. It is documented in ADR-0006 and is not a cloud runner guarantee.
 _Avoid_: holiday check, market-hours check, exchange-open check
 
-**Gap-fill translation pass**:
-The weekend-only translation duty of the overnight news refresh: for news items whose canonical bilingual pair is incomplete, generate the missing side and merge (ADR-0003). Weekday translation is owned by the AI briefs' full-pair pass, which doubles as the catch-up pass for any item a gated day left untranslated (ADR-0006).
+**Gap-fill translation pass (legacy)**:
+The former weekend news-translation task, retained for historical artifacts and ADR-0006 only. The current public pipeline does not call an AI service to translate or generate news.
 _Avoid_: partial translation, weekend translation task, delta translation

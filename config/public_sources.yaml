@@ -1,0 +1,36 @@
+schema_version: "1.0.0"
+
+sources:
+  coinmetrics:
+    provider: coinmetrics
+    registry_domain: crypto
+    datasets: [crypto]
+    macro_series: []
+    market_symbols: [BTC, ETH]
+    license_id: CC-BY-NC-4.0
+    license_url: https://creativecommons.org/licenses/by-nc/4.0/
+    attribution: "Data provided by Coin Metrics Community Network Data. Modified from source."
+    permitted_use: noncommercial
+    cadence_minutes: 15
+  bls:
+    provider: bls
+    registry_domain: null
+    datasets: [macro]
+    macro_series: [CPIAUCSL, CPILFESL, PAYEMS, UNRATE]
+    market_symbols: []
+    license_id: public-domain
+    license_url: https://www.bls.gov/opub/copyright-information.htm
+    attribution: "U.S. Bureau of Labor Statistics"
+    permitted_use: public-domain
+    cadence_minutes: 1440
+  treasury:
+    provider: treasury
+    registry_domain: null
+    datasets: [macro]
+    macro_series: [DGS2, DGS10]
+    market_symbols: []
+    license_id: CC0-1.0
+    license_url: https://catalog.data.gov/dataset/interest-rate-statistics-daily-treasury-yield-curve-rates
+    attribution: "U.S. Department of the Treasury, Daily Treasury Yield Curve Rates"
+    permitted_use: public-domain
+    cadence_minutes: 1440

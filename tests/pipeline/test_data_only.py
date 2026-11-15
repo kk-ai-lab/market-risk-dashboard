@@ -18,6 +18,8 @@ from tests.pipeline.factories import (
     DEFAULT_NOW,
     PAYLOAD_BUILDERS,
     REMOVE,
+    TODAY_ISO_DATE,
+    make_macro_roster_payload,
 )
 
 LEGACY_FILES = tuple(
@@ -104,15 +106,28 @@ def test_full_collection_keeps_source_news_without_ai(tmp_path: Path, monkeypatc
         key: registry.require(key).model.model_fields["payload"].annotation.model_validate(builder())
         for key, builder in PAYLOAD_BUILDERS.items()
     }
+    from pipeline.collectors.macro import DEFAULT_SERIES
+
+    payloads["macro"] = registry.require("macro").model.model_fields["payload"].annotation.model_validate(
+        make_macro_roster_payload(include_live_rate=True)
+    )
+    series_history = {
+        series_id.lower(): ([{"date": TODAY_ISO_DATE, "value": 4.25}] if series_id == "DGS10" else [])
+        for series_id in DEFAULT_SERIES
+    }
     market = {
         key: payloads[key] for key in ("equities", "sectors", "crypto", "commodities")
     }
     market.update(histories={}, degraded=[], provider_status={}, data_quality=1.0)
     monkeypatch.setattr(run_mod, "MarketCollector", lambda *args: SimpleNamespace(collect=lambda: market))
-    for name, key in (("MacroCollector", "macro"), ("CalendarCollector", "calendar")):
-        monkeypatch.setattr(run_mod, name, lambda *args, key=key: SimpleNamespace(
-            collect=lambda: (payloads[key], {"degraded": [], "provider_status": {}, "data_quality": 1.0}),
-        ))
+    monkeypatch.setattr(run_mod, "MacroCollector", lambda *args, **kwargs: SimpleNamespace(
+        collect=lambda: (payloads["macro"], {
+            "degraded": [], "provider_status": {}, "data_quality": 1.0, "series_history": series_history,
+        }),
+    ))
+    monkeypatch.setattr(run_mod, "CalendarCollector", lambda *args: SimpleNamespace(
+        collect=lambda: (payloads["calendar"], {"degraded": [], "provider_status": {}, "data_quality": 1.0}),
+    ))
 
     latest = settings.data_dir / "latest"
     latest.mkdir(parents=True)
@@ -140,3 +155,12 @@ def test_full_collection_keeps_source_news_without_ai(tmp_path: Path, monkeypatc
         text=True, capture_output=True, check=False,
     )
     assert node.returncode == 0, node.stdout + node.stderr
+    previous_files = {p.relative_to(settings.data_dir): p.read_bytes() for p in settings.data_dir.rglob("*.json")}
+    empty_market = {key: type(payloads[key])() for key in ("equities", "sectors", "crypto", "commodities")}
+    empty_market.update(histories={}, degraded=["all market sources unavailable"], provider_status={}, data_quality=0.0)
+    monkeypatch.setattr(run_mod, "MarketCollector", lambda *args: SimpleNamespace(collect=lambda: empty_market))
+    monkeypatch.setattr(run_mod, "MacroCollector", lambda *args: SimpleNamespace(collect=lambda: (
+        type(payloads["macro"])(), {"degraded": ["macro unavailable"], "provider_status": {}, "data_quality": 0.0}
+    )))
+    assert run_mod.main(["--full"]) != 0
+    assert {p.relative_to(settings.data_dir): p.read_bytes() for p in settings.data_dir.rglob("*.json")} == previous_files

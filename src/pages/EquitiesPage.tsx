@@ -37,7 +37,7 @@ export default function EquitiesPage() {
           {t("title")}
         </h1>
         <p className="text-xs text-muted-foreground">{t("subtitle")}</p>
-        {equitiesQ.data ? <span className="ml-auto"><StatusBadge status={equitiesQ.data.freshness_status} fromCache={equitiesQ.data.provenance?.from_cache} withDescription /></span> : null}
+        {equitiesQ.data ? <span className="ml-auto"><StatusBadge dataset="equities" generatedAt={equitiesQ.data.generated_at} status={equitiesQ.data.freshness_status} fromCache={equitiesQ.data.provenance?.from_cache} withDescription /></span> : null}
       </header>
 
       {/* Cross-Asset cards (open section; AssetCards are the KPI cards) */}

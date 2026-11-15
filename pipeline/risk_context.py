@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date, timedelta
+from math import isfinite
 from typing import Any
 
 from pipeline.schemas import registry as dataset_registry
@@ -197,15 +199,33 @@ def _cross_asset_signal(
 def read_prev_risk(writer: StorageWriter, *, as_of_date: str | None = None) -> tuple[float | None, dict[str, float] | None, list[dict[str, Any]]]:
     """Read risk history: previous day total score / previous day dimension scores / all prior rows (P2-9 public read_history)."""
     cutoff = as_of_date or now_utc()[:10]
-    rows = [row for row in writer.read_history("risk", "daily")
-            if isinstance(row.get("date"), str) and row["date"] < cutoff]
+    def valid_row(row: Any) -> bool:
+        if not isinstance(row, dict) or row.get("evidence_state") not in ("partial", "complete"):
+            return False
+        value, observed = row.get("total_score"), row.get("date")
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value) or not 0 <= value <= 100:
+            return False
+        try:
+            return isinstance(observed, str) and date.fromisoformat(observed).isoformat() == observed and observed < cutoff
+        except ValueError:
+            return False
+
+    rows = sorted((row for row in writer.read_history("risk", "daily") if valid_row(row)), key=lambda row: row["date"])
     if not rows:
         return None, None, []
     last = rows[-1]
+    if last["date"] != (date.fromisoformat(cutoff) - timedelta(days=1)).isoformat():
+        return None, None, rows
     prev_total = last.get("total_score")
     prev_dims = last.get("dim_scores") if isinstance(last.get("dim_scores"), dict) else None
-    if isinstance(prev_dims, dict):
-        prev_dims = {str(k): float(v) for k, v in prev_dims.items() if isinstance(v, (int, float))}
+    dim_evidence = last.get("dim_evidence_states")
+    if isinstance(prev_dims, dict) and isinstance(dim_evidence, dict):
+        prev_dims = {str(k): float(v) for k, v in prev_dims.items()
+                     if dim_evidence.get(k) in ("partial", "complete")
+                     and isinstance(v, (int, float)) and not isinstance(v, bool)
+                     and isfinite(v) and 0 <= v <= 100}
+    else:
+        prev_dims = None
     return prev_total, prev_dims, rows
 
 

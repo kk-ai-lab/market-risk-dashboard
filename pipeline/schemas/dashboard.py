@@ -20,6 +20,7 @@ class DashboardAsset(ContractModel):
     asset: str = Field(min_length=1)
     category: str = Field(min_length=1)
     change_1d: float | None = None
+    source: str | None = None
 
 
 class DashboardSector(ContractModel):

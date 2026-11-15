@@ -14,9 +14,12 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+from math import isfinite
 from typing import Any
 
 from pipeline.degrade import degrade_factor
+from pipeline.metadata import oldest_source_timestamp
 from pipeline.risk import confidence as conf_mod
 from pipeline.risk import regime as regime_mod
 from pipeline.risk.scoring import compute_indicator_score
@@ -32,7 +35,9 @@ from pipeline.schemas import (
     RiskModelResult,
 )
 from pipeline.settings import Settings
+from pipeline.macro_history import treasury_window_rows
 from pipeline.utils import now_utc
+from pipeline.validation.freshness import aggregate_freshness
 
 DIMENSION_LABELS = {
     "macro": "Macro",
@@ -48,6 +53,34 @@ DIMENSION_LABELS = {
 CANONICAL_MACRO_GROUPS = {
     "vixcls": "volatility",
 }
+
+MACRO_OBSERVATIONS = {
+    "real_rate_dfii10": (("rates", "dfii10"),),
+    "yield_curve_10y2y": (("rates", "dgs10"), ("rates", "dgs2")),
+    "dollar_index": (("fx", "dtwexbgs"),),
+    "dgs10": (("rates", "dgs10"),),
+    "fed_balance_sheet": (("liquidity", "walcl"),),
+    "reverse_repo": (("liquidity", "rrpontsyd"),),
+    "hy_oas": (("credit", "bamlh0a0hym2"),),
+    "ig_oas": (("credit", "bamlc0a0cm"),),
+    "vix": (("volatility", "vixcls"),),
+}
+
+
+def _attach_macro_observations(dimensions: list[RiskDimension], macro: Any) -> None:
+    for dimension in dimensions:
+        for indicator in dimension.indicators:
+            keys = MACRO_OBSERVATIONS.get(indicator.key)
+            if not keys or indicator.value is None:
+                continue
+            inputs = [next((item for item in getattr(macro, group, []) if item.key == key), None) for group, key in keys]
+            if any(item is None for item in inputs):
+                continue
+            indicator.source = inputs[0].source if len({item.source for item in inputs}) == 1 else "unavailable"
+            indicator.observation_date = inputs[0].observation_date if all(item.observation_date == inputs[0].observation_date for item in inputs) else None
+            indicator.fetched_at = oldest_source_timestamp(item.fetched_at for item in inputs)
+            indicator.updated_at = oldest_source_timestamp(item.updated_at for item in inputs)
+            indicator.status = aggregate_freshness(item.status for item in inputs)
 
 DEFAULT_DISCLAIMER = "This indicator is a modeled estimate of market stress based on historical data and current market signals. Data trust is not statistical confidence, a calibrated probability, or investment advice."
 
@@ -124,7 +157,10 @@ class RiskModel:
         cw = raw.get("confidence", {}).get("weights", {})
         self.conf_weights = {k: float(v) for k, v in cw.items()}
         scoring_cfg = raw.get("scoring", {})
-        self.percentile_window_years = int(scoring_cfg.get("percentile_window_years", 5))
+        history_window_years = scoring_cfg.get("percentile_window_years", 5)
+        if type(history_window_years) is not int or not 1 <= history_window_years <= 5:
+            raise ValueError("scoring.percentile_window_years must be an integer between 1 and 5")
+        self.percentile_window_years = history_window_years
         self.fallback_percentile = float(scoring_cfg.get("fallback_percentile", 50.0))
         derived_cfg = scoring_cfg.get("derived_history", {}) or {}
         if not isinstance(derived_cfg, dict):
@@ -162,7 +198,10 @@ class RiskModel:
     def _series_values(self, ctx: dict[str, Any], series_key: str) -> list[float]:
         """Extract the 5Y-window values of a series from series_history (ascending, latest last)."""
         series_history = ctx.get("series_history", {}) or {}
-        rows = series_history.get(series_key) or []
+        rows = treasury_window_rows(
+            series_history.get(series_key) or [], years=self.percentile_window_years,
+            as_of_date=date.fromisoformat(ctx["_as_of_date"]) if ctx.get("_as_of_date") else None,
+        )
         values = [
             float(r["value"])
             for r in rows
@@ -193,12 +232,15 @@ class RiskModel:
 
         # Composite series: e.g. 10Y-2Y term spread = DGS10 - DGS2 (aligned by date)
         series_history = ctx.get("series_history", {}) or {}
-        maps: list[dict[str, float]] = []
+        maps: list[dict[str, tuple[float, str]]] = []
         for series_key in spec:
-            rows = series_history.get(series_key) or []
+            rows = treasury_window_rows(
+                series_history.get(series_key) or [], years=self.percentile_window_years,
+                as_of_date=date.fromisoformat(ctx["_as_of_date"]) if ctx.get("_as_of_date") else None,
+            )
             maps.append(
                 {
-                    str(r.get("date", "")): float(r["value"])
+                    str(r.get("date", "")): (float(r["value"]), str(r.get("source", "FRED")))
                     for r in rows
                     if isinstance(r.get("value"), (int, float)) and not isinstance(r.get("value"), bool)
                 }
@@ -206,7 +248,7 @@ class RiskModel:
         if len(maps) < 2 or not maps[0] or not maps[1]:
             return None
         common = sorted(set(maps[0]) & set(maps[1]))
-        diffs = [round(maps[0][d] - maps[1][d], 6) for d in common]
+        diffs = [round(maps[0][d][0] - maps[1][d][0], 6) for d in common if maps[0][d][1] == maps[1][d][1]]
         return diffs[-self._max_history_samples:] if diffs else None
 
     # ---- Per-dimension indicators ----
@@ -217,16 +259,16 @@ class RiskModel:
         dgs10 = rates.get("dgs10")
         dfii10 = rates.get("dfii10")
         dgs2 = rates.get("dgs2")
-        curve = (dgs10.value - dgs2.value) if (dgs10 and dgs2 and dgs10.value is not None and dgs2.value is not None) else None
+        curve = _curve_value(ctx)
         dollar = next((m for m in getattr(macro, "fx", []) if m.key == "dtwexbgs"), None)
         return [
             _ind("real_rate_dfii10", "10Y Real Rate", dfii10.value if dfii10 else None, "higher_is_riskier", "FRED", self._indicator_weight("macro", "real_rate_dfii10"),
                  history=self._indicator_history(ctx, "real_rate_dfii10")),
-            _ind("yield_curve_10y2y", "10Y-2Y Curve", curve, "lower_is_riskier", "FRED", self._indicator_weight("macro", "yield_curve_10y2y"),
+            _ind("yield_curve_10y2y", "10Y-2Y Curve", curve, "lower_is_riskier", dgs10.source if dgs10 and dgs2 and dgs10.source == dgs2.source else "unavailable", self._indicator_weight("macro", "yield_curve_10y2y"),
                  history=self._indicator_history(ctx, "yield_curve_10y2y")),
             _ind("dollar_index", "Dollar Index", dollar.value if dollar else None, "higher_is_riskier", "FRED", self._indicator_weight("macro", "dollar_index"),
                  history=self._indicator_history(ctx, "dollar_index")),
-            _ind("dgs10", "10Y Yield", dgs10.value if dgs10 else None, "neutral", "FRED", self._indicator_weight("macro", "dgs10"),
+            _ind("dgs10", "10Y Yield", dgs10.value if dgs10 else None, "neutral", dgs10.source if dgs10 else "unavailable", self._indicator_weight("macro", "dgs10"),
                  history=self._indicator_history(ctx, "dgs10")),
         ]
 
@@ -312,10 +354,11 @@ class RiskModel:
         }
 
         prev_dim_scores: dict[str, float] = ctx.get("_prev_dim_scores") or {}
-        proxy_discount = conf_mod.proxy_discount_factor()
+        proxy_discount = conf_mod.proxy_discount_factor(self.settings)
         dimensions, dimension_bounds, available_indicator_count = self._build_dimensions(
             ctx, builders, prev_dim_scores, proxy_discount
         )
+        _attach_macro_observations(dimensions, ctx.get("macro"))
         self._renormalize_dimensions(dimensions)
 
         denom = sum(d.effective_weight for d in dimensions) or 1.0
@@ -342,7 +385,7 @@ class RiskModel:
         # Trend: compare with the most recent risk history (run.py injects prev_total_score + risk_history)
         prev_score = ctx.get("_prev_total_score")
         trend_1d = round(total_score - prev_score, 2) if prev_score is not None else None
-        trend_1w, trend_1m = _history_trends(total_score, ctx.get("_risk_history"))
+        trend_1w, trend_1m = _history_trends(total_score, ctx.get("_risk_history"), ctx.get("_as_of_date"))
 
         # Confidence
         data_quality = float(ctx.get("data_quality", 1.0))
@@ -453,7 +496,7 @@ class RiskModel:
                     indicators=indicators,
                     coverage=round(raw_coverage, 4),
                     effective_coverage=round(effective_coverage, 4),
-                    trend=_dim_trend(dim_score, prev_scores.get(dim_key)),
+                    trend=_dim_trend(dim_score, prev_scores.get(dim_key)) if available else "unknown",
                     evidence_state=evidence_state,
                     missing_indicators=missing,
                 )
@@ -518,40 +561,41 @@ class RiskModel:
 
 
 def _dim_trend(score: float, prev_score: float | None) -> str:
-    """Dimension trend (P2-11): compare with the previous day's score; no previous day → flat."""
+    """Compare with the previous day's score; report unknown without a baseline."""
     if prev_score is None:
-        return "flat"
+        return "unknown"
     if abs(score - prev_score) < 0.01:
         return "flat"
     return "rising" if score > prev_score else "falling"
 
 
-def _history_trends(total_score: float, rows: Any) -> tuple[float | None, float | None]:
-    """trend_1w / trend_1m: computed from the risk history series (None when history is insufficient).
-
-    rows are the prior rows of history/risk/daily.json (excluding today); 1w ≈ 5 trading days, 1m ≈ 21.
-    """
+def _history_trends(total_score: float, rows: Any, as_of_date: str | None = None) -> tuple[float | None, float | None]:
+    """Compare with observations near seven and thirty calendar days ago."""
     if not rows or not isinstance(rows, list):
         return None, None
-    try:
-        last_score = float(rows[-1]["total_score"])
-        trend_1w = round(total_score - last_score, 2)
-    except (KeyError, TypeError, ValueError, IndexError):
-        trend_1w = None
-    if len(rows) >= 6:
+    observations: list[tuple[date, float]] = []
+    for row in rows:
         try:
-            week_ago = float(rows[-6]["total_score"])
-            trend_1w = round(total_score - week_ago, 2)
-        except (KeyError, TypeError, ValueError, IndexError):
-            trend_1w = None
-    trend_1m = None
-    if len(rows) >= 22:
-        try:
-            month_ago = float(rows[-22]["total_score"])
-            trend_1m = round(total_score - month_ago, 2)
-        except (KeyError, TypeError, ValueError, IndexError):
-            trend_1m = None
-    return trend_1w, trend_1m
+            raw_score = row["total_score"]
+            if isinstance(raw_score, bool):
+                continue
+            observed = date.fromisoformat(row["date"])
+            value = float(raw_score)
+            if isfinite(value):
+                observations.append((observed, value))
+        except (KeyError, TypeError, ValueError):
+            continue
+    today = date.fromisoformat(as_of_date or now_utc()[:10])
+
+    def change(days: int) -> float | None:
+        target = today - timedelta(days=days)
+        candidates = [(observed, value) for observed, value in observations if target - timedelta(days=3) <= observed <= target]
+        if not candidates:
+            return None
+        _, value = max(candidates, key=lambda item: item[0])
+        return round(total_score - value, 2)
+
+    return change(7), change(30)
 
 
 def _parse_thresholds(raw: dict[str, Any]) -> list[tuple[RiskLevel, Any]]:
@@ -607,6 +651,10 @@ def _curve_value(ctx: dict[str, Any]) -> float | None:
     rates = {m.key: m for m in getattr(macro, "rates", [])}
     dgs10 = rates.get("dgs10")
     dgs2 = rates.get("dgs2")
-    if dgs10 and dgs2 and dgs10.value is not None and dgs2.value is not None:
+    if dgs10 and dgs2 and dgs10.value is not None and dgs2.value is not None and dgs10.source == dgs2.source:
+        day10 = dgs10.observation_date or (dgs10.updated_at[:10] if dgs10.updated_at else None)
+        day2 = dgs2.observation_date or (dgs2.updated_at[:10] if dgs2.updated_at else None)
+        if day10 is None or day10 != day2:
+            return None
         return round(dgs10.value - dgs2.value, 4)
     return None

@@ -20,6 +20,8 @@
     "marketCap": "Total market cap",
     "dominance": "BTC dominance",
     "volume24h": "24h volume",
+    "referenceDisclosure": "BTC and ETH are market-wide reference rates, not exchange trade prices. Other crypto assets and 24-hour changes are unavailable from this source.",
+    "observedAt": "Source observation",
     "riskOn": "Risk On",
     "riskOff": "Risk Off",
     "neutral": "Neutral"

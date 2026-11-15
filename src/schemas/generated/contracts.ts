@@ -48,7 +48,7 @@ export type NewsSentiment = z.infer<typeof NewsSentiment>;
 export const NewsSourceLang = z.enum(["en", "zh"]);
 export type NewsSourceLang = z.infer<typeof NewsSourceLang>;
 
-export const ReasonCode = z.enum(["ok", "no_rows_returned", "no_events_in_window", "provider_http_error", "provider_rate_limited", "provider_auth_failed", "provider_parse_error", "served_from_fallback", "served_from_cache", "cache_expired", "cache_invalid", "all_providers_failed", "not_collected_this_run", "interval_exceeded", "input_dataset_unhealthy"]);
+export const ReasonCode = z.enum(["ok", "no_rows_returned", "no_events_in_window", "provider_http_error", "provider_rate_limited", "provider_auth_failed", "provider_parse_error", "served_from_fallback", "served_from_cache", "cache_expired", "cache_invalid", "all_providers_failed", "not_collected_this_run", "source_policy_excluded", "interval_exceeded", "input_dataset_unhealthy"]);
 export type ReasonCode = z.infer<typeof ReasonCode>;
 
 export const RiskCalibrationStatus = z.enum(["provisional", "calibrated"]);
@@ -66,7 +66,7 @@ export type RiskEvidenceState = z.infer<typeof RiskEvidenceState>;
 export const RiskLevel = z.enum(["risk_on", "low_risk", "caution", "high_risk", "severe_risk", "crisis"]);
 export type RiskLevel = z.infer<typeof RiskLevel>;
 
-export const RiskTrend = z.enum(["rising", "falling", "flat"]);
+export const RiskTrend = z.enum(["rising", "falling", "flat", "unknown"]);
 export type RiskTrend = z.infer<typeof RiskTrend>;
 
 
@@ -291,7 +291,7 @@ export const CryptoAsset = z
     market_cap: z.number().finite().nullable().default(null),
     volume_24h: z.number().finite().nullable().default(null),
     source: z.string().min(1),
-    updated_at: utcDateTime,
+    updated_at: utcDateTime.nullable().default(null),
   })
   .passthrough();
 export type CryptoAsset = z.infer<typeof CryptoAsset>;
@@ -328,6 +328,7 @@ export const DashboardAsset = z
     asset: z.string().min(1),
     category: z.string().min(1),
     change_1d: z.number().finite().nullable().default(null),
+    source: z.string().nullable().default(null),
   })
   .passthrough();
 export type DashboardAsset = z.infer<typeof DashboardAsset>;
@@ -369,6 +370,8 @@ export const RiskIndicator = z
     weight: z.number().finite().min(0).default(0.0),
     source: z.string().min(1),
     updated_at: utcDateTime.nullable().default(null),
+    observation_date: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])$")).nullable().default(null),
+    fetched_at: utcDateTime.nullable().default(null),
     status: FreshnessStatus.default("fresh"),
     is_proxy: z.boolean(),
   })
@@ -386,7 +389,7 @@ export const RiskDimension = z
     indicators: z.array(RiskIndicator).default([]),
     coverage: z.number().finite().min(0).max(1),
     effective_coverage: z.number().finite().min(0).max(1).nullable().default(null),
-    trend: RiskTrend.default("flat"),
+    trend: RiskTrend.default("unknown"),
     evidence_state: RiskEvidenceState.nullable().default(null),
     missing_indicators: z.array(z.string()).default([]),
   })
@@ -606,6 +609,9 @@ export const MacroIndicator = z
     unit: MacroUnit.default("level"),
     source: z.string().min(1),
     updated_at: utcDateTime.nullable().default(null),
+    observation_date: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])$")).nullable().default(null),
+    observation_period: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])$")).nullable().default(null),
+    fetched_at: utcDateTime.nullable().default(null),
     status: FreshnessStatus.default("fresh"),
   })
   .passthrough();

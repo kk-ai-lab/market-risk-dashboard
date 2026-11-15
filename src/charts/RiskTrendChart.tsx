@@ -4,6 +4,7 @@ import type * as echarts from "echarts/core";
 import { chartTheme } from "./theme";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate, formatNumber } from "@/lib/format";
+import { CONTRACT_CONSTANTS } from "@/schemas/generated";
 
 /** jsdom / no-canvas environment → fall back to HTML (avoid zrender animation loop crashes). */
 function canvasSupported(): boolean {
@@ -23,7 +24,7 @@ function canvasSupported(): boolean {
  */
 export interface RiskTrendPointInput {
   date: string;
-  total_score: number;
+  total_score: number | null;
   risk_level?: string;
   confidence?: number;
 }
@@ -40,12 +41,19 @@ export function RiskTrendChart({ points, height = 260 }: RiskTrendChartProps) {
   const chartRef = useRef<echarts.ECharts | null>(null);
   const [mode, setMode] = useState<"echarts" | "fallback">("echarts");
   const [chartReady, setChartReady] = useState(0);
+  const displayPoints = useMemo(() => points.flatMap((point, index) => {
+    if (index === 0) return [point];
+    const previous = Date.parse(`${points[index - 1].date}T00:00:00Z`);
+    const current = Date.parse(`${point.date}T00:00:00Z`);
+    if (!Number.isFinite(previous) || !Number.isFinite(current) || current - previous <= 86_400_000) return [point];
+    return [{ date: new Date(previous + 86_400_000).toISOString().slice(0, 10), total_score: null }, point];
+  }), [points]);
   const chartData = useMemo(
     () => ({
-      dates: points.map((p) => p.date),
-      scores: points.map((p) => Number(p.total_score.toFixed(2))),
+      dates: displayPoints.map((p) => p.date),
+      scores: displayPoints.map((p) => p.total_score === null ? null : Number(p.total_score.toFixed(2))),
     }),
-    [points],
+    [displayPoints],
   );
 
   useEffect(() => {
@@ -88,10 +96,10 @@ export function RiskTrendChart({ points, height = 260 }: RiskTrendChartProps) {
         tooltip: {
           trigger: "axis",
           formatter: (params: unknown) => {
-            const list = params as Array<{ axisValue: string; data: number }>;
+            const list = params as Array<{ axisValue: string; data: number | null }>;
             if (!Array.isArray(list) || list.length === 0) return "";
             const p = list[0];
-            return `${formatDate(p.axisValue, locale)}<br/>${t("trend.score")}: <b>${formatNumber(p.data, locale)}</b>`;
+            return `${formatDate(p.axisValue, locale)}<br/>${t("trend.score")}: <b>${p.data === null ? t("common:data.na") : formatNumber(p.data, locale)}</b>`;
           },
         },
         xAxis: {
@@ -122,8 +130,8 @@ export function RiskTrendChart({ points, height = 260 }: RiskTrendChartProps) {
               symbol: "none",
               label: { color: th.axis, fontSize: 10 },
               data: [
-                { yAxis: 70, lineStyle: { color: th.riskSevere, type: "dashed", width: 1 } },
-                { yAxis: 50, lineStyle: { color: th.riskCaution, type: "dashed", width: 1 } },
+                { yAxis: CONTRACT_CONSTANTS.risk_level_thresholds.high_risk.gte, lineStyle: { color: th.riskSevere, type: "dashed", width: 1 } },
+                { yAxis: CONTRACT_CONSTANTS.risk_level_thresholds.caution.gte, lineStyle: { color: th.riskCaution, type: "dashed", width: 1 } },
               ],
             },
           },
@@ -154,11 +162,11 @@ export function RiskTrendChart({ points, height = 260 }: RiskTrendChartProps) {
             </tr>
           </thead>
           <tbody>
-            {points.map((p) => (
+            {displayPoints.map((p) => (
               <tr key={p.date} className="border-b border-border/50 last:border-0">
                 <td className="px-2 py-1.5">{formatDate(p.date, locale)}</td>
                 <td className="px-2 py-1.5 text-right tabular-nums">
-                  {formatNumber(p.total_score, locale)}
+                  {p.total_score === null ? t("common:data.na") : formatNumber(p.total_score, locale)}
                 </td>
               </tr>
             ))}
@@ -184,11 +192,11 @@ export function RiskTrendChart({ points, height = 260 }: RiskTrendChartProps) {
               </tr>
             </thead>
             <tbody>
-              {points.map((point) => (
+              {displayPoints.map((point) => (
                 <tr key={point.date} className="border-b border-border/50 last:border-0">
                   <td className="py-1.5 pr-2">{formatDate(point.date, locale)}</td>
                   <td className="py-1.5 text-right tabular-nums">
-                    {formatNumber(point.total_score, locale)}
+                    {point.total_score === null ? t("common:data.na") : formatNumber(point.total_score, locale)}
                   </td>
                 </tr>
               ))}

@@ -34,6 +34,9 @@ export function MacroIndicatorCard({ indicator }: MacroIndicatorCardProps) {
         {indicator.updated_at ? (
           <p className="text-xs text-muted-foreground">{formatDateTime(indicator.updated_at, locale)}</p>
         ) : null}
+        {indicator.observation_period ? <p className="text-xs text-muted-foreground">{t("indicator.observationPeriod")}: {indicator.observation_period} · {indicator.source}</p> : null}
+        {indicator.observation_date ? <p className="text-xs text-muted-foreground">{t("indicator.observationDate")}: {indicator.observation_date} · {indicator.source}</p> : null}
+        {indicator.fetched_at ? <p className="text-xs text-muted-foreground">{t("indicator.fetchedAt")}: {formatDateTime(indicator.fetched_at, locale)}</p> : null}
       </CardContent>
     </Card>
   );

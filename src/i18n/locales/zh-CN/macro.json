@@ -17,6 +17,9 @@
     "volatility": "波动率"
   },
   "indicator": {
+    "observationPeriod": "观测月份",
+    "observationDate": "观测日期",
+    "fetchedAt": "采集时间",
     "name": "指标",
     "change1m": "月环比",
     "value": "数值",

@@ -397,6 +397,7 @@ export const dashboardFixture = {
       generated_at: "2026-08-03T10:00:00Z",
       total_score: 52.3,
       risk_level: "caution",
+      evidence_state: "partial",
       trend_1d: 1.4,
       trend_1w: 3.2,
       trend_1m: -2.1,
@@ -660,7 +661,7 @@ export const dashboardFixture = {
     ],
     cross_asset: [
       { asset: "NVDA", category: "equity", change_1d: 1.2 },
-      { asset: "BTC", category: "crypto", change_1d: -0.5 },
+      { asset: "BTC", category: "crypto", change_1d: -0.5, source: "coingecko" },
     ],
     catalysts: [
       {

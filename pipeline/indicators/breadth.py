@@ -36,7 +36,7 @@ def breadth_above_ma200(
     return {"ratio": round(above / total, 4), "qualifying": above, "considered": total}
 
 
-def new_highs_lows(history: dict[str, list[dict[str, Any]]], lookback: int = 63) -> dict[str, float]:
+def new_highs_lows(history: dict[str, list[dict[str, Any]]], lookback: int = 63) -> dict[str, float | None]:
     """New highs/lows counts (assets making new highs/lows in the last N days)."""
     highs = 0
     lows = 0
@@ -50,7 +50,7 @@ def new_highs_lows(history: dict[str, list[dict[str, Any]]], lookback: int = 63)
         lows += 1 if values[-1] <= min(window) else 0
         total += 1
     if total == 0:
-        return {"new_highs": 0, "new_lows": 0, "total": 0, "highs_count": 0, "lows_count": 0}
+        return {"new_highs": None, "new_lows": None, "total": 0, "highs_count": 0, "lows_count": 0}
     return {
         "new_highs": round(highs / total, 4),
         "new_lows": round(lows / total, 4),

@@ -11,8 +11,10 @@ const TEMPLATE_PATTERN = /\{\{[^}]+\}\}/g;
 
 const PROVIDER_LABEL_KEYS: Record<string, string> = {
   akshare: "akshare",
+  bls: "bls",
   calibration_panel: "calibrationPanel",
   coingecko: "coingecko",
+  coinmetrics: "coinmetrics",
   computed: "computed",
   fmp: "fmp",
   fmp_quotes: "fmpQuotes",

@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 
+from pipeline.collectors.macro import SERIES_GROUPS
 from pipeline.validation.ci_checks import (
     ENVELOPE_MODELS,
     STANDALONE_MODELS,
@@ -172,6 +173,12 @@ def test_build_data_dir_writes_only_under_its_root(tmp_path: Path) -> None:
         for series in ("risk", "market")
         for slice_name in ("30d", "90d", "daily", "index")
     }
+    expected |= {
+        f"history/macro/{group}.{slice_name}.json"
+        for group in SERIES_GROUPS
+        for slice_name in ("30d", "90d")
+    }
+    expected.add("history/macro/index.json")
     expected |= {
         "metadata/freshness.json",
         "metadata/sources.json",

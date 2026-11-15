@@ -20,6 +20,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from pipeline.collectors.macro import FREQ_SPEC
+from pipeline.macro_history import treasury_window_rows
 from pipeline.providers.fred import DEFAULT_SERIES_META, SERIES_CATALOG
 
 SLICES = ("30d", "90d")
@@ -40,9 +41,8 @@ def build_manifest(rows_by_series: dict[str, list[dict[str, Any]]], groups: dict
     """Per-series metadata: group, frequency, unit, scale, last observation, next release."""
     manifest: dict[str, Any] = {"series": {}}
     group_of = _group_of_series(groups)
-    for series, rows in rows_by_series.items():
-        if series not in group_of:
-            continue  # internal anchor (EFFR) — not a published series
+    for series, group in group_of.items():
+        rows = rows_by_series.get(series, [])
         meta = SERIES_CATALOG.get(series, {**DEFAULT_SERIES_META, "label": series})
         last_date = rows[-1]["date"] if rows else None
         # next_expected_release is a frequency estimate (calendar estimate, not the true
@@ -57,7 +57,7 @@ def build_manifest(rows_by_series: dict[str, list[dict[str, Any]]], groups: dict
             except ValueError:
                 next_expected = None
         manifest["series"][series] = {
-            "group": group_of.get(series),
+            "group": group,
             "label": meta.get("label", series),
             "frequency": meta.get("frequency", "daily"),
             "unit": meta.get("unit", "level"),
@@ -66,39 +66,47 @@ def build_manifest(rows_by_series: dict[str, list[dict[str, Any]]], groups: dict
             "next_expected_release": next_expected,
             "count": len(rows),
         }
-    manifest["updated_at"] = max((r["date"] for rows in rows_by_series.values() for r in rows[-1:]), default=None)
+    manifest["updated_at"] = max(
+        (rows_by_series[series][-1]["date"] for series in group_of if rows_by_series.get(series)),
+        default=None,
+    )
     return manifest
 
 
-def write_macro_history(writer: Any, series_history: dict[str, list[dict[str, Any]]], groups: dict[str, list[str]]) -> dict[str, int]:
+def write_macro_history(writer: Any, series_history: dict[str, list[dict[str, Any]]], groups: dict[str, list[str]], *, series_sources: dict[str, str] | None = None, percentile_window_years: int = 5, as_of_date: date | None = None) -> dict[str, int]:
     """Persist the two layers. ``series_history`` is keyed lowercase (collector convention);
     series ids are uppercased for the catalog/group lookups. Only ROSTER series are
     archived — internal anchors (the EFFR FedWatch fallback) are not published series and
-    must not leak into a bundle (review: an unmapped id used to write None.30d.json).
+    must not leak into a bundle. Existing archive rows remain visible when a source returns
+    no observations in this run.
     Returns per-layer file counts.
     """
-    rows_by_series: dict[str, list[dict[str, Any]]] = {
-        sid.upper(): rows for sid, rows in series_history.items() if rows
-    }
-    if not rows_by_series:
-        return {"archive": 0, "bundles": 0}
-
+    incoming_by_series = {sid.upper(): rows for sid, rows in series_history.items()}
     group_of = _group_of_series(groups)
 
     # Layer 1: per-series append-only archive (existing write_slices convention).
     archive_count = 0
-    for series, rows in rows_by_series.items():
-        if series not in group_of:
-            continue  # internal anchor (EFFR) — never a published archive
-        writer.write_slices(f"macro/{series}", rows)
-        archive_count += 1
+    rows_by_series: dict[str, list[dict[str, Any]]] = {}
+    for series in group_of:
+        rows = incoming_by_series.get(series, [])
+        source = (series_sources or {}).get(series.lower())
+        directory = f"macro/{source.lower()}/{series}" if source in {"BLS", "Treasury"} else f"macro/{series}"
+        if rows:
+            writer.write_slices(directory, rows)
+            archive_count += 1
+        retained = writer.read_history(directory, "daily")
+        rows_by_series[series] = treasury_window_rows(
+            retained,
+            years=percentile_window_years,
+            as_of_date=as_of_date,
+            source=source,
+        )
 
     # Layer 2: per-group 30d/90d bundles + manifest (roster series only).
     by_group: dict[str, list[str]] = {g: [] for g in groups}
-    for series in rows_by_series:
-        group = group_of.get(series)
-        if group is not None:
-            by_group.setdefault(group, []).append(series)
+    for series, rows in rows_by_series.items():
+        if rows:
+            by_group[group_of[series]].append(series)
 
     macro_dir = writer.history_dir / "macro"
     bundle_count = 0

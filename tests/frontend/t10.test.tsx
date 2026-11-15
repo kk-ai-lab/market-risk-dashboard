@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import "@/i18n";
+import i18n from "@/i18n";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 
 const { init, chart } = vi.hoisted(() => {
@@ -44,7 +44,8 @@ describe("T10 frontend hardening", () => {
     expect(chart.setOption).toHaveBeenCalledWith(expect.any(Object), { notMerge: true });
   });
 
-  it("renders recovery UI when a lazy route throws", () => {
+  it.each([["en", "Reload"], ["zh-CN", "重新加载"]])("renders localized recovery UI in %s when a route throws", async (locale, label) => {
+    await i18n.changeLanguage(locale);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     function BrokenPage(): never {
       throw new Error("chunk failed");
@@ -56,6 +57,6 @@ describe("T10 frontend hardening", () => {
       </ErrorBoundary>,
     );
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Reload");
+    expect(screen.getByRole("alert")).toHaveTextContent(label);
   });
 });

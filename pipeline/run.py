@@ -3,7 +3,7 @@
 Commands:
   --full          Full (default): collect + indicators + risk + fact layer + storage
   --market-only   Quotes/crypto/A-shares only
-  --macro-only    Macro only (FRED + FedWatch)
+  --macro-only    Macro series only (providers follow the active source policy)
   --news-only     News only
   --analysis-only Legacy AI artifact validation / translation merge only (no collection)
   --fact-layer    Rebuild fact layer only (no collection)
@@ -20,10 +20,12 @@ Fix round additions/revisions:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 import time
 import traceback
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +57,7 @@ from pipeline.schemas import (
 )
 from pipeline.schemas import registry as dataset_registry
 from pipeline.schemas.envelope import (
+    SOURCE_POLICY_EXCLUDED_REASON_CODE,
     AssembledDataset,
     FreshnessReason,
     FreshnessStatus,
@@ -97,7 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--full", action="store_true", help="full (default): collect + indicators + risk + fact layer + storage")
     mode.add_argument("--market-only", action="store_true", help="quotes/crypto/A-shares only")
-    mode.add_argument("--macro-only", action="store_true", help="macro only (FRED + FedWatch)")
+    mode.add_argument("--macro-only", action="store_true", help="macro series only (providers follow the active source policy)")
     mode.add_argument("--news-only", action="store_true", help="news collection only")
     mode.add_argument("--analysis-only", action="store_true", help="legacy AI artifact validation/merge only (no collection)")
     mode.add_argument("--fact-layer", action="store_true", help="rebuild fact layer only (no collection)")
@@ -153,6 +156,7 @@ def dataset_health(writer: StorageWriter, command: str, *, run_started_at: str) 
 
     failed: list[str] = []
     degraded: list[str] = []
+    policy_excluded: set[str] = set()
     for name in attempted:
         entry = metadata.get(name)
         if not isinstance(entry, dict):
@@ -170,11 +174,18 @@ def dataset_health(writer: StorageWriter, command: str, *, run_started_at: str) 
             continue
         status = str(entry.get("status", ""))
         if status in FAILED_FRESHNESS_STATUSES:
-            failed.append(name)
+            reason = entry.get("reason")
+            reason_code = reason.get("code") if isinstance(reason, dict) else None
+            if reason_code == SOURCE_POLICY_EXCLUDED_REASON_CODE:
+                policy_excluded.add(name)
+            elif command == "full" and reason_code == "input_dataset_unhealthy":
+                degraded.append(name)
+            else:
+                failed.append(name)
         elif status in DEGRADED_FRESHNESS_STATUSES:
             degraded.append(name)
 
-    skipped = [name for name in FULL_RUN_DATASETS if name not in attempted]
+    skipped = [name for name in FULL_RUN_DATASETS if name not in attempted or name in policy_excluded]
     return {"failed": failed, "degraded": degraded, "skipped": skipped}
 
 
@@ -287,6 +298,10 @@ def _market_dataset_params(market_meta: dict[str, Any], name: str, fallback_degr
         data_quality=market_meta.get("data_quality_by_dataset", {}).get(name, market_meta.get("data_quality", 1.0)),
         source_updated_at=market_meta.get("source_updated_at_by_dataset", {}).get(name),
         detail=market_meta.get("degraded_detail_by_dataset", {}).get(name, ""),
+        error_code=(
+            SOURCE_POLICY_EXCLUDED_REASON_CODE
+            if name in market_meta.get("source_policy_excluded_datasets", []) else None
+        ),
     )
 
 
@@ -413,9 +428,9 @@ def _build_dashboard(
 
     cross_asset: list[DashboardAsset] = []
     for a in equities.payload.assets[:6]:
-        cross_asset.append(DashboardAsset(asset=a.symbol, category="equity", change_1d=a.change_1d))
+        cross_asset.append(DashboardAsset(asset=a.symbol, category="equity", change_1d=a.change_1d, source=a.source))
     for a in crypto.payload.assets[:3]:
-        cross_asset.append(DashboardAsset(asset=a.symbol, category="crypto", change_1d=a.change_1d))
+        cross_asset.append(DashboardAsset(asset=a.symbol, category="crypto", change_1d=a.change_1d, source=a.source))
 
     catalysts = [e.model_dump() for e in calendar.payload.events[:5]]
 
@@ -496,7 +511,80 @@ def _run_collection(command: str) -> dict[str, Any]:
 
     if need_macro:
         t0 = time.monotonic()
-        macc = MacroCollector(registry, settings)
+        macro_options: dict[str, Any] = {}
+        source_errors: dict[str, str] = {}
+        if settings.treasury_enabled or settings.approved_sources_only:
+            from pipeline.providers.treasury import TreasuryProvider
+            from pipeline.storage.treasury_snapshot import (
+                SnapshotError as TreasurySnapshotError,
+            )
+            from pipeline.storage.treasury_snapshot import (
+                TreasurySnapshot,
+                refresh_treasury_snapshot,
+            )
+
+            treasury_now = datetime.now(UTC)
+            try:
+                macro_options["treasury_snapshot"] = refresh_treasury_snapshot(
+                    settings.artifacts_dir / "treasury", TreasuryProvider(settings), now=treasury_now,
+                )
+            except (TreasurySnapshotError, OSError, ValueError):
+                macro_options["treasury_snapshot"] = TreasurySnapshot(
+                    years={}, required_years=list(range(treasury_now.year - 5, treasury_now.year + 1)),
+                    degraded=True, errors={treasury_now.year: "Treasury snapshot unavailable"}, history_rechecked=False,
+                )
+                source_errors["treasury"] = "Treasury snapshot unavailable"
+        if settings.bls_enabled or settings.bls_cloud_enabled or settings.approved_sources_only:
+            from pipeline.providers.bls import BlsProvider
+            from pipeline.storage.bls_snapshot import (
+                SnapshotError,
+                empty_bls_snapshot,
+                refresh_bls_snapshot,
+            )
+
+            if settings.bls_cloud_enabled or (
+                settings.approved_sources_only and os.getenv("GITHUB_ACTIONS", "").lower() == "true"
+            ):
+                from contextlib import suppress
+
+                from pipeline.storage.cloud_bls import (
+                    CloudBlsRefreshError,
+                    refresh_cloud_bls_snapshot,
+                )
+                from pipeline.storage.github_checkpoint import CheckpointError, GitHubCheckpoint
+
+                checkpoint = None
+                try:
+                    repository = (settings.bls_checkpoint_repo or "").split("/")
+                    token = settings.bls_checkpoint_token
+                    if len(repository) != 2 or token is None:
+                        source_errors["bls"] = "Cloud BLS checkpoint repository or token is not configured"
+                        raise ValueError(source_errors["bls"])
+                    checkpoint = GitHubCheckpoint(
+                        *repository, settings.bls_checkpoint_branch, token.get_secret_value(),
+                    )
+                    bls_snapshot = refresh_cloud_bls_snapshot(
+                        checkpoint, settings.bls_checkpoint_path, BlsProvider(settings),
+                    )
+                except CloudBlsRefreshError as exc:
+                    bls_snapshot = exc.snapshot
+                    source_errors["bls"] = "Cloud BLS checkpoint refresh failed"
+                except (CheckpointError, SnapshotError, OSError, ValueError):
+                    bls_snapshot = empty_bls_snapshot()
+                    source_errors.setdefault("bls", "Cloud BLS checkpoint unavailable")
+                finally:
+                    if checkpoint is not None:
+                        with suppress(CheckpointError, OSError, ValueError):
+                            checkpoint.close()
+            else:
+                try:
+                    bls_snapshot = refresh_bls_snapshot(settings.artifacts_dir / "bls" / "snapshot.json", BlsProvider(settings), now=datetime.now(UTC))
+                except (SnapshotError, OSError):
+                    bls_snapshot = empty_bls_snapshot()
+                    source_errors["bls"] = "BLS local snapshot unavailable"
+            macro_options["bls_snapshot"] = bls_snapshot
+        macro_options["source_errors"] = source_errors
+        macc = MacroCollector(registry, settings, **macro_options)
         macro, macro_meta = macc.collect()
         results["macro"] = macro
         results["macro_meta"] = macro_meta
@@ -569,7 +657,9 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
                           used_fallback=bool(macro_outcome.get("used_fallback", False)),
                           from_cache=bool(macro_outcome.get("from_cache", False)),
                           data_quality=macro_meta.get("data_quality", 1.0),
-                          source_updated_at=macro_meta.get("source_updated_at"))
+                          source_updated_at=macro_meta.get("source_updated_at"),
+                          detail=macro_meta.get("detail", ""),
+                          error_code=macro_meta.get("error_code"))
         # (#192): one parameterization for both market write paths; order here is the
         # full-run publish order (see _write_finalized calls below), not market-only's.
         market_datasets = {}
@@ -579,6 +669,7 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
                 _name, results[_name], params["degraded"],
                 **params["provider_kwargs"], data_quality=params["data_quality"],
                 source_updated_at=params["source_updated_at"], detail=params["detail"],
+                error_code=params["error_code"],
             )
         equities, sectors, crypto, commodities = (
             market_datasets["equities"], market_datasets["sectors"],
@@ -587,11 +678,15 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
         news = _assemble("news", results["news"], news_degraded,
                          **_provider_kwargs(news_meta, None, default="rss_news"),
                          data_quality=news_meta.get("data_quality", 1.0),
-                         source_updated_at=news_meta.get("source_updated_at"))
+                         source_updated_at=news_meta.get("source_updated_at"),
+                         detail=news_meta.get("detail", ""),
+                         error_code=news_meta.get("error_code"))
         calendar = _assemble("calendar", results["calendar"], calendar_degraded,
                              **_provider_kwargs(calendar_meta, None, default="fmp"),
                              data_quality=calendar_meta.get("data_quality", 1.0),
-                             source_updated_at=calendar_meta.get("source_updated_at"))
+                             source_updated_at=calendar_meta.get("source_updated_at"),
+                             detail=calendar_meta.get("detail", ""),
+                             error_code=calendar_meta.get("error_code"))
 
         risk_model = RiskModel(settings)
         market_histories = results.get("histories", {})
@@ -607,7 +702,10 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
             else None
         )
         today = now_utc()[:10]
-        prev_score, prev_dims, risk_history = read_prev_risk(writer, as_of_date=today)
+        if settings.approved_sources_only:
+            prev_score, prev_dims, risk_history = None, None, []
+        else:
+            prev_score, prev_dims, risk_history = read_prev_risk(writer, as_of_date=today)
         # #99 (verified end to end): _assemble returns AssembledDataset (the #101 single
         # assembly path); the risk context and the fact layer operate on ENVELOPES.
         ctx = build_risk_context(
@@ -627,7 +725,10 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
             crypto_provenance=market_meta.get("providers", {}).get("crypto"),
             commodities_provenance=market_meta.get("providers", {}).get("commodities"),
         )
+        ctx["_as_of_date"] = today
         risk_result = risk_model.score(ctx)
+        if not any(indicator.value is not None for dimension in risk_result.dimensions for indicator in dimension.indicators):
+            return False, "risk calculation has no available indicators"
         risk_source_updated_at = oldest_source_timestamp(
             [
                 macro.envelope.source_updated_at,
@@ -659,11 +760,17 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
     try:
         # #96 (shape per #84 §3): history belongs to the same publish group as latest and
         # metadata, so a later validation/write failure cannot leave a mixed run on disk.
-        if results.get("series_history"):
-            from pipeline.collectors.macro import SERIES_GROUPS
-            from pipeline.storage.macro_history import write_macro_history
+        from pipeline.collectors.macro import SERIES_GROUPS
+        from pipeline.storage.macro_history import write_macro_history
 
-            write_macro_history(writer, results["series_history"], SERIES_GROUPS)
+        write_macro_history(
+            writer,
+            results.get("series_history", {}),
+            SERIES_GROUPS,
+            series_sources=macro_meta.get("series_sources"),
+            percentile_window_years=risk_model.percentile_window_years,
+            as_of_date=date.fromisoformat(today),
+        )
         macro = _write_finalized(writer, "macro", macro, outcomes)
         market_envelopes = _write_market_datasets(
             writer,
@@ -768,7 +875,9 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
             "risk_level": risk_result.risk_level,
             "regime": risk_result.regime,
             "confidence": risk_result.confidence,
-            "dim_scores": {d.key: d.score for d in risk_result.dimensions},
+            "evidence_state": risk_result.evidence_state,
+            "dim_scores": {d.key: d.score for d in risk_result.dimensions if d.evidence_state in {"partial", "complete"}},
+            "dim_evidence_states": {d.key: d.evidence_state for d in risk_result.dimensions},
             # Per-indicator scores: a dimension score is a weighted average, so the published
             # history could only ever attribute a move to a *dimension*, never to the input
             # that caused it — which makes any weight/contribution validation impossible after
@@ -916,6 +1025,8 @@ def main(argv: list[str] | None = None) -> int:
         settings.load_risk_model()
         settings.load_sources()
         settings.load_news_sources()
+        if settings.approved_sources_only:
+            settings.load_public_source_policy()
     except ConfigError as exc:
         print(f"[pipeline] config loading failed: {exc}", file=sys.stderr)
         return 1
@@ -924,6 +1035,17 @@ def main(argv: list[str] | None = None) -> int:
         _print_plan(command, args)
         print("[pipeline] dry-run complete, no files written (no-op normal exit)")
         return 0
+
+    if settings.approved_sources_only:
+        approved_data_dir = settings.data_dir.resolve()
+        legacy_data_dir = (settings.project_root / "public" / "data").resolve()
+        if approved_data_dir == legacy_data_dir:
+            print(
+                "[pipeline] approved-source mode requires an isolated data_dir; "
+                "public/data contains legacy source payloads",
+                file=sys.stderr,
+            )
+            return 1
 
     if command == "analysis-only":
         return _run_analysis_only()
@@ -958,6 +1080,7 @@ def main(argv: list[str] | None = None) -> int:
                         _name, results[_name], params["degraded"],
                         **params["provider_kwargs"], data_quality=params["data_quality"],
                         source_updated_at=params["source_updated_at"], detail=params["detail"],
+                        error_code=params["error_code"],
                     )
                 _write_market_datasets(
                     writer, market_datasets, outcomes,
@@ -972,15 +1095,24 @@ def main(argv: list[str] | None = None) -> int:
             outcomes = RunOutcomes(scope=_run_scope(command))
             macro_meta = results.get("macro_meta", {})
             with writer.atomic_group():
-                if results.get("series_history"):
-                    from pipeline.collectors.macro import SERIES_GROUPS
-                    from pipeline.storage.macro_history import write_macro_history
+                from pipeline.collectors.macro import SERIES_GROUPS
+                from pipeline.storage.macro_history import write_macro_history
 
-                    write_macro_history(writer, results["series_history"], SERIES_GROUPS)
+                risk_model = RiskModel(settings)
+                write_macro_history(
+                    writer,
+                    results.get("series_history", {}),
+                    SERIES_GROUPS,
+                    series_sources=macro_meta.get("series_sources"),
+                    percentile_window_years=risk_model.percentile_window_years,
+                    as_of_date=date.fromisoformat(now_utc()[:10]),
+                )
                 _finalize_and_write(writer, "macro", results["macro"], bool(macro_meta.get("degraded")), outcomes,
                                     **_provider_kwargs(macro_meta, None, default="fred"),
                                     data_quality=macro_meta.get("data_quality", 1.0),
-                                    source_updated_at=macro_meta.get("source_updated_at"))
+                                    source_updated_at=macro_meta.get("source_updated_at"),
+                                    detail=macro_meta.get("detail", ""),
+                                    error_code=macro_meta.get("error_code"))
                 _publish_metadata(writer, outcomes, results["provider_status"])
             health = dataset_health(StorageWriter(settings.data_dir), command, run_started_at=run_started_at)
             return _finish_run(command, results, time.monotonic() - started, health)
@@ -993,7 +1125,9 @@ def main(argv: list[str] | None = None) -> int:
                 _finalize_and_write(writer, "news", results["news"], bool(results.get("news_degraded", False)), outcomes,
                                     **_provider_kwargs(news_meta, None, default="rss_news"),
                                     data_quality=news_meta.get("data_quality", 1.0),
-                                    source_updated_at=news_meta.get("source_updated_at"))
+                                    source_updated_at=news_meta.get("source_updated_at"),
+                                    detail=news_meta.get("detail", ""),
+                                    error_code=news_meta.get("error_code"))
                 _publish_metadata(writer, outcomes, results["provider_status"])
             health = dataset_health(StorageWriter(settings.data_dir), command, run_started_at=run_started_at)
             return _finish_run(command, results, time.monotonic() - started, health)

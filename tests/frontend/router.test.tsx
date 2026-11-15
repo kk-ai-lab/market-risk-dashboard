@@ -12,6 +12,7 @@ import "@/i18n";
 import App from "@/App";
 import { LOCALE_STORAGE_KEY } from "@/i18n";
 import { THEME_STORAGE_KEY } from "@/hooks/useTheme";
+import { DashboardEnvelope, RiskEnvelope } from "@/schemas/generated/contracts";
 import { FIXTURE_MAP, fixtureForUrl, installCustomFetch, installFixtureFetch, installFailingFetch } from "./helpers/fetchMock";
 
 // CI runs all 12 test files in parallel; lazy-loaded routes + TanStack Query
@@ -46,6 +47,119 @@ afterEach(() => {
 });
 
 describe("route rendering (fixtures data)", () => {
+  it.each(["zh", "en"])("discloses evidence and proxy drivers on the overview in %s", async (locale) => {
+    const dashboard = DashboardEnvelope.parse(FIXTURE_MAP["/latest/dashboard.json"]);
+    dashboard.payload.risk.evidence_coverage = 0.65;
+    dashboard.payload.risk.score_lower_bound = 40;
+    dashboard.payload.risk.score_upper_bound = 70;
+    installCustomFetch((url) => url.endsWith("/latest/dashboard.json")
+      ? { ok: true, body: dashboard } : fixtureForUrl(url));
+    setHash(`#/${locale}/overview`);
+    renderApp();
+    const evidence = await screen.findByTestId("overview-risk-evidence");
+    expect(evidence).toHaveTextContent(locale === "zh" ? "证据不完整" : "Partial evidence");
+    expect(evidence).toHaveTextContent("65%");
+    expect(evidence).toHaveTextContent("40–70");
+    expect(within(screen.getByTestId("top-drivers")).getByText(locale === "zh" ? "代理" : "Proxy")).toBeInTheDocument();
+  });
+
+  it.each(["zh", "en"])("does not invent missing evidence or bounds on the overview in %s", async (locale) => {
+    const dashboard = DashboardEnvelope.parse(FIXTURE_MAP["/latest/dashboard.json"]);
+    dashboard.payload.risk.evidence_state = null;
+    dashboard.payload.risk.evidence_coverage = null;
+    dashboard.payload.risk.score_lower_bound = null;
+    dashboard.payload.risk.score_upper_bound = null;
+    installCustomFetch((url) => url.endsWith("/latest/dashboard.json")
+      ? { ok: true, body: dashboard } : fixtureForUrl(url));
+    setHash(`#/${locale}/overview`);
+    renderApp();
+    const evidence = await screen.findByTestId("overview-risk-evidence");
+    expect(evidence).toHaveTextContent(locale === "zh" ? "证据状态未知" : "Evidence status unknown");
+    expect(within(evidence).getAllByText("—")).toHaveLength(2);
+    expect(evidence).not.toHaveTextContent("52.3–52.3");
+  });
+
+  it.each(["zh", "en"])("does not display a placeholder zero score when all evidence is absent in %s", async (locale) => {
+    const risk = RiskEnvelope.parse(FIXTURE_MAP["/latest/risk.json"]);
+    risk.payload.total_score = 0;
+    risk.payload.risk_level = "risk_on";
+    risk.payload.dimensions = risk.payload.dimensions.map((dimension) => ({
+      ...dimension,
+      score: 0,
+      coverage: 0,
+      indicators: dimension.indicators.map((indicator) => ({ ...indicator, value: null, risk_score: 50 })),
+    }));
+    const dashboard = DashboardEnvelope.parse(FIXTURE_MAP["/latest/dashboard.json"]);
+    dashboard.payload.risk = risk.payload;
+    installCustomFetch((url) => url.endsWith("/latest/risk.json") ? { ok: true, body: risk }
+      : url.endsWith("/latest/dashboard.json") ? { ok: true, body: dashboard } : fixtureForUrl(url));
+    setHash(`#/${locale}/overview`);
+    renderApp();
+    await waitFor(() => expect(screen.getByTestId("page-title")).toHaveTextContent(locale === "zh" ? "总览" : "Overview"));
+    expect(await screen.findByTestId("risk-score")).toHaveTextContent("—");
+    expect(screen.getByTestId("risk-level")).toHaveTextContent(locale === "zh" ? "证据不足" : "Insufficient evidence");
+    const riskLink = document.querySelector(`a[href="#/${locale}/risklab"]`);
+    expect(riskLink).not.toBeNull();
+    fireEvent.click(riskLink!);
+    await waitFor(() => expect(window.location.hash).toBe(`#/${locale}/risklab`));
+    await waitFor(() => expect(screen.getByTestId("page-title")).toHaveTextContent(locale === "zh" ? "风险实验室" : "Risk Lab"));
+    expect(await screen.findByTestId("risk-score")).toHaveTextContent("—");
+    expect(screen.getByTestId("risk-level")).toHaveTextContent(locale === "zh" ? "证据不足" : "Insufficient evidence");
+    expect(screen.getAllByTestId("risk-indicator")[0]).not.toHaveTextContent("50");
+  });
+
+  it("retains a real zero risk score when evidence exists", async () => {
+    const dashboard = DashboardEnvelope.parse(FIXTURE_MAP["/latest/dashboard.json"]);
+    dashboard.payload.risk.total_score = 0;
+    dashboard.payload.risk.risk_level = "risk_on";
+    installCustomFetch((url) => url.endsWith("/latest/dashboard.json")
+      ? { ok: true, body: dashboard } : fixtureForUrl(url));
+    renderApp();
+    expect(await screen.findByTestId("risk-score")).toHaveTextContent("0");
+    expect(screen.getByTestId("risk-level")).toHaveTextContent("风险偏好");
+  });
+
+  it.each([["zh", "证据状态未知"], ["en", "Evidence status unknown"]])(
+    "does not present a legacy score as verified when evidence status is unknown in %s",
+    async (locale, label) => {
+      const dashboard = DashboardEnvelope.parse(FIXTURE_MAP["/latest/dashboard.json"]);
+      dashboard.payload.risk.evidence_state = null;
+      installCustomFetch((url) => url.endsWith("/latest/dashboard.json")
+        ? { ok: true, body: dashboard } : fixtureForUrl(url));
+      setHash(`#/${locale}/overview`);
+      renderApp();
+      expect(await screen.findByTestId("risk-score")).toHaveTextContent("—");
+      expect(screen.getByTestId("risk-level")).toHaveTextContent(label);
+    },
+  );
+
+  it.each(["zh", "en"])("hides the aggregate score when coverage is insufficient in %s", async (locale) => {
+    const risk = RiskEnvelope.parse(FIXTURE_MAP["/latest/risk.json"]);
+    risk.payload.evidence_state = "insufficient_evidence";
+    const dashboard = DashboardEnvelope.parse(FIXTURE_MAP["/latest/dashboard.json"]);
+    dashboard.payload.risk = risk.payload;
+    installCustomFetch((url) => url.endsWith("/latest/risk.json") ? { ok: true, body: risk }
+      : url.endsWith("/latest/dashboard.json") ? { ok: true, body: dashboard } : fixtureForUrl(url));
+    setHash(`#/${locale}/overview`);
+    renderApp();
+    expect(await screen.findByTestId("risk-score")).toHaveTextContent("—");
+    expect(screen.getByTestId("risk-level")).toHaveTextContent(locale === "zh" ? "证据不足" : "Insufficient evidence");
+    fireEvent.click(document.querySelector(`a[href="#/${locale}/risklab"]`)!);
+    await waitFor(() => expect(window.location.hash).toBe(`#/${locale}/risklab`));
+    await waitFor(() => expect(screen.getByTestId("page-title")).toHaveTextContent(locale === "zh" ? "风险实验室" : "Risk Lab"));
+    expect(await screen.findByTestId("risk-score")).toHaveTextContent("—");
+  });
+
+  it("shows the breadth sample alongside its proxy label", async () => {
+    installFixtureFetch();
+    setHash("#/zh/risklab");
+    renderApp();
+    const sample = await screen.findByTestId("breadth-sample");
+    expect(sample).toHaveTextContent("10 / 18");
+    expect(sample).toHaveTextContent("代理");
+    expect(sample).toHaveTextContent("不代表整个市场");
+  });
+
   it("overview renders market data and risk without generated analysis", async () => {
     const metrics = installFixtureFetch();
     renderApp();
@@ -84,6 +198,24 @@ describe("route rendering (fixtures data)", () => {
       "/latest/facts.json",
     ].reduce((bytes, suffix) => bytes + JSON.stringify(FIXTURE_MAP[suffix]).length, 0);
     expect(metrics.responseBytes).toBeLessThan(previousFanout);
+  });
+
+  it("attributes Coin Metrics crypto reference rates shown by the overview", async () => {
+    const dashboard = structuredClone(FIXTURE_MAP["/latest/dashboard.json"]) as {
+      payload: { cross_asset: Array<{ category: string; source?: string }> };
+    };
+    const bitcoin = dashboard.payload.cross_asset.find((asset) => asset.category === "crypto");
+    expect(bitcoin).toBeDefined();
+    bitcoin!.source = "coinmetrics";
+    installCustomFetch((url) => url.endsWith("/latest/dashboard.json")
+      ? { ok: true, body: dashboard }
+      : fixtureForUrl(url));
+
+    renderApp();
+    expect(await screen.findByTestId("coinmetrics-attribution")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "CC BY-NC 4.0" })).toHaveAttribute(
+      "href", "https://creativecommons.org/licenses/by-nc/4.0/",
+    );
   });
 
   it("keeps dashboard and targeted datasets in distinct stable query identities", async () => {
@@ -174,7 +306,7 @@ describe("route rendering (fixtures data)", () => {
     expect(screen.getAllByRole("contentinfo").length).toBeGreaterThan(0);
     expect(screen.getByRole("navigation", { name: "主导航" })).toBeInTheDocument();
     expect(screen.getByRole("radiogroup", { name: "主题" })).toBeInTheDocument();
-    expect(screen.getAllByTestId("status-badge-fresh").every((badge) => badge.textContent?.includes("正常"))).toBe(true);
+    expect(screen.getAllByTestId(/^status-badge-/).every((badge) => badge.textContent?.trim())).toBe(true);
 
     const languageSwitch = screen.getByRole("button", { name: "切换语言" });
     languageSwitch.focus();

@@ -16,6 +16,7 @@ from typing import Any
 from pipeline.metadata import quality_for_outcomes
 from pipeline.providers.base import ProviderError, ProviderRegistry
 from pipeline.schemas import NewsDataset, NewsItem, NewsTranslation, NewsTranslationsDataset
+from pipeline.schemas.envelope import SOURCE_POLICY_EXCLUDED_REASON_CODE
 from pipeline.settings import Settings
 from pipeline.universe import AssetUniverse
 from pipeline.utils import now_utc
@@ -40,6 +41,10 @@ class NewsCollector:
     def __init__(self, registry: ProviderRegistry, settings: Settings | None = None) -> None:
         self.registry = registry
         self.settings = settings or Settings()
+        self.public_source_policy = (
+            self.settings.load_public_source_policy()
+            if self.settings.approved_sources_only else None
+        )
         # #102: importance rules come from the VALIDATED news_sources config (single shape,
         # extra="forbid") rather than a raw dict the model cannot govern.
         self._news_config = self.settings.load_news_sources_config()
@@ -119,6 +124,25 @@ class NewsCollector:
         return quality_for_outcomes([bool(self.degraded)], settings=self.settings)
 
     def collect(self) -> tuple[NewsDataset, dict[str, Any]]:
+        if (
+            self.public_source_policy is not None
+            and not self.public_source_policy.allows_dataset("news")
+        ):
+            detail = "No approved public source configured for news"
+            self.degraded.append(detail)
+            return NewsDataset(items=[], total=0, updated_at=now_utc()), {
+                "degraded": [detail],
+                "provider": "unavailable",
+                "provider_outcome": {
+                    "provider": "unavailable",
+                    "used_fallback": False,
+                    "from_cache": False,
+                },
+                "data_quality": round(self._quality(), 3),
+                "source_updated_at": None,
+                "detail": detail,
+                "error_code": SOURCE_POLICY_EXCLUDED_REASON_CODE,
+            }
         outcome: dict[str, Any] = {"provider": "rss_news", "used_fallback": False, "from_cache": False}
         try:
             out = self.registry.call("news", "fetch_news", "rss_all")

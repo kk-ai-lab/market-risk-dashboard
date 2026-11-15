@@ -26,6 +26,9 @@ class MacroIndicator(ContractModel):
     unit: MacroUnit = "level"
     source: str = Field(min_length=1)
     updated_at: UTCDateTime | None = None
+    observation_date: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])$")
+    observation_period: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
+    fetched_at: UTCDateTime | None = None
     status: FreshnessStatus = "fresh"
 
 

@@ -23,6 +23,7 @@ from typing import Any
 from pipeline.metadata import quality_for_outcomes
 from pipeline.providers.base import ProviderError, ProviderRegistry
 from pipeline.schemas import CalendarDataset, CalendarEnvelope, CalendarEvent
+from pipeline.schemas.envelope import SOURCE_POLICY_EXCLUDED_REASON_CODE
 from pipeline.settings import Settings
 from pipeline.utils import earnings_instant, et_instant, now_utc
 
@@ -31,6 +32,10 @@ class CalendarCollector:
     def __init__(self, registry: ProviderRegistry, settings: Settings | None = None) -> None:
         self.registry = registry
         self.settings = settings or Settings()
+        self.public_source_policy = (
+            self.settings.load_public_source_policy()
+            if self.settings.approved_sources_only else None
+        )
         self.degraded: list[str] = []
         self.provider_status: dict[str, Any] = {}
 
@@ -48,6 +53,26 @@ class CalendarCollector:
         )
 
     def collect(self) -> tuple[CalendarEnvelope, dict[str, Any]]:
+        if (
+            self.public_source_policy is not None
+            and not self.public_source_policy.allows_dataset("calendar")
+        ):
+            detail = "No approved public source configured for calendar"
+            self.degraded.append(detail)
+            return CalendarDataset(events=[], updated_at=now_utc()), {
+                "degraded": self.degraded,
+                "provider_status": {},
+                "provider_outcome": {
+                    "provider": "unavailable",
+                    "used_fallback": False,
+                    "from_cache": False,
+                },
+                "provider_outcomes": {},
+                "data_quality": round(self._quality({"public_source_policy": {"degraded": True}}), 3),
+                "source_updated_at": None,
+                "detail": detail,
+                "error_code": SOURCE_POLICY_EXCLUDED_REASON_CODE,
+            }
         today = datetime.now(timezone.utc).date()
         start = today.isoformat()
         # #102 (M-5): the horizon is config (operations.calendar_horizon_days), not a literal.

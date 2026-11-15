@@ -28,6 +28,7 @@
       "cache_invalid": "缓存无效",
       "all_providers_failed": "所有数据源均失败",
       "not_collected_this_run": "本次运行未采集",
+      "source_policy_excluded": "此数据集没有配置获批的数据源",
       "interval_exceeded": "超过更新间隔",
       "input_dataset_unhealthy": "输入数据集不健康"
     }
@@ -46,6 +47,7 @@
     "news_translations": "新闻翻译"
   },
   "providers": {
+    "lastRunNote": "数据源健康状态反映上次采集结果，并非实时检测。",
     "title": "数据源健康",
     "domain": "域",
     "provider": "数据源",

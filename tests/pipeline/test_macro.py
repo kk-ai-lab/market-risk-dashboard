@@ -255,3 +255,42 @@ class TestHistory:
         assert not (tmp_path / "history" / "macro" / "EFFR" / "daily.json").exists()
         manifest = json.loads((tmp_path / "history" / "macro" / "index.json").read_text(encoding="utf-8"))
         assert "EFFR" not in manifest["series"]
+
+    def test_unavailable_series_remain_in_roster_with_empty_group_bundles(self, tmp_path: Path) -> None:
+        import json
+
+        from pipeline.storage.macro_history import write_macro_history
+
+        writer = StorageWriter(tmp_path)
+        rows_by_series = {sid.lower(): [] for sid in DEFAULT_SERIES}
+        rows_by_series["dgs10"] = _rows(2)
+        rows_by_series["effr"] = _rows(2)
+
+        counts = write_macro_history(writer, rows_by_series, SERIES_GROUPS)
+
+        assert counts == {"archive": 1, "bundles": 14}
+        manifest = json.loads((tmp_path / "history" / "macro" / "index.json").read_text(encoding="utf-8"))
+        assert set(manifest["series"]) == set(DEFAULT_SERIES)
+        assert manifest["series"]["DGS10"]["count"] == 2
+        for series in set(DEFAULT_SERIES) - {"DGS10"}:
+            assert manifest["series"][series]["count"] == 0
+            assert manifest["series"][series]["last_observation"] is None
+            assert manifest["series"][series]["next_expected_release"] is None
+        assert "EFFR" not in manifest["series"]
+        for group in ("credit", "volatility", "inflation", "labor", "liquidity", "fx"):
+            for slice_name in ("30d", "90d"):
+                bundle = json.loads((tmp_path / "history" / "macro" / f"{group}.{slice_name}.json").read_text())
+                assert bundle == {}
+
+    def test_all_empty_macro_history_still_writes_full_manifest(self, tmp_path: Path) -> None:
+        import json
+
+        from pipeline.storage.macro_history import write_macro_history
+
+        writer = StorageWriter(tmp_path)
+        counts = write_macro_history(writer, {sid.lower(): [] for sid in DEFAULT_SERIES}, SERIES_GROUPS)
+
+        assert counts == {"archive": 0, "bundles": 14}
+        manifest = json.loads((tmp_path / "history" / "macro" / "index.json").read_text(encoding="utf-8"))
+        assert set(manifest["series"]) == set(DEFAULT_SERIES)
+        assert all(entry["count"] == 0 for entry in manifest["series"].values())

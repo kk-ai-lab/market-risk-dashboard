@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MarketRegime, RiskLevel } from "./generated/contracts";
+import { MarketRegime, RiskEvidenceState, RiskLevel } from "./generated/contracts";
 
 /**
  * History slice contract (architecture §1.7 / §3.6).
@@ -21,7 +21,9 @@ export const RiskTrendPoint = z
     risk_level: RiskLevel.optional(),
     regime: MarketRegime.optional(),
     confidence: z.number().finite().min(0).max(1).optional(),
+    evidence_state: RiskEvidenceState.optional(),
     dim_scores: z.record(z.string(), z.number().finite()).optional(),
+    dim_evidence_states: z.record(z.string(), RiskEvidenceState).optional(),
   })
   .passthrough();
 
