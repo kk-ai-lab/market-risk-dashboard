@@ -510,6 +510,47 @@ def test_refresh_cloud_diagnostic_keeps_the_failed_phase(setup, monkeypatch, cap
     }
 
 
+def test_candidate_stage_error_adds_only_its_fixed_code(
+    tmp_path, files, setup, monkeypatch, capsys
+):
+    root, generation = deployed(tmp_path, files)
+    paths, settings = setup
+
+    def collect(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(cloud, "_collect_approved", collect)
+    import scripts.stage_publication as stage
+
+    failure = stage.CandidateStageError(stage.CandidateStageCode.CLIENT_CONTRACT_REJECTED)
+
+    def fail_stage(*_args, **_kwargs):
+        raise failure
+
+    monkeypatch.setattr(stage, "stage_candidate", fail_stage)
+    diagnostics = cloud.RefreshDiagnostics(enabled=True)
+
+    with pytest.raises(stage.CandidateStageError):
+        cloud.refresh_cloud(
+            mode="scheduled",
+            app_revision=REVISION,
+            checkpoint=Store(PublicationState(deployed=generation, last_attempt=1)),
+            paths=paths,
+            settings=settings,
+            restorer=restorer(root),
+            diagnostics=diagnostics,
+        )
+    diagnostics.emit_failure()
+
+    events = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    assert events[-1] == {
+        "event": "cloud_refresh.failure",
+        "stage": "candidate_staging",
+        "code": "refresh_failed",
+        "candidate_stage_code": "client_contract_rejected",
+    }
+
+
 def test_scheduled_collects_with_verified_parent_and_stages_validated_child(
     tmp_path, files, setup, monkeypatch
 ):

@@ -6,7 +6,9 @@ import argparse
 import json
 import subprocess
 import sys
+from enum import StrEnum
 from pathlib import Path
+from typing import Literal
 
 from pydantic import (
     BaseModel,
@@ -39,6 +41,25 @@ REQUIRED_CLIENT_FILES = frozenset({
     "history/macro/index.json",
     *(f"history/macro/{group}.{slice_name}.json" for group in SERIES_GROUPS for slice_name in ("30d", "90d")),
 })
+
+
+class CandidateStageCode(StrEnum):
+    SOURCE_LOAD_FAILED = "source_load_failed"
+    REQUIRED_CLIENT_FILES_MISSING = "required_client_files_missing"
+    CLIENT_CONTRACT_REJECTED = "client_contract_rejected"
+    PYTHON_VALIDATION_ERRORS = "python_validation_errors"
+    PYTHON_BLOCKING_WARNINGS = "python_blocking_warnings"
+    PYTHON_VALIDATION_EXECUTION_FAILED = "python_validation_execution_failed"
+    NODE_VALIDATOR_UNAVAILABLE = "node_validator_unavailable"
+    NODE_VALIDATOR_TIMEOUT = "node_validator_timeout"
+    NODE_VALIDATION_REJECTED = "node_validation_rejected"
+    PUBLICATION_FAILED = "publication_failed"
+
+
+class CandidateStageError(PublicationError):
+    def __init__(self, code: CandidateStageCode) -> None:
+        self.code = code
+        super().__init__(code.value)
 
 
 class RiskHistoryPoint(BaseModel):
@@ -98,31 +119,59 @@ def validate_client_contracts(path: Path) -> bool:
     return True
 
 
-def validate_candidate(path: Path) -> bool:
+def validate_candidate(path: Path) -> Literal[True]:
     if any(not (path / relative).is_file() for relative in REQUIRED_CLIENT_FILES):
-        return False
+        raise CandidateStageError(CandidateStageCode.REQUIRED_CLIENT_FILES_MISSING)
     if not validate_client_contracts(path):
-        return False
-    report = run_all(path)
-    if report.errors or report.blocking_warnings:
-        return False
+        raise CandidateStageError(CandidateStageCode.CLIENT_CONTRACT_REJECTED)
+    try:
+        report = run_all(path)
+    except (OSError, ValueError):
+        raise CandidateStageError(
+            CandidateStageCode.PYTHON_VALIDATION_EXECUTION_FAILED
+        ) from None
+    if report.errors:
+        raise CandidateStageError(CandidateStageCode.PYTHON_VALIDATION_ERRORS)
+    if report.blocking_warnings:
+        raise CandidateStageError(CandidateStageCode.PYTHON_BLOCKING_WARNINGS)
     try:
         result = subprocess.run(
             ["node", str(ROOT / "scripts" / "validate-json.mjs"), "--data-dir", str(path)],
             cwd=ROOT, capture_output=True, text=True, check=False, timeout=90,
         )
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    return result.returncode == 0
+    except subprocess.TimeoutExpired:
+        raise CandidateStageError(CandidateStageCode.NODE_VALIDATOR_TIMEOUT) from None
+    except OSError:
+        raise CandidateStageError(CandidateStageCode.NODE_VALIDATOR_UNAVAILABLE) from None
+    if result.returncode != 0:
+        raise CandidateStageError(CandidateStageCode.NODE_VALIDATION_REJECTED)
+    return True
 
 
 def stage_candidate(source: Path, store: Path, *, parent_id: str | None, revision: str, created_at: str) -> dict:
-    if source.is_symlink():
-        raise PublicationError("Candidate must not be a symbolic link")
-    if store.resolve().is_relative_to(source.resolve()):
-        raise PublicationError("Publication store must be outside candidate data")
-    return publish_snapshot(store, load_candidate_files(source), parent_id=parent_id,
-                            producer_revision=revision, created_at=created_at, validator=validate_candidate)
+    try:
+        if source.is_symlink():
+            raise CandidateStageError(CandidateStageCode.SOURCE_LOAD_FAILED)
+        if store.resolve().is_relative_to(source.resolve()):
+            raise CandidateStageError(CandidateStageCode.SOURCE_LOAD_FAILED)
+        files = load_candidate_files(source)
+    except CandidateStageError:
+        raise
+    except (PublicationError, OSError, ValueError):
+        raise CandidateStageError(CandidateStageCode.SOURCE_LOAD_FAILED) from None
+    try:
+        return publish_snapshot(
+            store,
+            files,
+            parent_id=parent_id,
+            producer_revision=revision,
+            created_at=created_at,
+            validator=validate_candidate,
+        )
+    except CandidateStageError:
+        raise
+    except (PublicationError, OSError, ValueError):
+        raise CandidateStageError(CandidateStageCode.PUBLICATION_FAILED) from None
 
 
 def main() -> int:

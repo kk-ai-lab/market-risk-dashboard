@@ -1,4 +1,6 @@
 import json
+import subprocess
+from types import SimpleNamespace
 
 import pytest
 
@@ -6,7 +8,7 @@ import scripts.stage_publication as staging
 from pipeline.collectors.macro import SERIES_GROUPS
 from pipeline.publication import PublicationError, read_current
 from pipeline.validation.ci_checks import run_all
-from scripts.stage_publication import stage_candidate
+from scripts.stage_publication import CandidateStageCode, CandidateStageError, stage_candidate
 from tests.pipeline.factories import DEFAULT_NOW, REMOVE
 from tests.pipeline.test_data_only import LEGACY_FILES, _publish_production_metadata
 
@@ -45,7 +47,119 @@ def test_missing_client_file_preserves_existing_pointer(make_data_dir, tmp_path)
     (source / "history" / "macro" / "rates.30d.json").unlink()
     with pytest.raises(PublicationError) as error:
         stage(source, store, first["generation_id"])
+    assert error.value.code is CandidateStageCode.REQUIRED_CLIENT_FILES_MISSING
     assert str(error.value) == "required_client_files_missing"
+    assert read_current(store) == first
+
+
+@pytest.mark.parametrize(
+    ("errors", "warnings", "expected"),
+    [
+        ([object()], [], CandidateStageCode.PYTHON_VALIDATION_ERRORS),
+        ([], [object()], CandidateStageCode.PYTHON_BLOCKING_WARNINGS),
+        ([object()], [object()], CandidateStageCode.PYTHON_VALIDATION_ERRORS),
+    ],
+)
+def test_python_validation_rejection_has_fixed_code_and_preserves_pointer(
+    make_data_dir, monkeypatch, tmp_path, errors, warnings, expected
+):
+    source = candidate(make_data_dir)
+    store = tmp_path / "store"
+    first = stage(source, store)
+    monkeypatch.setattr(
+        staging,
+        "run_all",
+        lambda _: SimpleNamespace(errors=errors, blocking_warnings=warnings),
+    )
+
+    with pytest.raises(CandidateStageError) as error:
+        stage(source, store, first["generation_id"])
+
+    assert error.value.code is expected
+    assert str(error.value) == expected.value
+    assert read_current(store) == first
+
+
+@pytest.mark.parametrize("failure", [OSError("private"), ValueError("private")])
+def test_python_validation_execution_failure_has_fixed_code(
+    make_data_dir, monkeypatch, tmp_path, failure
+):
+    source = candidate(make_data_dir)
+    store = tmp_path / "store"
+    first = stage(source, store)
+
+    def fail(_):
+        raise failure
+
+    monkeypatch.setattr(staging, "run_all", fail)
+    with pytest.raises(CandidateStageError) as error:
+        stage(source, store, first["generation_id"])
+
+    assert error.value.code is CandidateStageCode.PYTHON_VALIDATION_EXECUTION_FAILED
+    assert str(error.value) == CandidateStageCode.PYTHON_VALIDATION_EXECUTION_FAILED.value
+    assert read_current(store) == first
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected"),
+    [
+        (OSError("private"), CandidateStageCode.NODE_VALIDATOR_UNAVAILABLE),
+        (
+            subprocess.TimeoutExpired("node", 90, output="private"),
+            CandidateStageCode.NODE_VALIDATOR_TIMEOUT,
+        ),
+        (
+            SimpleNamespace(returncode=1, stdout="private", stderr="private"),
+            CandidateStageCode.NODE_VALIDATION_REJECTED,
+        ),
+    ],
+)
+def test_node_validation_failure_has_fixed_code_and_preserves_pointer(
+    make_data_dir, monkeypatch, tmp_path, failure, expected
+):
+    source = candidate(make_data_dir)
+    store = tmp_path / "store"
+    first = stage(source, store)
+
+    def run(*_args, **_kwargs):
+        if isinstance(failure, BaseException):
+            raise failure
+        return failure
+
+    monkeypatch.setattr(staging.subprocess, "run", run)
+    with pytest.raises(CandidateStageError) as error:
+        stage(source, store, first["generation_id"])
+
+    assert error.value.code is expected
+    assert str(error.value) == expected.value
+    assert "private" not in str(error.value)
+    assert read_current(store) == first
+
+
+def test_source_load_failure_has_fixed_code(tmp_path):
+    with pytest.raises(CandidateStageError) as error:
+        stage(tmp_path / "missing", tmp_path / "store")
+
+    assert error.value.code is CandidateStageCode.SOURCE_LOAD_FAILED
+    assert str(error.value) == CandidateStageCode.SOURCE_LOAD_FAILED.value
+
+
+def test_publication_failure_has_fixed_code_and_preserves_pointer(
+    make_data_dir, monkeypatch, tmp_path
+):
+    source = candidate(make_data_dir)
+    store = tmp_path / "store"
+    first = stage(source, store)
+
+    def fail(*_args, **_kwargs):
+        raise PublicationError("private publication details")
+
+    monkeypatch.setattr(staging, "publish_snapshot", fail)
+    with pytest.raises(CandidateStageError) as error:
+        stage(source, store, first["generation_id"])
+
+    assert error.value.code is CandidateStageCode.PUBLICATION_FAILED
+    assert str(error.value) == CandidateStageCode.PUBLICATION_FAILED.value
     assert read_current(store) == first
 
 
@@ -185,8 +299,9 @@ def test_risk_history_missing_score_fails_frontend_contract_before_publish(make_
         del rows[-1]["total_score"]
         path.write_text(json.dumps(rows))
     assert run_all(source, now=DEFAULT_NOW).ok
-    with pytest.raises(PublicationError):
+    with pytest.raises(CandidateStageError) as error:
         stage(source, tmp_path / "store")
+    assert error.value.code is CandidateStageCode.CLIENT_CONTRACT_REJECTED
     assert not (tmp_path / "store" / "current.json").exists()
 
 
