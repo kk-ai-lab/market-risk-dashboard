@@ -147,7 +147,7 @@ class GitHubCheckpoint:
           }
         }"""
         variables = {"input": {
-            "branch": {"repositoryNameWithOwner": self._repository, "refName": self._branch},
+            "branch": {"repositoryNameWithOwner": self._repository, "branchName": self._branch},
             "expectedHeadOid": head,
             "message": {"headline": message},
             "fileChanges": {"additions": [{"path": snapshot.path,
