@@ -47,7 +47,7 @@ export function EnergyContextCard({
   const weeklyChange = latest && previous ? latest.value - previous.value : null;
   const collectionStatus = payload?.collection_status ?? "not_configured";
   const age = currentObservationAge(latest?.week_ending);
-  const collectionTone = collectionStatus === "available" ? "freshOk" : "freshWarn";
+  const collectionTone = collectionStatus === "available" ? "freshOk" : "outline";
   const ageTone = age === "within_window" ? "freshOk" : age === "overdue" ? "freshWarn" : "outline";
 
   return (

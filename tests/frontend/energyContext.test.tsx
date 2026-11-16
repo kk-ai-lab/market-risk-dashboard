@@ -67,4 +67,16 @@ describe("EnergyContextCard", () => {
     expect(screen.getByText(/^Last check:/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Source: EIA · WCESTUS1" })).toBeInTheDocument();
   });
+
+  it("keeps a degraded collection badge distinct from stale data", async () => {
+    await i18n.changeLanguage("en");
+    const dataset = energyEnvelope();
+    dataset.payload.collection_status = "degraded";
+
+    render(<EnergyContextCard dataset={dataset} />);
+
+    const badge = screen.getByText("Refresh degraded");
+    expect(badge).toHaveClass("border-border");
+    expect(badge).not.toHaveClass("border-fresh-warn/40");
+  });
 });
