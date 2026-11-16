@@ -369,6 +369,8 @@ def test_pipeline_adapter_forces_approved_mode_and_shared_cloud_branch(tmp_path,
         "pipeline_exception",
         "result_rejected",
         "dataset_health_failed",
+        "configuration_invalid",
+        "isolated_data_dir_required",
     ],
 )
 def test_child_failure_logs_only_allowlisted_collection_summary(

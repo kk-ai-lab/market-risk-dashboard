@@ -194,3 +194,32 @@ def test_main_legacy_data_dir_failure_writes_report_and_keeps_error_output(
     error = capsys.readouterr().err
     assert "approved-source mode requires an isolated data_dir" in error
     assert reports[0]["failure_code"] == "isolated_data_dir_required"
+
+
+@pytest.mark.parametrize("failure_path", ["configuration", "legacy_data_dir"])
+def test_main_backfill_early_failures_do_not_add_run_reports(
+    failure_path, monkeypatch, tmp_path, capsys
+):
+    reports = []
+    _configure_run(monkeypatch, tmp_path, reports)
+    monkeypatch.setattr(
+        run_mod.settings, "approved_sources_only", failure_path == "legacy_data_dir"
+    )
+
+    if failure_path == "configuration":
+
+        def fail_sources(_self):
+            from pipeline.config.models import ConfigError
+
+            raise ConfigError("invalid-sources-secret")
+
+        monkeypatch.setattr(type(run_mod.settings), "load_sources", fail_sources)
+    else:
+        project_root = tmp_path / "project"
+        monkeypatch.setattr(run_mod.settings, "project_root", project_root)
+        monkeypatch.setattr(run_mod.settings, "data_dir", project_root / "public" / "data")
+        monkeypatch.setattr(type(run_mod.settings), "load_public_source_policy", lambda _self: None)
+
+    assert run_mod.main(["--backfill"]) == 1
+    capsys.readouterr()
+    assert reports == []
