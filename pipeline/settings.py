@@ -8,6 +8,7 @@ YAML loading utilities; used by Collectors since T03.
 from __future__ import annotations
 
 from pathlib import Path
+from threading import Lock
 from typing import TYPE_CHECKING, Any
 
 import yaml
@@ -203,5 +204,20 @@ class Settings(BaseSettings):
         return load_config(self.config_dir / "news_sources.yaml", NewsSourcesConfig)
 
 
-# Module-level singleton (reused by run.py and Collectors since T03)
-settings = Settings()
+_settings_lock = Lock()
+
+if TYPE_CHECKING:
+    settings: Settings
+
+
+def __getattr__(name: str) -> Any:
+    """Keep class imports safe while preserving the legacy singleton import."""
+    if name != "settings":
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    with _settings_lock:
+        instance = globals().get("settings")
+        if instance is None:
+            instance = Settings()
+            globals()["settings"] = instance
+        return instance
