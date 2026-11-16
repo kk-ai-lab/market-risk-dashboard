@@ -1,15 +1,22 @@
 import hashlib
+import json
+import os
+import subprocess
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
 import pytest
 
+from pipeline import cloud_publication
 from pipeline.cloud_publication import (
     WORKFLOW_PATH,
     CloudPublicationError,
     CloudPublisher,
     GitHubActionsApi,
+    main,
 )
 from pipeline.cloud_refresh import CloudRefreshError
 from pipeline.publication import publish_snapshot
@@ -25,6 +32,7 @@ REVISION = "a" * 40
 NEW_REVISION = "b" * 40
 STAMP = "2026-11-15T12:00:00Z"
 ARTIFACT_DIGEST = "sha256:" + "c" * 64
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class MemoryCheckpoint:
@@ -124,6 +132,28 @@ def _generation(*, artifact_id=41, run_id=40, revision=REVISION, parent_id=None,
     )
 
 
+def _run_python_with_invalid_settings(*arguments):
+    environment = {
+        key: os.environ[key]
+        for key in ("HOME", "PATH", "TMPDIR", "LANG", "LC_ALL")
+        if key in os.environ
+    }
+    environment.update(
+        {
+            "DATA_COINMETRICS_ENABLED": "not-a-bool",
+            "PYTHONIOENCODING": "utf-8",
+        }
+    )
+    return subprocess.run(
+        [sys.executable, *arguments],
+        cwd=PROJECT_ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
 def _publisher(state=None, *, pointer=None, actions=None, legacy_data=False):
     checkpoint = MemoryCheckpoint(state or PublicationState())
     api = actions or Actions()
@@ -134,6 +164,34 @@ def _publisher(state=None, *, pointer=None, actions=None, legacy_data=False):
         api,
         pages,
     )
+
+
+def _stub_cli_runtime(monkeypatch, checkpoint, actions, pages):
+    actions.close = lambda: None
+    checkpoint.close = lambda: None
+    monkeypatch.setattr(
+        cloud_publication,
+        "_runtime",
+        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO)),
+    )
+    monkeypatch.setattr(cloud_publication, "PagesGenerationRestorer", lambda _: pages)
+
+
+def _preflight_cli_args(*options):
+    return [
+        "preflight",
+        "--mode",
+        "code-only",
+        "--event-ref",
+        "refs/heads/dev",
+        "--event-sha",
+        REVISION,
+        "--run-id",
+        "50",
+        "--site-url",
+        "https://example.test/",
+        *options,
+    ]
 
 
 def test_preflight_uses_the_deployed_application_for_scheduled_runs():
@@ -269,10 +327,11 @@ def test_preflight_fails_closed_on_an_unknown_pages_generation():
 def test_preflight_pauses_while_another_pages_run_is_active():
     actions = Actions(other_runs=[{"id": 49}])
     publisher, _, _, _ = _publisher(actions=actions)
-    with pytest.raises(CloudPublicationError, match="Another Pages workflow"):
+    with pytest.raises(CloudPublicationError, match="Another Pages workflow") as exc_info:
         publisher.preflight(
             mode="code-only", event_ref="refs/heads/dev", event_sha=REVISION, run_id=50
         )
+    assert exc_info.value.code.value == "active_pages_run"
 
 
 def test_empty_checkpoint_refuses_an_unrecorded_pages_generation():
@@ -375,12 +434,321 @@ def test_preflight_rejects_queued_or_rerun_event_after_branch_advances():
     actions = Actions(heads={"dev": NEW_REVISION})
     publisher, checkpoint, _, _ = _publisher(actions=actions)
 
-    with pytest.raises(CloudPublicationError, match="no longer the branch head"):
+    with pytest.raises(CloudPublicationError, match="no longer the branch head") as exc_info:
         publisher.preflight(
             mode="code-only", event_ref="refs/heads/dev", event_sha=REVISION, run_id=50
         )
 
+    assert exc_info.value.code.value == "event_revision_stale"
     assert PublicationCheckpoint(checkpoint).read().candidate is None
+
+
+def test_preflight_cli_emits_fixed_code_and_hides_exception_details(monkeypatch, capsys):
+    checkpoint = MemoryCheckpoint()
+    actions = Actions()
+
+    def fail_to_read_run_list(*, current_run_id):
+        try:
+            raise ValueError("sentinel chained cause")
+        except ValueError as cause:
+            raise CloudPublicationError("sentinel exception text") from cause
+
+    actions.active_workflow_runs = fail_to_read_run_list
+    _stub_cli_runtime(monkeypatch, checkpoint, actions, Pages(None))
+
+    result = main(_preflight_cli_args())
+
+    stderr = capsys.readouterr().err.splitlines()
+    assert result == 1
+    assert json.loads(stderr[0]) == {
+        "event": "cloud_publication.failure",
+        "stage": "preflight",
+        "code": "actions_run_list_read_failed",
+    }
+    assert stderr[1] == "Cloud Pages publication could not be confirmed"
+    assert "sentinel" not in "\n".join(stderr)
+    assert checkpoint.writes == 0
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_event_code"),
+    [
+        (
+            _preflight_cli_args(),
+            "preflight_configuration_invalid",
+        ),
+        (
+            [
+                "reserve",
+                "--generation-dir",
+                "/tmp/generation",
+                "--artifact-id",
+                "41",
+                "--run-id",
+                "50",
+                "--event-sha",
+                REVISION,
+            ],
+            None,
+        ),
+        (
+            [
+                "finish",
+                "--run-id",
+                "50",
+                "--event-sha",
+                REVISION,
+                "--site-url",
+                "https://example.test/",
+            ],
+            None,
+        ),
+    ],
+)
+def test_cloud_publication_cli_classifies_invalid_runtime_settings(
+    arguments, expected_event_code
+):
+    result = _run_python_with_invalid_settings(
+        "-m", "pipeline.cloud_publication", *arguments
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "Traceback" not in result.stderr
+    assert "not-a-bool" not in result.stderr
+    lines = result.stderr.splitlines()
+    if expected_event_code:
+        assert json.loads(lines[0]) == {
+            "event": "cloud_publication.failure",
+            "stage": "preflight",
+            "code": expected_event_code,
+        }
+        assert lines[1] == "Cloud Pages publication could not be confirmed"
+    else:
+        assert lines == ["Cloud Pages publication could not be confirmed"]
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_returncode"),
+    [(["--help"], 0), (["preflight", "--mode", "invalid"], 2)],
+)
+def test_cloud_publication_cli_parses_arguments_before_settings(
+    arguments, expected_returncode
+):
+    result = _run_python_with_invalid_settings(
+        "-m", "pipeline.cloud_publication", *arguments
+    )
+
+    assert result.returncode == expected_returncode
+    assert "Traceback" not in result.stderr
+    assert "not-a-bool" not in result.stderr
+    assert "cloud_publication.failure" not in result.stderr
+
+
+def test_settings_import_is_lazy_and_retries_after_failed_validation():
+    code = """
+import os
+from pydantic import ValidationError
+import pipeline.settings as settings_module
+from pipeline.settings import Settings
+
+try:
+    settings_module.missing_name
+except AttributeError:
+    pass
+else:
+    raise AssertionError("unknown attributes must not construct settings")
+
+try:
+    settings_module.settings
+except ValidationError:
+    pass
+else:
+    raise AssertionError("invalid settings must still fail on access")
+
+os.environ["DATA_COINMETRICS_ENABLED"] = "false"
+first = settings_module.settings
+assert isinstance(first, Settings)
+first.coinmetrics_enabled = True
+from pipeline.settings import settings
+assert settings is first
+assert settings_module.settings is first
+assert settings.coinmetrics_enabled is True
+"""
+    result = _run_python_with_invalid_settings("-c", code)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == ""
+    assert result.stderr == ""
+
+
+def test_preflight_cli_distinguishes_legacy_probe_failure(monkeypatch, capsys):
+    checkpoint = MemoryCheckpoint()
+    actions = Actions()
+    pages = Pages(None)
+
+    def fail_legacy_probe():
+        raise CloudRefreshError("sentinel legacy response")
+
+    _stub_cli_runtime(monkeypatch, checkpoint, actions, pages)
+    monkeypatch.setattr(pages, "has_legacy_data", fail_legacy_probe)
+
+    result = main(_preflight_cli_args())
+
+    stderr = capsys.readouterr().err.splitlines()
+    assert result == 1
+    assert json.loads(stderr[0]) == {
+        "event": "cloud_publication.failure",
+        "stage": "preflight",
+        "code": "legacy_data_probe_failed",
+    }
+    assert stderr[1] == "Cloud Pages publication could not be confirmed"
+    assert "sentinel" not in "\n".join(stderr)
+    assert checkpoint.writes == 0
+
+
+def test_preflight_cli_success_outputs_are_unchanged(monkeypatch, capsys, tmp_path):
+    checkpoint = MemoryCheckpoint()
+    actions = Actions()
+    pages = Pages(None)
+    output = tmp_path / "github-output.txt"
+    _stub_cli_runtime(monkeypatch, checkpoint, actions, pages)
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+
+    result = main(_preflight_cli_args("--allow-legacy-bootstrap"))
+
+    captured = capsys.readouterr()
+    assert result == 0
+    assert output.read_text() == f"mode=code-only\napp_revision={REVISION}\nresume=false\n"
+    assert captured.out == ""
+    assert captured.err == ""
+
+
+def test_cloud_publication_cli_success_outputs_cover_each_command(
+    monkeypatch, capsys, tmp_path
+):
+    candidate = _generation(parent_id="d" * 64)
+    plan = SimpleNamespace(
+        mode="code-only", application_revision=REVISION, resume=candidate
+    )
+    publisher = SimpleNamespace(
+        preflight=lambda **_: plan,
+        reserve=lambda **_: candidate,
+        finish=lambda **_: candidate,
+    )
+
+    checkpoint = MemoryCheckpoint()
+    actions = Actions()
+    pages = Pages(None)
+    _stub_cli_runtime(monkeypatch, checkpoint, actions, pages)
+    monkeypatch.setattr(cloud_publication, "CloudPublisher", lambda *_: publisher)
+    output = tmp_path / "github-output.txt"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+
+    commands = [
+        (
+            _preflight_cli_args(),
+            "\n".join(
+                (
+                    "mode=code-only",
+                    f"app_revision={REVISION}",
+                    "resume=true",
+                    f"generation_id={candidate.generation_id}",
+                    f"manifest_sha256={candidate.manifest_sha256}",
+                    f"producer_revision={candidate.producer_revision}",
+                    f"parent_id={candidate.parent_id}",
+                    f"artifact_id={candidate.artifact_id}",
+                )
+            )
+            + "\n",
+        ),
+        (
+            [
+                "reserve",
+                "--generation-dir",
+                str(tmp_path),
+                "--artifact-id",
+                str(candidate.artifact_id),
+                "--run-id",
+                "50",
+                "--event-sha",
+                REVISION,
+            ],
+            "\n".join(
+                (
+                    f"generation_id={candidate.generation_id}",
+                    f"attempt_id={candidate.attempt_id}",
+                    f"artifact_id={candidate.artifact_id}",
+                )
+            )
+            + "\n",
+        ),
+        (
+            [
+                "finish",
+                "--run-id",
+                "50",
+                "--event-sha",
+                REVISION,
+                "--site-url",
+                "https://example.test/",
+            ],
+            f"generation_id={candidate.generation_id}\n"
+            f"manifest_sha256={candidate.manifest_sha256}\n",
+        ),
+    ]
+
+    for arguments, expected_output in commands:
+        output.write_text("", encoding="utf-8")
+        result = main(arguments)
+        captured = capsys.readouterr()
+
+        assert result == 0
+        assert output.read_text(encoding="utf-8") == expected_output
+        assert captured.out == ""
+        assert captured.err == ""
+
+
+def test_reserve_and_finish_cli_failures_do_not_emit_preflight_events(
+    monkeypatch, capsys, tmp_path
+):
+    checkpoint = MemoryCheckpoint()
+    actions = Actions()
+    pages = Pages(None)
+    _stub_cli_runtime(monkeypatch, checkpoint, actions, pages)
+
+    reserve_result = main(
+        [
+            "reserve",
+            "--generation-dir",
+            str(tmp_path / "missing-generation"),
+            "--artifact-id",
+            "42",
+            "--run-id",
+            "50",
+            "--event-sha",
+            REVISION,
+        ]
+    )
+    reserve_stderr = capsys.readouterr().err
+
+    finish_result = main(
+        [
+            "finish",
+            "--run-id",
+            "50",
+            "--event-sha",
+            REVISION,
+            "--site-url",
+            "https://example.test/",
+        ]
+    )
+    finish_stderr = capsys.readouterr().err
+
+    assert reserve_result == 1
+    assert reserve_stderr == "Cloud Pages publication could not be confirmed\n"
+    assert finish_result == 1
+    assert finish_stderr == "Cloud Pages publication could not be confirmed\n"
 
 
 def test_reserve_and_finish_bind_the_exact_artifact_to_pages_readback(tmp_path):
