@@ -674,6 +674,109 @@ def test_preflight_cli_success_outputs_are_unchanged(monkeypatch, capsys, tmp_pa
     assert captured.err == ""
 
 
+def test_cloud_publication_cli_success_outputs_cover_each_command(
+    monkeypatch, capsys, tmp_path
+):
+    candidate = _generation(parent_id="d" * 64)
+    plan = SimpleNamespace(
+        mode="code-only", application_revision=REVISION, resume=candidate
+    )
+    publisher = SimpleNamespace(
+        preflight=lambda **_: plan,
+        reserve=lambda **_: candidate,
+        finish=lambda **_: candidate,
+    )
+
+    checkpoint = MemoryCheckpoint()
+    actions = Actions()
+    actions.close = lambda: None
+    checkpoint.close = lambda: None
+    monkeypatch.setattr(
+        cloud_publication,
+        "_runtime",
+        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO)),
+    )
+    monkeypatch.setattr(cloud_publication, "CloudPublisher", lambda *_: publisher)
+    monkeypatch.setattr(cloud_publication, "PagesGenerationRestorer", lambda _: Pages(None))
+    output = tmp_path / "github-output.txt"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+
+    commands = [
+        (
+            [
+                "preflight",
+                "--mode",
+                "code-only",
+                "--event-ref",
+                "refs/heads/dev",
+                "--event-sha",
+                REVISION,
+                "--run-id",
+                "50",
+                "--site-url",
+                "https://example.test/",
+            ],
+            "\n".join(
+                (
+                    "mode=code-only",
+                    f"app_revision={REVISION}",
+                    "resume=true",
+                    f"generation_id={candidate.generation_id}",
+                    f"manifest_sha256={candidate.manifest_sha256}",
+                    f"producer_revision={candidate.producer_revision}",
+                    f"parent_id={candidate.parent_id}",
+                    f"artifact_id={candidate.artifact_id}",
+                )
+            )
+            + "\n",
+        ),
+        (
+            [
+                "reserve",
+                "--generation-dir",
+                str(tmp_path),
+                "--artifact-id",
+                str(candidate.artifact_id),
+                "--run-id",
+                "50",
+                "--event-sha",
+                REVISION,
+            ],
+            "\n".join(
+                (
+                    f"generation_id={candidate.generation_id}",
+                    f"attempt_id={candidate.attempt_id}",
+                    f"artifact_id={candidate.artifact_id}",
+                )
+            )
+            + "\n",
+        ),
+        (
+            [
+                "finish",
+                "--run-id",
+                "50",
+                "--event-sha",
+                REVISION,
+                "--site-url",
+                "https://example.test/",
+            ],
+            f"generation_id={candidate.generation_id}\n"
+            f"manifest_sha256={candidate.manifest_sha256}\n",
+        ),
+    ]
+
+    for arguments, expected_output in commands:
+        output.write_text("", encoding="utf-8")
+        result = main(arguments)
+        captured = capsys.readouterr()
+
+        assert result == 0
+        assert output.read_text(encoding="utf-8") == expected_output
+        assert captured.out == ""
+        assert captured.err == ""
+
+
 def test_reserve_and_finish_cli_failures_do_not_emit_preflight_events(
     monkeypatch, capsys, tmp_path
 ):
