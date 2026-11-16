@@ -77,6 +77,52 @@ class CloudPublicationFailure(CloudPublicationError):
         self.code = code
 
 
+def _validate_artifact(
+    artifact: dict,
+    *,
+    repository_id: int,
+    artifact_id: int,
+    run_id: int,
+    event_sha: str,
+    expected_digest: str | None = None,
+) -> str:
+    workflow_run = artifact.get("workflow_run")
+    digest = artifact.get("digest")
+    repository_ids = (
+        workflow_run.get("repository_id") if isinstance(workflow_run, dict) else None,
+        workflow_run.get("head_repository_id") if isinstance(workflow_run, dict) else None,
+    )
+    if (
+        type(repository_id) is not int
+        or repository_id < 1
+        or type(artifact_id) is not int
+        or artifact_id < 1
+        or type(run_id) is not int
+        or run_id < 1
+        or type(artifact.get("id")) is not int
+        or artifact["id"] != artifact_id
+        or artifact.get("name") != "github-pages"
+        or artifact.get("expired") is not False
+        or not isinstance(digest, str)
+        or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None
+        or expected_digest is not None
+        and digest != expected_digest
+        or not isinstance(workflow_run, dict)
+        or type(workflow_run.get("id")) is not int
+        or workflow_run["id"] != run_id
+        or workflow_run.get("head_sha") != event_sha
+        or any(
+            type(value) is not int or value < 1 or value != repository_id
+            for value in repository_ids
+        )
+    ):
+        raise CloudPublicationFailure(
+            "Pages artifact provenance does not match its reservation",
+            code=PublicationFailureCode.CANDIDATE_ARTIFACT_INVALID,
+        )
+    return digest
+
+
 class GitHubActionsApi:
     def __init__(
         self, repository: str, token: str, *, transport: httpx.BaseTransport | None = None
@@ -221,11 +267,13 @@ class CloudPublisher:
         actions: GitHubActionsApi,
         pages: PagesGenerationRestorer,
         repository: str,
+        repository_id: int,
     ):
         self.publication = publication
         self.actions = actions
         self.pages = pages
         self.repository = repository
+        self.repository_id = repository_id
 
     def _assert_no_other_pages_run(self, run_id: int) -> None:
         try:
@@ -259,30 +307,6 @@ class CloudPublisher:
             raise CloudPublicationFailure(
                 "Publication run provenance does not match",
                 code=PublicationFailureCode.WORKFLOW_RUN_INVALID,
-            )
-
-    def _validate_artifact(self, artifact: dict, generation: Generation, event_sha: str) -> None:
-        workflow_run = artifact.get("workflow_run")
-        head_repository = (
-            workflow_run.get("head_repository") if isinstance(workflow_run, dict) else None
-        )
-        repository_name = (
-            head_repository.get("full_name") if isinstance(head_repository, dict) else None
-        )
-        if (
-            artifact.get("id") != generation.artifact_id
-            or artifact.get("name") != "github-pages"
-            or artifact.get("expired") is not False
-            or artifact.get("digest") != generation.artifact_digest
-            or not isinstance(workflow_run, dict)
-            or workflow_run.get("id") != generation.workflow_run_id
-            or workflow_run.get("head_sha") != event_sha
-            or not isinstance(repository_name, str)
-            or repository_name.casefold() != self.repository.casefold()
-        ):
-            raise CloudPublicationFailure(
-                "Pages artifact provenance does not match its reservation",
-                code=PublicationFailureCode.CANDIDATE_ARTIFACT_INVALID,
             )
 
     def _read_publication_state_for_preflight(self) -> PublicationState:
@@ -462,8 +486,13 @@ class CloudPublisher:
             if candidate.workflow_run_id == run_id:
                 run = self.actions.workflow_run(run_id)
                 self._validate_run(run, run_id, require_completed=False)
-                self._validate_artifact(
-                    self.actions.artifact(candidate.artifact_id), candidate, event_sha
+                _validate_artifact(
+                    self.actions.artifact(candidate.artifact_id),
+                    repository_id=self.repository_id,
+                    artifact_id=candidate.artifact_id,
+                    run_id=candidate.workflow_run_id,
+                    event_sha=event_sha,
+                    expected_digest=candidate.artifact_digest,
                 )
                 expected_revision = (
                     state.deployed.producer_revision
@@ -492,24 +521,13 @@ class CloudPublisher:
             raise CloudPublicationError("Another publication candidate is pending")
         manifest = verify_generation(generation_dir)
         artifact = self.actions.artifact(artifact_id)
-        digest = artifact.get("digest")
-        run = artifact.get("workflow_run")
-        head_repository = run.get("head_repository") if isinstance(run, dict) else None
-        repository_name = (
-            head_repository.get("full_name") if isinstance(head_repository, dict) else None
+        digest = _validate_artifact(
+            artifact,
+            repository_id=self.repository_id,
+            artifact_id=artifact_id,
+            run_id=run_id,
+            event_sha=event_sha,
         )
-        if (
-            not isinstance(digest, str)
-            or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None
-            or artifact.get("name") != "github-pages"
-            or artifact.get("expired") is not False
-            or not isinstance(run, dict)
-            or run.get("id") != run_id
-            or run.get("head_sha") != event_sha
-            or not isinstance(repository_name, str)
-            or repository_name.casefold() != self.repository.casefold()
-        ):
-            raise CloudPublicationError("Uploaded Pages artifact could not be verified")
         candidate = Generation(
             generation_id=manifest["generation_id"],
             manifest_sha256=hashlib.sha256(
@@ -539,7 +557,14 @@ class CloudPublisher:
                 raise CloudPublicationError("No candidate belongs to this workflow run")
         run = self.actions.workflow_run(current_run_id)
         self._validate_run(run, current_run_id, require_completed=False)
-        self._validate_artifact(self.actions.artifact(candidate.artifact_id), candidate, event_sha)
+        _validate_artifact(
+            self.actions.artifact(candidate.artifact_id),
+            repository_id=self.repository_id,
+            artifact_id=candidate.artifact_id,
+            run_id=candidate.workflow_run_id,
+            event_sha=event_sha,
+            expected_digest=candidate.artifact_digest,
+        )
         with tempfile.TemporaryDirectory(prefix="pages-verify-") as directory:
             self.pages.restore(candidate, Path(directory) / "site")
         if state.candidate is not None:
@@ -553,7 +578,7 @@ class CloudPublisher:
         return candidate
 
 
-def _runtime() -> tuple[GitHubCheckpoint, GitHubActionsApi, Settings]:
+def _runtime() -> tuple[GitHubCheckpoint, GitHubActionsApi, Settings, int]:
     try:
         settings = Settings()
     except ValidationError as exc:
@@ -574,8 +599,32 @@ def _runtime() -> tuple[GitHubCheckpoint, GitHubActionsApi, Settings]:
             "Cloud checkpoint repository must use owner/repo",
             code=PublicationFailureCode.PUBLICATION_CONFIGURATION_INVALID,
         )
+    runner_repository = os.environ.get("GITHUB_REPOSITORY")
+    runner_repository_id = os.environ.get("GITHUB_REPOSITORY_ID")
+    if (
+        not isinstance(runner_repository, str)
+        or runner_repository.casefold() != repository.casefold()
+        or not isinstance(runner_repository_id, str)
+        or re.fullmatch(r"[0-9]+", runner_repository_id) is None
+    ):
+        raise CloudPublicationFailure(
+            "GitHub runner repository identity is invalid",
+            code=PublicationFailureCode.PUBLICATION_CONFIGURATION_INVALID,
+        )
+    try:
+        repository_id = int(runner_repository_id)
+    except ValueError as exc:
+        raise CloudPublicationFailure(
+            "GitHub runner repository identity is invalid",
+            code=PublicationFailureCode.PUBLICATION_CONFIGURATION_INVALID,
+        ) from exc
+    if repository_id < 1:
+        raise CloudPublicationFailure(
+            "GitHub runner repository identity is invalid",
+            code=PublicationFailureCode.PUBLICATION_CONFIGURATION_INVALID,
+        )
     checkpoint = GitHubCheckpoint(*checkpoint_parts, settings.cloud_state_branch, token)
-    return checkpoint, GitHubActionsApi(repository, token), settings
+    return checkpoint, GitHubActionsApi(repository, token), settings, repository_id
 
 
 def _write_outputs(values: dict[str, object]) -> None:
@@ -646,11 +695,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     checkpoint = actions = None
     try:
-        checkpoint, actions, settings = _runtime()
+        checkpoint, actions, settings, repository_id = _runtime()
         publication = PublicationCheckpoint(checkpoint)
         site_url = getattr(args, "site_url", None)
         pages = PagesGenerationRestorer(site_url) if site_url else None
-        publisher = CloudPublisher(publication, actions, pages, settings.cloud_state_repo)
+        publisher = CloudPublisher(
+            publication, actions, pages, settings.cloud_state_repo, repository_id
+        )
         if args.command == "preflight":
             plan = publisher.preflight(
                 mode=args.mode, event_ref=args.event_ref, event_sha=args.event_sha,

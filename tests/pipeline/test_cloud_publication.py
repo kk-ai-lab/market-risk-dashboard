@@ -28,6 +28,7 @@ from pipeline.storage.publication_checkpoint import (
 )
 
 REPO = "owner/repo"
+REPOSITORY_ID = 1321685294
 REVISION = "a" * 40
 NEW_REVISION = "b" * 40
 STAMP = "2026-11-15T12:00:00Z"
@@ -113,7 +114,8 @@ def _artifact(artifact_id, run_id, *, event_sha=REVISION):
         "workflow_run": {
             "id": run_id,
             "head_sha": event_sha,
-            "head_repository": {"full_name": REPO},
+            "repository_id": REPOSITORY_ID,
+            "head_repository_id": REPOSITORY_ID,
         },
     }
 
@@ -159,7 +161,7 @@ def _publisher(state=None, *, pointer=None, actions=None, legacy_data=False):
     api = actions or Actions()
     pages = Pages(pointer, legacy_data=legacy_data)
     return (
-        CloudPublisher(PublicationCheckpoint(checkpoint), api, pages, REPO),
+        CloudPublisher(PublicationCheckpoint(checkpoint), api, pages, REPO, REPOSITORY_ID),
         checkpoint,
         api,
         pages,
@@ -172,7 +174,7 @@ def _stub_cli_runtime(monkeypatch, checkpoint, actions, pages):
     monkeypatch.setattr(
         cloud_publication,
         "_runtime",
-        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO)),
+        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO), REPOSITORY_ID),
     )
     monkeypatch.setattr(cloud_publication, "PagesGenerationRestorer", lambda _: pages)
 
@@ -382,7 +384,7 @@ def test_pending_artifact_must_match_the_recorded_workflow_and_digest():
     wrong = _artifact(candidate.artifact_id, candidate.workflow_run_id)
     wrong["digest"] = "sha256:" + "f" * 64
     actions.artifacts[candidate.artifact_id] = wrong
-    publisher, _, _, _ = _publisher(
+    publisher, checkpoint, _, _ = _publisher(
         PublicationState(candidate=candidate, last_attempt=1), actions=actions
     )
     with pytest.raises(CloudPublicationError, match="artifact provenance"):
@@ -390,6 +392,181 @@ def test_pending_artifact_must_match_the_recorded_workflow_and_digest():
             mode="code-only", event_ref="refs/heads/dev", event_sha=REVISION,
             run_id=candidate.workflow_run_id
         )
+    assert checkpoint.writes == 0
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("id", 43),
+        ("name", "other-artifact"),
+        ("expired", True),
+        ("digest", "sha256:invalid"),
+        ("workflow_run.id", 51),
+        ("workflow_run.head_sha", NEW_REVISION),
+    ],
+)
+def test_reserve_rejects_artifact_provenance_mismatches_before_checkpoint_write(
+    tmp_path, field, value
+):
+    files = {
+        "latest/data.json": {"generated_at": STAMP, "value": 3},
+        "history/data.json": [{"date": "2026-11-14", "value": 2}],
+        "metadata/data.json": {"updated_at": STAMP},
+    }
+    pointer = publish_snapshot(
+        tmp_path / "store",
+        files,
+        parent_id=None,
+        producer_revision=REVISION,
+        created_at=STAMP,
+        validator=lambda _: True,
+    )
+    artifact = _artifact(42, 50)
+    target = artifact
+    parts = field.split(".")
+    for part in parts[:-1]:
+        target = target[part]
+    target[parts[-1]] = value
+    actions = Actions()
+    actions.artifacts[42] = artifact
+    publisher, checkpoint, _, _ = _publisher(actions=actions)
+
+    with pytest.raises(CloudPublicationError, match="artifact provenance"):
+        publisher.reserve(
+            generation_dir=tmp_path / "store/generations" / pointer["generation_id"],
+            artifact_id=42,
+            run_id=50,
+            event_sha=REVISION,
+        )
+
+    assert checkpoint.writes == 0
+
+
+def test_finish_rejects_artifact_provenance_mismatch_without_checkpoint_write():
+    candidate = _generation()
+    artifact = _artifact(candidate.artifact_id, candidate.workflow_run_id)
+    artifact["workflow_run"]["head_sha"] = NEW_REVISION
+    actions = Actions()
+    actions.artifacts[candidate.artifact_id] = artifact
+    publisher, checkpoint, _, _ = _publisher(
+        PublicationState(candidate=candidate, last_attempt=1), actions=actions
+    )
+
+    with pytest.raises(CloudPublicationError, match="artifact provenance"):
+        publisher.finish(
+            current_run_id=candidate.workflow_run_id,
+            event_sha=REVISION,
+        )
+
+    assert checkpoint.writes == 0
+
+
+@pytest.mark.parametrize(
+    ("field", "repository_id", "head_repository_id"),
+    [
+        ("repository_id", None, REPOSITORY_ID),
+        ("repository_id", True, REPOSITORY_ID),
+        ("repository_id", str(REPOSITORY_ID), REPOSITORY_ID),
+        ("repository_id", 0, REPOSITORY_ID),
+        ("repository_id", -1, REPOSITORY_ID),
+        ("repository_id", REPOSITORY_ID + 1, REPOSITORY_ID + 1),
+        ("head_repository_id", REPOSITORY_ID, REPOSITORY_ID + 1),
+        ("missing_repository_id", None, REPOSITORY_ID),
+    ],
+)
+def test_reserve_rejects_artifact_repository_ids_outside_runner_scope(
+    tmp_path, field, repository_id, head_repository_id
+):
+    files = {
+        "latest/data.json": {"generated_at": STAMP, "value": 3},
+        "history/data.json": [{"date": "2026-11-14", "value": 2}],
+        "metadata/data.json": {"updated_at": STAMP},
+    }
+    pointer = publish_snapshot(
+        tmp_path / "store",
+        files,
+        parent_id=None,
+        producer_revision=REVISION,
+        created_at=STAMP,
+        validator=lambda _: True,
+    )
+    artifact = _artifact(42, 50)
+    if field.startswith("missing_"):
+        artifact["workflow_run"].pop(field.removeprefix("missing_"))
+    else:
+        artifact["workflow_run"]["repository_id"] = repository_id
+    artifact["workflow_run"]["head_repository_id"] = head_repository_id
+    actions = Actions()
+    actions.artifacts[42] = artifact
+    publisher, checkpoint, _, _ = _publisher(actions=actions)
+
+    with pytest.raises(CloudPublicationError, match="artifact provenance"):
+        publisher.reserve(
+            generation_dir=tmp_path / "store/generations" / pointer["generation_id"],
+            artifact_id=42,
+            run_id=50,
+            event_sha=REVISION,
+        )
+
+    assert checkpoint.writes == 0
+
+
+@pytest.mark.parametrize(
+    ("runner_repository", "runner_repository_id"),
+    [
+        ("other/repo", str(REPOSITORY_ID)),
+        (REPO, "not-a-number"),
+        (REPO, "0"),
+        (None, str(REPOSITORY_ID)),
+    ],
+)
+def test_runtime_rejects_invalid_runner_identity_before_client_construction(
+    monkeypatch, runner_repository, runner_repository_id
+):
+    settings = SimpleNamespace(
+        cloud_state_repo=REPO,
+        cloud_state_branch="cloud-state",
+        cloud_state_token=SimpleNamespace(get_secret_value=lambda: "token"),
+    )
+    monkeypatch.setattr(cloud_publication, "Settings", lambda: settings)
+    if runner_repository is None:
+        monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+    else:
+        monkeypatch.setenv("GITHUB_REPOSITORY", runner_repository)
+    monkeypatch.setenv("GITHUB_REPOSITORY_ID", runner_repository_id)
+    monkeypatch.setattr(
+        cloud_publication,
+        "GitHubCheckpoint",
+        lambda *_: pytest.fail("checkpoint client constructed before identity validation"),
+    )
+    monkeypatch.setattr(
+        cloud_publication,
+        "GitHubActionsApi",
+        lambda *_: pytest.fail("Actions client constructed before identity validation"),
+    )
+
+    with pytest.raises(CloudPublicationError, match="runner repository identity") as error:
+        cloud_publication._runtime()
+
+    assert error.value.code.value == "preflight_configuration_invalid"
+
+
+def test_runtime_returns_validated_repository_id_to_publisher(monkeypatch):
+    settings = SimpleNamespace(
+        cloud_state_repo=REPO,
+        cloud_state_branch="cloud-state",
+        cloud_state_token=SimpleNamespace(get_secret_value=lambda: "token"),
+    )
+    checkpoint = object()
+    actions = object()
+    monkeypatch.setattr(cloud_publication, "Settings", lambda: settings)
+    monkeypatch.setenv("GITHUB_REPOSITORY", REPO.upper())
+    monkeypatch.setenv("GITHUB_REPOSITORY_ID", str(REPOSITORY_ID))
+    monkeypatch.setattr(cloud_publication, "GitHubCheckpoint", lambda *_: checkpoint)
+    monkeypatch.setattr(cloud_publication, "GitHubActionsApi", lambda *_: actions)
+
+    assert cloud_publication._runtime() == (checkpoint, actions, settings, REPOSITORY_ID)
 
 
 def test_actions_api_lists_only_current_workflow_runs_with_authentication():
@@ -751,7 +928,7 @@ def test_reserve_and_finish_cli_failures_do_not_emit_preflight_events(
     assert finish_stderr == "Cloud Pages publication could not be confirmed\n"
 
 
-def test_reserve_and_finish_bind_the_exact_artifact_to_pages_readback(tmp_path):
+def test_artifact_api_provenance_flows_through_reserve_resume_and_finish(tmp_path):
     files = {
         "latest/data.json": {"generated_at": STAMP, "value": 3},
         "history/data.json": [{"date": "2026-11-14", "value": 2}],
@@ -766,19 +943,60 @@ def test_reserve_and_finish_bind_the_exact_artifact_to_pages_readback(tmp_path):
         validator=lambda _: True,
     )
     generation_dir = tmp_path / "store/generations" / pointer["generation_id"]
-    actions = Actions(current_run=50)
-    actions.artifacts[42] = _artifact(42, 50)
-    publisher, checkpoint, _, pages = _publisher(actions=actions)
-    generation = publisher.reserve(
-        generation_dir=generation_dir, artifact_id=42, run_id=50, event_sha=REVISION
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        path = request.url.path
+        if path.endswith("/actions/artifacts/42"):
+            return httpx.Response(200, json=_artifact(42, 50))
+        if path.endswith("/actions/workflows/" + Path(WORKFLOW_PATH).name + "/runs"):
+            return httpx.Response(200, json={"total_count": 0, "workflow_runs": []})
+        if path.endswith("/git/ref/heads/dev"):
+            return httpx.Response(
+                200, json={"ref": "refs/heads/dev", "object": {"sha": REVISION}}
+            )
+        if path.endswith("/actions/runs/50"):
+            return httpx.Response(
+                200,
+                json={
+                    "id": 50,
+                    "path": WORKFLOW_PATH,
+                    "status": "completed",
+                    "head_repository": {"full_name": REPO},
+                    "head_sha": REVISION,
+                },
+            )
+        raise AssertionError(f"Unexpected GitHub API request: {path}")
+
+    actions = GitHubActionsApi(REPO, "token", transport=httpx.MockTransport(handle))
+    checkpoint = MemoryCheckpoint()
+    pages = Pages(None)
+    publisher = CloudPublisher(
+        PublicationCheckpoint(checkpoint), actions, pages, REPO, REPOSITORY_ID
     )
+    try:
+        generation = publisher.reserve(
+            generation_dir=generation_dir, artifact_id=42, run_id=50, event_sha=REVISION
+        )
+    except CloudPublicationError as error:
+        reservation = f"rejected: {error}"
+    else:
+        reservation = f"reserved: {generation.artifact_id}"
+    assert reservation == "reserved: 42"
     pages.pointer = {
         "version": 1,
         "generation_id": generation.generation_id,
         "manifest_sha256": generation.manifest_sha256,
     }
+    plan = publisher.preflight(
+        mode="code-only", event_ref="refs/heads/dev", event_sha=REVISION, run_id=50
+    )
+    assert plan.application_revision == REVISION
     deployed = publisher.finish(current_run_id=50, event_sha=REVISION)
     assert deployed == generation
     state = PublicationCheckpoint(checkpoint).read()
     assert state.deployed == generation and state.candidate is None
     assert pages.restored == [generation.generation_id]
+    assert sum(request.url.path.endswith("/actions/artifacts/42") for request in requests) == 3
+    actions.close()
