@@ -384,7 +384,7 @@ def test_pending_artifact_must_match_the_recorded_workflow_and_digest():
     wrong = _artifact(candidate.artifact_id, candidate.workflow_run_id)
     wrong["digest"] = "sha256:" + "f" * 64
     actions.artifacts[candidate.artifact_id] = wrong
-    publisher, _, _, _ = _publisher(
+    publisher, checkpoint, _, _ = _publisher(
         PublicationState(candidate=candidate, last_attempt=1), actions=actions
     )
     with pytest.raises(CloudPublicationError, match="artifact provenance"):
@@ -392,6 +392,74 @@ def test_pending_artifact_must_match_the_recorded_workflow_and_digest():
             mode="code-only", event_ref="refs/heads/dev", event_sha=REVISION,
             run_id=candidate.workflow_run_id
         )
+    assert checkpoint.writes == 0
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("id", 43),
+        ("name", "other-artifact"),
+        ("expired", True),
+        ("digest", "sha256:invalid"),
+        ("workflow_run.id", 51),
+        ("workflow_run.head_sha", NEW_REVISION),
+    ],
+)
+def test_reserve_rejects_artifact_provenance_mismatches_before_checkpoint_write(
+    tmp_path, field, value
+):
+    files = {
+        "latest/data.json": {"generated_at": STAMP, "value": 3},
+        "history/data.json": [{"date": "2026-11-14", "value": 2}],
+        "metadata/data.json": {"updated_at": STAMP},
+    }
+    pointer = publish_snapshot(
+        tmp_path / "store",
+        files,
+        parent_id=None,
+        producer_revision=REVISION,
+        created_at=STAMP,
+        validator=lambda _: True,
+    )
+    artifact = _artifact(42, 50)
+    target = artifact
+    parts = field.split(".")
+    for part in parts[:-1]:
+        target = target[part]
+    target[parts[-1]] = value
+    actions = Actions()
+    actions.artifacts[42] = artifact
+    publisher, checkpoint, _, _ = _publisher(actions=actions)
+
+    with pytest.raises(CloudPublicationError, match="artifact provenance"):
+        publisher.reserve(
+            generation_dir=tmp_path / "store/generations" / pointer["generation_id"],
+            artifact_id=42,
+            run_id=50,
+            event_sha=REVISION,
+        )
+
+    assert checkpoint.writes == 0
+
+
+def test_finish_rejects_artifact_provenance_mismatch_without_checkpoint_write():
+    candidate = _generation()
+    artifact = _artifact(candidate.artifact_id, candidate.workflow_run_id)
+    artifact["workflow_run"]["head_sha"] = NEW_REVISION
+    actions = Actions()
+    actions.artifacts[candidate.artifact_id] = artifact
+    publisher, checkpoint, _, _ = _publisher(
+        PublicationState(candidate=candidate, last_attempt=1), actions=actions
+    )
+
+    with pytest.raises(CloudPublicationError, match="artifact provenance"):
+        publisher.finish(
+            current_run_id=candidate.workflow_run_id,
+            event_sha=REVISION,
+        )
+
+    assert checkpoint.writes == 0
 
 
 @pytest.mark.parametrize(
