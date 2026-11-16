@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from uuid import uuid4
 
 import httpx
@@ -152,6 +153,48 @@ def test_scheduled_revision_rejection_happens_before_download_or_collection(
             restorer=restorer(root),
         )
     assert not paths.work_dir.exists()
+
+
+@pytest.mark.parametrize("collection_logs_dir", [None, Path("/tmp/cloud-refresh/artifacts/logs")])
+def test_main_serializes_optional_collection_log_root(
+    collection_logs_dir, tmp_path, monkeypatch, capsys
+):
+    settings = Settings(
+        _env_file=None,
+        cloud_state_repo="owner/repo",
+        cloud_state_token="test-token-value",
+    )
+    monkeypatch.setattr(cloud, "Settings", lambda: settings)
+
+    class Checkpoint:
+        def __init__(self, *_args):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(cloud, "GitHubCheckpoint", Checkpoint)
+    generation_dir = tmp_path / "work" / "id" / "store" / "generations" / ("a" * 64)
+    result = cloud.CloudRefreshResult(
+        "scheduled",
+        REVISION,
+        "a" * 64,
+        "b" * 64,
+        generation_dir,
+        None,
+        collection_logs_dir,
+    )
+    monkeypatch.setattr(cloud, "refresh_cloud", lambda **_kwargs: result)
+
+    exit_code = cloud.main(
+        ["--mode", "scheduled", "--app-revision", REVISION, "--site-url", "https://example.test"]
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["collection_logs_dir"] == (
+        str(collection_logs_dir) if collection_logs_dir is not None else None
+    )
 
 
 def test_code_only_preserves_data_timestamps_and_calls_no_provider(

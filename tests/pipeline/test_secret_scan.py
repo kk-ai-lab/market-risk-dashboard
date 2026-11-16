@@ -128,6 +128,16 @@ def test_repository_scan_covers_untracked_public_data_without_echoing_hits(tmp_p
     assert "synthetic_secret_value_123456" not in result.stdout
 
 
+def test_repository_scan_ignores_short_noncredential_values(tmp_path: Path) -> None:
+    _init_repo(tmp_path)
+    data = tmp_path / "public" / "data" / "latest.json"
+    data.write_text('{"api_key":".."}', encoding="utf-8")
+
+    result = _scan(tmp_path)
+
+    assert result.returncode == 0
+
+
 def test_repository_scan_keeps_coverage_of_dist_and_run_logs(tmp_path: Path) -> None:
     _init_repo(tmp_path)
     bundle = tmp_path / "dist" / "assets" / "app.js"
@@ -150,7 +160,8 @@ def test_repository_scan_keeps_coverage_of_dist_and_run_logs(tmp_path: Path) -> 
 def test_repository_scan_requires_a_nonempty_data_tree(tmp_path: Path, layout: str) -> None:
     _init_repo(tmp_path)
     data = tmp_path / "public" / "data" / "latest.json"
-    subprocess.run(["git", "rm", "--quiet", str(data)], cwd=tmp_path, check=True)
+    subprocess.run(["git", "rm", "--cached", "--quiet", str(data)], cwd=tmp_path, check=True)
+    data.unlink()
     if layout == "missing":
         data.parent.rmdir()
 
@@ -218,6 +229,50 @@ def test_artifact_scan_reads_dotenv_export_and_inline_comment(tmp_path: Path) ->
 
     assert result.returncode == 1
     assert "literal env value (masked)" in result.stdout
+    assert secret not in result.stdout
+
+
+def test_artifact_scan_resolves_dotenv_values_before_process_environment(
+    tmp_path: Path,
+) -> None:
+    _init_repo(tmp_path)
+    secret = "synthetic_file_base_value_123456"
+    (tmp_path / ".env").write_text(
+        f"BASE_VALUE={secret}\nDATA_API_KEY=${{BASE_VALUE}}\n", encoding="utf-8"
+    )
+    artifact = tmp_path / "dist"
+    (artifact / "data").mkdir(parents=True)
+    (artifact / "data" / "current.json").write_text(
+        f'{{"marker":"{secret}"}}', encoding="utf-8"
+    )
+
+    result = _scan(
+        tmp_path,
+        "--artifact-root",
+        str(artifact),
+        environment={"BASE_VALUE": "synthetic_env_base_value_123456"},
+    )
+
+    assert result.returncode == 1
+    assert "literal env value (masked)" in result.stdout
+    assert secret not in result.stdout
+
+
+def test_artifact_scan_redacts_configured_literals_in_finding_paths(tmp_path: Path) -> None:
+    _init_repo(tmp_path)
+    secret = "synthetic_path_secret_value_123456"
+    (tmp_path / ".env").write_text(f"DATA_API_KEY={secret}\n", encoding="utf-8")
+    artifact = tmp_path / "dist"
+    (artifact / "data").mkdir(parents=True)
+    (artifact / "data" / f"{secret}.json").write_text(
+        f'{{"marker":"{secret}"}}', encoding="utf-8"
+    )
+
+    result = _scan(tmp_path, "--artifact-root", str(artifact))
+
+    assert result.returncode == 1
+    assert "literal env value (masked)" in result.stdout
+    assert "[REDACTED].json" in result.stdout
     assert secret not in result.stdout
 
 
