@@ -364,9 +364,11 @@ class PagesGenerationRestorer:
                         self.base_url + "/data/current.json?refresh=" + uuid4().hex,
                         headers={"Cache-Control": "no-cache"},
                     )
-                except httpx.HTTPError as exc:
+                except httpx.TransportError as exc:
                     if attempt == len(_PAGES_POINTER_RETRY_DELAYS):
                         raise CloudRefreshError("Pages pointer read failed") from exc
+                except httpx.HTTPError as exc:
+                    raise CloudRefreshError("Pages pointer read failed") from exc
                 else:
                     if response.status_code == 404:
                         return None
