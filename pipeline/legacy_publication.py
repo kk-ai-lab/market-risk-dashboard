@@ -7,10 +7,15 @@ LEGACY_REASON_CODES = {
     "news_translation_incomplete": "input_dataset_unhealthy",
 }
 LEGACY_RISK_DOCUMENT_PATHS = {"latest/risk.json", "latest/dashboard.json"}
+LEGACY_RISK_HISTORY_PATHS = {
+    "history/risk/daily.json",
+    "history/risk/30d.json",
+    "history/risk/90d.json",
+}
 
 
 def legacy_publication_bytes(relative: str, content: bytes) -> bytes | None:
-    if relative.startswith("history/risk/"):
+    if relative in LEGACY_RISK_HISTORY_PATHS:
         points = load_json_rejecting_duplicates(content)
         if not isinstance(points, list) or any(not isinstance(point, dict) for point in points):
             raise ValueError("Legacy risk history must be an array of objects")
