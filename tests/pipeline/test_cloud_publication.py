@@ -177,6 +177,23 @@ def _stub_cli_runtime(monkeypatch, checkpoint, actions, pages):
     monkeypatch.setattr(cloud_publication, "PagesGenerationRestorer", lambda _: pages)
 
 
+def _preflight_cli_args(*options):
+    return [
+        "preflight",
+        "--mode",
+        "code-only",
+        "--event-ref",
+        "refs/heads/dev",
+        "--event-sha",
+        REVISION,
+        "--run-id",
+        "50",
+        "--site-url",
+        "https://example.test/",
+        *options,
+    ]
+
+
 def test_preflight_uses_the_deployed_application_for_scheduled_runs():
     deployed = _generation(artifact_id=39, run_id=38, revision=NEW_REVISION)
     publisher, _, _, _ = _publisher(PublicationState(deployed=deployed, last_attempt=1))
@@ -439,21 +456,7 @@ def test_preflight_cli_emits_fixed_code_and_hides_exception_details(monkeypatch,
     actions.active_workflow_runs = fail_to_read_run_list
     _stub_cli_runtime(monkeypatch, checkpoint, actions, Pages(None))
 
-    result = main(
-        [
-            "preflight",
-            "--mode",
-            "code-only",
-            "--event-ref",
-            "refs/heads/dev",
-            "--event-sha",
-            REVISION,
-            "--run-id",
-            "50",
-            "--site-url",
-            "https://example.test/",
-        ]
-    )
+    result = main(_preflight_cli_args())
 
     stderr = capsys.readouterr().err.splitlines()
     assert result == 1
@@ -471,19 +474,7 @@ def test_preflight_cli_emits_fixed_code_and_hides_exception_details(monkeypatch,
     ("arguments", "expected_event_code"),
     [
         (
-            [
-                "preflight",
-                "--mode",
-                "code-only",
-                "--event-ref",
-                "refs/heads/dev",
-                "--event-sha",
-                REVISION,
-                "--run-id",
-                "50",
-                "--site-url",
-                "https://example.test/",
-            ],
+            _preflight_cli_args(),
             "preflight_configuration_invalid",
         ),
         (
@@ -514,7 +505,7 @@ def test_preflight_cli_emits_fixed_code_and_hides_exception_details(monkeypatch,
         ),
     ],
 )
-def test_cloud_publication_cli_classifies_import_time_settings_failure(
+def test_cloud_publication_cli_classifies_invalid_runtime_settings(
     arguments, expected_event_code
 ):
     result = _run_python_with_invalid_settings(
@@ -602,21 +593,7 @@ def test_preflight_cli_distinguishes_legacy_probe_failure(monkeypatch, capsys):
     _stub_cli_runtime(monkeypatch, checkpoint, actions, pages)
     monkeypatch.setattr(pages, "has_legacy_data", fail_legacy_probe)
 
-    result = main(
-        [
-            "preflight",
-            "--mode",
-            "code-only",
-            "--event-ref",
-            "refs/heads/dev",
-            "--event-sha",
-            REVISION,
-            "--run-id",
-            "50",
-            "--site-url",
-            "https://example.test/",
-        ]
-    )
+    result = main(_preflight_cli_args())
 
     stderr = capsys.readouterr().err.splitlines()
     assert result == 1
@@ -638,22 +615,7 @@ def test_preflight_cli_success_outputs_are_unchanged(monkeypatch, capsys, tmp_pa
     _stub_cli_runtime(monkeypatch, checkpoint, actions, pages)
     monkeypatch.setenv("GITHUB_OUTPUT", str(output))
 
-    result = main(
-        [
-            "preflight",
-            "--mode",
-            "code-only",
-            "--event-ref",
-            "refs/heads/dev",
-            "--event-sha",
-            REVISION,
-            "--run-id",
-            "50",
-            "--site-url",
-            "https://example.test/",
-            "--allow-legacy-bootstrap",
-        ]
-    )
+    result = main(_preflight_cli_args("--allow-legacy-bootstrap"))
 
     captured = capsys.readouterr()
     assert result == 0
@@ -685,19 +647,7 @@ def test_cloud_publication_cli_success_outputs_cover_each_command(
 
     commands = [
         (
-            [
-                "preflight",
-                "--mode",
-                "code-only",
-                "--event-ref",
-                "refs/heads/dev",
-                "--event-sha",
-                REVISION,
-                "--run-id",
-                "50",
-                "--site-url",
-                "https://example.test/",
-            ],
+            _preflight_cli_args(),
             "\n".join(
                 (
                     "mode=code-only",
