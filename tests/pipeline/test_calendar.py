@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from pipeline.collectors.calendar import CalendarCollector
 from pipeline.providers.base import ProviderError
 from pipeline.settings import Settings
@@ -14,11 +12,12 @@ from pipeline.settings import Settings
 class _FakeRegistry:
     """Stub of ProviderRegistry.call: canned results per (domain, method)."""
 
-    def __init__(self, earnings=None, economic=None, earnings_error=None, economic_error=None) -> None:
+    def __init__(self, earnings=None, economic=None, earnings_error=None, economic_error=None, economic_degraded=False) -> None:
         self.earnings = earnings or []
         self.economic = economic or []
         self.earnings_error = earnings_error
         self.economic_error = economic_error
+        self.economic_degraded = economic_degraded
         self.degraded_domains: set[str] = set()
         self.calls: list[tuple[str, str, str]] = []
 
@@ -31,7 +30,15 @@ class _FakeRegistry:
         if domain == "economic":
             if self.economic_error:
                 raise ProviderError(self.economic_error)
-            return {"result": self.economic, "meta": {"provider": "fred_calendar", "used_fallback": False, "from_cache": False}}
+            return {
+                "result": self.economic,
+                "meta": {
+                    "provider": "fred_calendar",
+                    "used_fallback": False,
+                    "from_cache": False,
+                    "degraded": self.economic_degraded,
+                },
+            }
         raise AssertionError(f"unexpected domain {domain}")
 
     def providers_for(self, domain: str):
@@ -63,7 +70,7 @@ def test_collects_earnings_and_economic_with_utc_instants(tmp_path: Path) -> Non
     assert [c[:2] for c in registry.calls] == [("calendar", "get_earnings_calendar"), ("economic", "get_economic_calendar")]
     # N-2: the cache key names the real 14-day horizon, not the old lying earnings_7d.
     assert registry.calls[0][2] == "earnings_14d"
-    assert registry.calls[1][2] == "economic_14d"
+    assert registry.calls[1][2] == "economic_v2_14d"
 
     by_id = {e.id: e for e in payload.events}
     assert len(by_id) == 4
@@ -154,3 +161,14 @@ def test_zero_rows_success_is_empty_not_degraded(tmp_path: Path) -> None:
     payload, meta = _collector(registry, tmp_path).collect()
     assert payload.events == []
     assert meta["degraded"] == []
+
+
+def test_partial_economic_response_keeps_events_and_degrades_quality(tmp_path: Path) -> None:
+    registry = _FakeRegistry(economic=ECONOMIC, economic_degraded=True)
+
+    payload, meta = _collector(registry, tmp_path).collect()
+
+    assert {event.id for event in payload.events} == {row["id"] for row in ECONOMIC}
+    economic = next(item for item in payload.source_status if item.source == "economic")
+    assert economic.state == "degraded"
+    assert meta["data_quality"] < 1.0

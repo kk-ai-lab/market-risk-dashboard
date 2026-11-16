@@ -20,10 +20,13 @@ import time
 from datetime import date
 from typing import Any
 
+import httpx
+
 from pipeline.providers._util import UA, _today
 from pipeline.providers.base import (
     BaseProvider,
     EconomicRow,
+    PartialProviderResult,
     ProviderError,
     ProviderHealth,
 )
@@ -82,21 +85,32 @@ class FredCalendarProvider(BaseProvider):
                 error=str(exc)[:200], checked_at=None,
             )
 
-    def get_economic_calendar(self, start: str, end: str) -> list[dict[str, Any]]:
+    def get_economic_calendar(
+        self, start: str, end: str
+    ) -> list[dict[str, Any]] | PartialProviderResult[list[dict[str, Any]]]:
         rows: list[dict[str, Any]] = []
         errors: list[str] = []
+        successful_requests = 0
         for release_id in RELEASES:
             try:
-                rows.extend(self._fred_release_dates(release_id, start, end))
+                release_rows = self._fred_release_dates(release_id, start, end)
             except ProviderError as exc:
-                errors.append(f"release {release_id}: {exc}")
+                errors.append(f"FRED release {release_id} failed ({exc.cls})")
+            else:
+                successful_requests += 1
+                rows.extend(release_rows)
         try:
-            rows.extend(self._fomc_meetings(start, end))
+            fomc_rows = self._fomc_meetings(start, end)
         except ProviderError as exc:
-            errors.append(f"fomc: {exc}")
+            errors.append(f"FOMC schedule failed ({exc.cls})")
+        else:
+            successful_requests += 1
+            rows.extend(fomc_rows)
         rows.sort(key=lambda r: r["datetime"])
-        if not rows and errors:
+        if successful_requests == 0:
             raise ProviderError("FRED calendar all sources failed: " + "; ".join(errors[:3]))
+        if errors:
+            return PartialProviderResult(result=rows, errors=tuple(errors))
         return rows
 
     # ---- FRED release dates ----
@@ -105,40 +119,50 @@ class FredCalendarProvider(BaseProvider):
         if not self.api_key:
             raise ProviderError("FRED calendar: missing DATA_FRED_API_KEY (local .env)")
         name, time_et, importance = RELEASES[release_id]
-        resp = self._client.get(
-            f"{FRED_BASE}/release/dates",
-            params={
-                "release_id": release_id,
-                "api_key": self.api_key,
-                "file_type": "json",
-                "include_release_dates_with_no_data": "true",
-                "sort_order": "asc",
-                # #83: the realtime window bounds the *release dates* server-side — without
-                # it the API returns the full 1949→today history for a release.
-                "realtime_start": start,
-                "realtime_end": end,
-            },
-        )
+        try:
+            resp = self._client.get(
+                f"{FRED_BASE}/release/dates",
+                params={
+                    "release_id": release_id,
+                    "api_key": self.api_key,
+                    "file_type": "json",
+                    "include_release_dates_with_no_data": "true",
+                    "sort_order": "asc",
+                    # #83: the realtime window bounds the *release dates* server-side — without
+                    # it the API returns the full 1949→today history for a release.
+                    "realtime_start": start,
+                    "realtime_end": end,
+                },
+            )
+        except httpx.TransportError as exc:
+            raise ProviderError.from_exception(
+                exc, detail=f"FRED release {release_id} request failed"
+            ) from exc
         if resp.status_code != 200:
             # #103/S-1: one error boundary — classification + redaction (from_http).
             raise ProviderError.from_http(f"FRED release {release_id}", resp)
-        data = resp.json()
-        rows = data.get("release_dates") if isinstance(data, dict) else None
-        if not isinstance(rows, list):
-            raise ProviderError(f"FRED release {release_id}: unexpected payload")
-        out: list[dict[str, Any]] = []
-        for row in rows:
-            day = str(row.get("date", ""))
-            if not day:
-                continue
-            out.append(EconomicRow(
-                id=f"econ-fred-{release_id}-{day}",
-                title=name,
-                datetime=et_instant(day, time_et),
-                importance=importance,
-                country="US",
-                source="fred",
-            ).model_dump(mode="json"))
+        try:
+            data = resp.json()
+            rows = data.get("release_dates") if isinstance(data, dict) else None
+            if not isinstance(rows, list):
+                raise TypeError("release_dates must be a list")
+            out: list[dict[str, Any]] = []
+            for row in rows:
+                if not isinstance(row, dict):
+                    raise TypeError("release date row must be an object")
+                day = str(row.get("date", ""))
+                if not day:
+                    continue
+                out.append(EconomicRow(
+                    id=f"econ-fred-{release_id}-{day}",
+                    title=name,
+                    datetime=et_instant(day, time_et),
+                    importance=importance,
+                    country="US",
+                    source="fred",
+                ).model_dump(mode="json"))
+        except (AttributeError, KeyError, TypeError, ValueError, OverflowError) as exc:
+            raise ProviderError(f"FRED release {release_id}: invalid response") from exc
         return out
 
     # ---- FOMC meetings (federalreserve.gov, official) ----
@@ -149,15 +173,33 @@ class FredCalendarProvider(BaseProvider):
         Statement lands 14:00 ET on the **second** day of each meeting (#83 §3C); the
         ``*`` press-conference marker is the presence of a ``fomcpressconf`` link.
         """
-        resp = self._client.get(FOMC_CALENDAR_URL)
+        try:
+            resp = self._client.get(FOMC_CALENDAR_URL)
+        except httpx.TransportError as exc:
+            raise ProviderError.from_exception(exc, detail="FOMC calendar request failed") from exc
         if resp.status_code != 200:
             # #103/S-1: one error boundary — classification + redaction (from_http).
             raise ProviderError.from_http("FOMC calendar", resp)
         html = resp.text
+        if not isinstance(html, str):
+            raise ProviderError("FOMC calendar returned an invalid document")
+        try:
+            start_day, end_day = date.fromisoformat(start), date.fromisoformat(end)
+        except ValueError as exc:
+            raise ProviderError("FOMC calendar received an invalid date range") from exc
+        if end_day < start_day:
+            raise ProviderError("FOMC calendar received an invalid date range")
+        requested_years = set(range(start_day.year, end_day.year + 1))
         out: list[dict[str, Any]] = []
         sections = _year_sections(html)
         if not sections:
             raise ProviderError("FOMC calendar parse returned no year sections")
+        available_years = {year for _, year in sections}
+        missing_years = requested_years - available_years
+        if missing_years:
+            missing = ", ".join(str(year) for year in sorted(missing_years))
+            raise ProviderError(f"FOMC calendar requested year coverage missing: {missing}")
+        valid_meeting_years: set[int] = set()
         for idx, (section_start, year) in enumerate(sections):
             section_end = sections[idx + 1][0] if idx + 1 < len(sections) else len(html)
             section = html[section_start:section_end]
@@ -166,7 +208,9 @@ class FredCalendarProvider(BaseProvider):
                 month = _MONTHS.get(m.group(1))
                 if month is None:
                     continue
-                date_m = re.search(r"fomc-meeting__date[^>]*>\s*([\d-]+)\s*</div>", section[m.end():])
+                block_end = months[midx + 1].start() if midx + 1 < len(months) else len(section)
+                month_block = section[m.end():block_end]
+                date_m = re.search(r"fomc-meeting__date[^>]*>\s*([\d-]+)\s*</div>", month_block)
                 if date_m is None:
                     continue
                 day_range = date_m.group(1)
@@ -174,16 +218,15 @@ class FredCalendarProvider(BaseProvider):
                 if not days:
                     continue
                 decision_day = days[1] if len(days) >= 2 else days[0]  # statement on the SECOND day
-                block_end = months[midx + 1].start() if midx + 1 < len(months) else len(section)
-                # date_m offsets are relative to the slice after the month marker — add
-                # m.end() back to address the span within the section.
-                press_conf = "fomcpressconf" in section[m.end() + date_m.end():block_end]
+                press_conf = "fomcpressconf" in month_block[date_m.end():]
                 try:
-                    day = date(year, month, decision_day).isoformat()
+                    meeting_day = date(year, month, decision_day)
                 except ValueError:
                     continue  # e.g. a past year's malformed row — skip, never crash the run
-                if not (start <= day <= end):
+                valid_meeting_years.add(year)
+                if not (start_day <= meeting_day <= end_day):
                     continue
+                day = meeting_day.isoformat()
                 title = "FOMC Meeting" + (" (press conference)" if press_conf else "")
                 out.append(EconomicRow(
                     id=f"econ-fomc-{day}",
@@ -193,8 +236,10 @@ class FredCalendarProvider(BaseProvider):
                     country="US",
                     source="fomc",
                 ).model_dump(mode="json"))
-        if not out:
-            raise ProviderError("FOMC calendar parse returned no meeting rows")
+        invalid_years = requested_years - valid_meeting_years
+        if invalid_years:
+            invalid = ", ".join(str(year) for year in sorted(invalid_years))
+            raise ProviderError(f"FOMC calendar has no meeting rows for requested years: {invalid}")
         return out
 
 

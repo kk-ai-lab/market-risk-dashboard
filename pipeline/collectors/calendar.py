@@ -17,6 +17,7 @@ _FEEDS: tuple[tuple[CalendarSource, str, str], ...] = (
     ("economic", "economic", "get_economic_calendar"),
     ("bea_calendar", "bea_calendar", "get_economic_calendar"),
 )
+_ECONOMIC_CACHE_VERSION = 2
 
 
 def _event(source: CalendarSource, row: dict[str, Any], provider: str) -> CalendarEvent:
@@ -105,7 +106,10 @@ class CalendarCollector:
                 continue
             checked_at = now_utc()
             try:
-                response = self.registry.call(domain, method, f"{source}_{horizon}d", args=(start, end))
+                cache_key = f"{source}_{horizon}d"
+                if source == "economic":
+                    cache_key = f"{source}_v{_ECONOMIC_CACHE_VERSION}_{horizon}d"
+                response = self.registry.call(domain, method, cache_key, args=(start, end))
                 checked_at = now_utc()
                 meta = response["meta"]
                 provider = str(meta.get("provider", "unavailable"))

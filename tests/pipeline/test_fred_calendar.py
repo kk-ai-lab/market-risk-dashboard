@@ -205,6 +205,21 @@ def test_fomc_valid_schedule_with_no_meeting_in_window_is_empty(tmp_path: Path) 
     assert provider._fomc_meetings("2026-01-01", "2026-01-01") == []
 
 
+def test_successful_empty_children_still_make_a_partial_outcome(tmp_path: Path) -> None:
+    provider = _provider(tmp_path)
+    provider._client = _Client(
+        fred_by_release={},
+        failing_releases={10},
+        fomc_html=FOMC_HTML,
+    )
+
+    outcome = provider.get_economic_calendar("2026-01-01", "2026-01-01")
+
+    assert not isinstance(outcome, list)
+    assert outcome.result == []
+    assert outcome.errors
+
+
 def test_fomc_date_does_not_borrow_from_the_next_month(tmp_path: Path) -> None:
     provider = _provider(tmp_path)
     provider._client = _Client(
@@ -248,6 +263,25 @@ def test_transport_error_in_one_child_preserves_other_calendar_rows(tmp_path: Pa
     assert not isinstance(outcome, list)
     assert "econ-fred-192-2026-09-01" in {row["id"] for row in outcome.result}
     assert all("simulated connection failure" not in error for error in outcome.errors)
+
+
+def test_invalid_json_is_normalized_to_provider_error(tmp_path: Path) -> None:
+    class InvalidJsonResponse(_Resp):
+        def json(self) -> Any:
+            raise ValueError("invalid JSON")
+
+    class InvalidJsonClient(_Client):
+        def get(self, url: str, params: dict | None = None) -> Any:
+            params = params or {}
+            if int(params.get("release_id", 0)) == 10:
+                return InvalidJsonResponse(200)
+            return super().get(url, params)
+
+    provider = _provider(tmp_path)
+    provider._client = InvalidJsonClient(fred_by_release={})
+
+    with pytest.raises(ProviderError, match="invalid response"):
+        provider._fred_release_dates(10, "2026-08-07", "2026-08-30")
 
 
 def test_all_sources_failed_raises(tmp_path: Path) -> None:
