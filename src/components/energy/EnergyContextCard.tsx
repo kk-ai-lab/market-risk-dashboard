@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { EnergyEnvelope } from "@/schemas";
+import { CONTRACT_CONSTANTS, type EnergyEnvelope } from "@/schemas";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { formatDate, formatDateTime, formatNumber, formatSignedNumber } from "@/lib/format";
 
 const EIA_SERIES_URL = "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?f=W&n=PET&s=WCESTUS1";
-const OBSERVATION_WINDOW_DAYS = 14;
+const OBSERVATION_WINDOW_DAYS = CONTRACT_CONSTANTS.energy_observation_window_days;
 
 function currentObservationAge(weekEnding?: string): "unknown" | "within_window" | "overdue" {
   if (!weekEnding) return "unknown";

@@ -59,6 +59,7 @@ from pydantic.json_schema import models_json_schema  # noqa: E402
 
 import pipeline.schemas  # noqa: E402,F401  (import for the side effect: resolves forward refs)
 from pipeline.schemas import registry  # noqa: E402
+from pipeline.schemas.energy import ENERGY_OBSERVATION_WINDOW_DAYS  # noqa: E402
 from pipeline.schemas.envelope import SCHEMA_VERSION, BaseEnvelope  # noqa: E402
 from pipeline.schemas.metadata import (  # noqa: E402
     METADATA_SCHEMA_VERSION,
@@ -438,6 +439,7 @@ def build_constants(named_enums: dict[tuple[str, ...], str]) -> dict[str, Any]:
         "freshness_status": by_name["FreshnessStatus"],
         "reason_codes": by_name["ReasonCode"],
         "coinmetrics_expected_interval_minutes": COINMETRICS_EXPECTED_MINUTES,
+        "energy_observation_window_days": ENERGY_OBSERVATION_WINDOW_DAYS,
         "risk_level_thresholds": risk_model["thresholds"]["risk_level"],
         "canonical_dataset_keys": list(registry.CANONICAL_KEYS),
         "expected_interval_minutes": {
