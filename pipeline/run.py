@@ -721,7 +721,6 @@ class RunRejection:
 def _run_risk_and_write(
     results: dict[str, Any], writer: StorageWriter, command: str
 ) -> RunRejection | None:
-    """Compute and publish the full-run result, or return its local rejection."""
     market_meta = results.get("market_meta", {})
     macro_meta = results.get("macro_meta", {})
     news_meta = results.get("news_meta", {})

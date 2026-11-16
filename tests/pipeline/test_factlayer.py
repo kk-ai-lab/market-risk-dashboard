@@ -600,7 +600,6 @@ def test_full_path_rejections_return_fixed_reason_and_local_error(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Every explicit full-run rejection has a stable code and retains local detail."""
     from types import SimpleNamespace
 
     import pipeline.run as run_module
