@@ -38,7 +38,14 @@ from pipeline.factlayer import FactLayerBuilder
 from pipeline.indicators.derived_series import derive_report
 from pipeline.metadata import oldest_source_timestamp, row_count_for
 from pipeline.providers import build_registry
-from pipeline.report import RunFailureCode, RunRejectionCode, write_run_report
+from pipeline.report import (
+    RiskInputDiagnostics,
+    RunFailureCode,
+    RunRejectionCode,
+    TreasuryInputEvidence,
+    TreasuryRefreshStatus,
+    write_run_report,
+)
 from pipeline.risk.model import RiskModel
 from pipeline.risk_context import (  # signal assembly + gated set (#192 extraction)
     COMMAND_DATASETS,
@@ -53,10 +60,12 @@ from pipeline.schemas import (
     DashboardAsset,
     DashboardPayload,
     EquitiesEnvelope,
+    MacroDataset,
     MacroEnvelope,
     NewsEnvelope,
     NewsTranslationsDataset,
     RiskEnvelope,
+    RiskModelResult,
     SectorsEnvelope,
 )
 from pipeline.schemas import registry as dataset_registry
@@ -70,6 +79,7 @@ from pipeline.schemas.envelope import (
 from pipeline.settings import settings
 from pipeline.storage import StorageWriter
 from pipeline.storage.outcomes import RunOutcomes
+from pipeline.storage.treasury_snapshot import TreasurySnapshot
 from pipeline.storage.writer import CorruptDataError
 from pipeline.universe import AssetUniverse
 from pipeline.utils import now_utc
@@ -453,9 +463,42 @@ def _empty_results() -> dict[str, Any]:
         "prev_total_score": None,
         "prev_dim_scores": None,
         "risk_history": [],
+        "treasury_input_evidence": None,
         "series_history": {},
         "macro_meta": {},
     }
+
+
+def _treasury_input_evidence(
+    snapshot: TreasurySnapshot | None,
+    status: TreasuryRefreshStatus | None = None,
+) -> TreasuryInputEvidence:
+    counts = {"DGS2": 0, "DGS10": 0}
+    if snapshot is not None:
+        for year_number in snapshot.required_years:
+            year = snapshot.years.get(year_number)
+            if year is None:
+                continue
+            for series_id in counts:
+                counts[series_id] += len(year.series.get(series_id, []))
+
+    if status is None:
+        if snapshot is None:
+            status = TreasuryRefreshStatus.NOT_CONFIGURED
+        elif snapshot.errors:
+            status = TreasuryRefreshStatus.REFRESH_FAILED
+        elif not any(counts.values()):
+            status = TreasuryRefreshStatus.NO_OBSERVATIONS
+        elif snapshot.degraded:
+            status = TreasuryRefreshStatus.COMPLETE_DEGRADED
+        else:
+            status = TreasuryRefreshStatus.COMPLETE
+
+    return TreasuryInputEvidence(
+        status=status,
+        dgs2_observation_count=counts["DGS2"],
+        dgs10_observation_count=counts["DGS10"],
+    )
 
 
 def _run_collection(command: str) -> dict[str, Any]:
@@ -507,7 +550,6 @@ def _run_collection(command: str) -> dict[str, Any]:
                 SnapshotError as TreasurySnapshotError,
             )
             from pipeline.storage.treasury_snapshot import (
-                TreasurySnapshot,
                 refresh_treasury_snapshot,
             )
 
@@ -517,6 +559,8 @@ def _run_collection(command: str) -> dict[str, Any]:
             )
             treasury_series = treasury_grant.macro_series if treasury_grant is not None else ()
             treasury_now = datetime.now(UTC)
+            treasury_snapshot = None
+            treasury_status: TreasuryRefreshStatus | None = None
             if settings.treasury_cloud_enabled:
                 from contextlib import suppress
 
@@ -535,7 +579,7 @@ def _run_collection(command: str) -> dict[str, Any]:
                     checkpoint = GitHubCheckpoint(
                         *repository, settings.cloud_state_branch, token.get_secret_value(),
                     )
-                    macro_options["treasury_snapshot"] = refresh_cloud_treasury_snapshot(
+                    treasury_snapshot = refresh_cloud_treasury_snapshot(
                         checkpoint, settings.treasury_checkpoint_path, TreasuryProvider(settings),
                         settings=settings,
                         series_ids=treasury_series if collection_plan is not None else None,
@@ -544,14 +588,16 @@ def _run_collection(command: str) -> dict[str, Any]:
                         ),
                     )
                 except CloudTreasuryRefreshError as exc:
-                    macro_options["treasury_snapshot"] = exc.snapshot
+                    treasury_snapshot = exc.snapshot
+                    treasury_status = TreasuryRefreshStatus.REFRESH_FAILED
                     source_errors["treasury"] = "Cloud Treasury checkpoint refresh failed"
                 except (CheckpointError, TreasurySnapshotError, OSError, ValueError):
-                    macro_options["treasury_snapshot"] = TreasurySnapshot(
+                    treasury_snapshot = TreasurySnapshot(
                         years={}, required_years=list(range(treasury_now.year - 5, treasury_now.year + 1)),
                         degraded=True, errors={treasury_now.year: "Cloud Treasury checkpoint unavailable"},
                         history_rechecked=False,
                     )
+                    treasury_status = TreasuryRefreshStatus.CHECKPOINT_UNAVAILABLE
                     source_errors["treasury"] = "Cloud Treasury checkpoint unavailable"
                 finally:
                     if checkpoint is not None:
@@ -559,16 +605,22 @@ def _run_collection(command: str) -> dict[str, Any]:
                             checkpoint.close()
             else:
                 try:
-                    macro_options["treasury_snapshot"] = refresh_treasury_snapshot(
+                    treasury_snapshot = refresh_treasury_snapshot(
                         settings.artifacts_dir / "treasury", TreasuryProvider(settings), now=treasury_now,
                         series_ids=treasury_series if collection_plan is not None else None,
                     )
                 except (TreasurySnapshotError, OSError, ValueError):
-                    macro_options["treasury_snapshot"] = TreasurySnapshot(
+                    treasury_snapshot = TreasurySnapshot(
                         years={}, required_years=list(range(treasury_now.year - 5, treasury_now.year + 1)),
                         degraded=True, errors={treasury_now.year: "Treasury snapshot unavailable"}, history_rechecked=False,
                     )
+                    treasury_status = TreasuryRefreshStatus.REFRESH_FAILED
                     source_errors["treasury"] = "Treasury snapshot unavailable"
+            macro_options["treasury_snapshot"] = treasury_snapshot
+            results["treasury_input_evidence"] = _treasury_input_evidence(
+                treasury_snapshot,
+                status=treasury_status,
+            )
         if settings.bls_enabled or settings.bls_cloud_enabled or settings.approved_sources_only:
             from pipeline.providers.bls import BlsProvider
             from pipeline.storage.bls_snapshot import (
@@ -716,6 +768,30 @@ def _run_collection(command: str) -> dict[str, Any]:
 class RunRejection:
     code: RunRejectionCode
     local_error: str
+    risk_input_diagnostics: RiskInputDiagnostics | None = None
+
+
+def _risk_input_diagnostics(
+    treasury_evidence: TreasuryInputEvidence | None,
+    macro: MacroDataset,
+    risk_result: RiskModelResult,
+) -> RiskInputDiagnostics:
+    if treasury_evidence is None:
+        treasury_evidence = _treasury_input_evidence(None)
+
+    rates = {indicator.key: indicator.value for indicator in macro.rates}
+    indicators = [
+        indicator
+        for dimension in risk_result.dimensions
+        for indicator in dimension.indicators
+    ]
+    return RiskInputDiagnostics(
+        treasury=treasury_evidence,
+        macro_dgs2_has_value=rates.get("dgs2") is not None,
+        macro_dgs10_has_value=rates.get("dgs10") is not None,
+        usable_indicator_count=sum(indicator.value is not None for indicator in indicators),
+        configured_indicator_count=len(indicators),
+    )
 
 
 def _run_risk_and_write(
@@ -830,6 +906,9 @@ def _run_risk_and_write(
             return RunRejection(
                 RunRejectionCode.RISK_NO_USABLE_INDICATORS,
                 "risk calculation has no available indicators",
+                risk_input_diagnostics=_risk_input_diagnostics(
+                    results.get("treasury_input_evidence"), macro.envelope.payload, risk_result
+                ),
             )
         risk_source_updated_at = oldest_source_timestamp(
             [
@@ -1033,6 +1112,7 @@ def _write_failure_report(
     *,
     failure_code: RunFailureCode,
     rejection_code: RunRejectionCode | None = None,
+    risk_input_diagnostics: RiskInputDiagnostics | None = None,
     health: dict[str, list[str]] | None = None,
 ) -> None:
     """Write an ok=False run report — shared by the explicit failure path and the
@@ -1051,6 +1131,7 @@ def _write_failure_report(
         degraded_datasets=health["degraded"] if health is not None else [],
         failure_code=failure_code,
         rejection_code=rejection_code,
+        risk_input_diagnostics=risk_input_diagnostics,
     )
 
 
@@ -1275,6 +1356,7 @@ def main(argv: list[str] | None = None) -> int:
 
         # full / fact-layer
         rejection_code: RunRejectionCode | None = None
+        risk_input_diagnostics: RiskInputDiagnostics | None = None
         if command == "fact-layer":
             ok, error = _run_fact_layer_only()
         else:
@@ -1286,6 +1368,9 @@ def main(argv: list[str] | None = None) -> int:
             ok = rejection is None
             error = rejection.local_error if rejection is not None else None
             rejection_code = rejection.code if rejection is not None else None
+            risk_input_diagnostics = (
+                rejection.risk_input_diagnostics if rejection is not None else None
+            )
             results["durations"]["total"] = time.monotonic() - started
 
         health = dataset_health(StorageWriter(settings.data_dir), command, run_started_at=run_started_at)
@@ -1300,6 +1385,7 @@ def main(argv: list[str] | None = None) -> int:
             error,
             failure_code=RunFailureCode.RESULT_REJECTED,
             rejection_code=rejection_code,
+            risk_input_diagnostics=risk_input_diagnostics,
             health=health,
         )
         return 1

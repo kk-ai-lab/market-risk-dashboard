@@ -386,6 +386,17 @@ def test_child_failure_logs_only_allowlisted_collection_summary(
     )
     report_dir = settings.artifacts_dir / "logs"
     report_dir.mkdir(parents=True)
+    risk_input_diagnostics = {
+        "treasury": {
+            "status": "checkpoint_unavailable",
+            "dgs2_observation_count": 0,
+            "dgs10_observation_count": 0,
+        },
+        "macro_dgs2_has_value": False,
+        "macro_dgs10_has_value": False,
+        "usable_indicator_count": 0,
+        "configured_indicator_count": 19,
+    }
     (report_dir / "run-report-20261115T120000Z.json").write_text(
         json.dumps(
             {
@@ -396,7 +407,10 @@ def test_child_failure_logs_only_allowlisted_collection_summary(
                 "degraded_datasets": ["macro"],
                 "failure_code": failure_code,
                 **(
-                    {"rejection_code": "risk_validation_failed"}
+                    {
+                        "rejection_code": "risk_no_usable_indicators",
+                        "risk_input_diagnostics": risk_input_diagnostics,
+                    }
                     if failure_code == "result_rejected"
                     else {}
                 ),
@@ -446,7 +460,10 @@ def test_child_failure_logs_only_allowlisted_collection_summary(
                     "failure_code": failure_code,
                 },
                 **(
-                    {"rejection_code": "risk_validation_failed"}
+                    {
+                        "rejection_code": "risk_no_usable_indicators",
+                        "risk_input_diagnostics": risk_input_diagnostics,
+                    }
                     if failure_code == "result_rejected"
                     else {}
                 ),
@@ -750,6 +767,184 @@ def test_collection_summary_parses_only_known_rejection_codes(tmp_path, rejectio
     assert summary is not None
     assert summary.as_dict().get("rejection_code") == expected
     assert "free-text-secret" not in json.dumps(summary.as_dict())
+
+
+def test_collection_summary_projects_valid_risk_input_diagnostics(tmp_path):
+    artifacts = tmp_path / "artifacts"
+    report_dir = artifacts / "logs"
+    report_dir.mkdir(parents=True)
+    risk_input_diagnostics = {
+        "treasury": {
+            "status": "checkpoint_unavailable",
+            "dgs2_observation_count": 0,
+            "dgs10_observation_count": 0,
+        },
+        "macro_dgs2_has_value": False,
+        "macro_dgs10_has_value": False,
+        "usable_indicator_count": 0,
+        "configured_indicator_count": 19,
+    }
+    (report_dir / "run-report-20261115T120000Z.json").write_text(
+        json.dumps(
+            {
+                "ok": False,
+                "clean": False,
+                "failed_datasets": ["risk"],
+                "skipped_datasets": [],
+                "degraded_datasets": [],
+                "failure_code": "result_rejected",
+                "rejection_code": "risk_no_usable_indicators",
+                "risk_input_diagnostics": risk_input_diagnostics,
+                "error": "report-error-secret",
+                "degraded": ["provider-note-secret"],
+                "provider_status": {"credential": "provider-secret"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    summary = cloud._read_collection_summary(artifacts)
+
+    assert summary is not None
+    assert summary.as_dict()["risk_input_diagnostics"] == risk_input_diagnostics
+    assert "secret" not in json.dumps(summary.as_dict())
+
+
+@pytest.mark.parametrize(
+    "risk_input_diagnostics",
+    [
+        {"unknown": True},
+        {
+            "treasury": {
+                "status": "untrusted-source-error",
+                "dgs2_observation_count": 0,
+                "dgs10_observation_count": 0,
+            },
+            "macro_dgs2_has_value": False,
+            "macro_dgs10_has_value": False,
+            "usable_indicator_count": 0,
+            "configured_indicator_count": 19,
+        },
+        {
+            "treasury": {
+                "status": "complete",
+                "dgs2_observation_count": True,
+                "dgs10_observation_count": 0,
+            },
+            "macro_dgs2_has_value": False,
+            "macro_dgs10_has_value": False,
+            "usable_indicator_count": 0,
+            "configured_indicator_count": 19,
+        },
+        {
+            "treasury": {
+                "status": "complete",
+                "dgs2_observation_count": -1,
+                "dgs10_observation_count": 0,
+            },
+            "macro_dgs2_has_value": False,
+            "macro_dgs10_has_value": False,
+            "usable_indicator_count": 0,
+            "configured_indicator_count": 19,
+        },
+        {
+            "treasury": {
+                "status": "complete",
+                "dgs2_observation_count": 10_001,
+                "dgs10_observation_count": 0,
+            },
+            "macro_dgs2_has_value": False,
+            "macro_dgs10_has_value": False,
+            "usable_indicator_count": 0,
+            "configured_indicator_count": 19,
+        },
+        {
+            "treasury": {
+                "status": "complete",
+                "dgs2_observation_count": 0,
+                "dgs10_observation_count": 0,
+            },
+            "macro_dgs2_has_value": "false",
+            "macro_dgs10_has_value": False,
+            "usable_indicator_count": 0,
+            "configured_indicator_count": 19,
+        },
+        {
+            "treasury": {
+                "status": "complete",
+                "dgs2_observation_count": 0,
+                "dgs10_observation_count": 0,
+            },
+            "macro_dgs2_has_value": False,
+            "macro_dgs10_has_value": False,
+            "usable_indicator_count": 1,
+            "configured_indicator_count": 0,
+        },
+    ],
+)
+def test_collection_summary_omits_malformed_risk_input_diagnostics(
+    tmp_path, risk_input_diagnostics
+):
+    artifacts = tmp_path / "artifacts"
+    report_dir = artifacts / "logs"
+    report_dir.mkdir(parents=True)
+    (report_dir / "run-report-20261115T120000Z.json").write_text(
+        json.dumps(
+            {
+                "ok": False,
+                "clean": False,
+                "failed_datasets": ["risk"],
+                "skipped_datasets": [],
+                "degraded_datasets": [],
+                "failure_code": "result_rejected",
+                "rejection_code": "risk_no_usable_indicators",
+                "risk_input_diagnostics": risk_input_diagnostics,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    summary = cloud._read_collection_summary(artifacts)
+
+    assert summary is not None
+    assert summary.as_dict()["rejection_code"] == "risk_no_usable_indicators"
+    assert summary.as_dict().get("risk_input_diagnostics") is None
+
+
+def test_collection_summary_omits_risk_input_diagnostics_for_other_rejections(tmp_path):
+    artifacts = tmp_path / "artifacts"
+    report_dir = artifacts / "logs"
+    report_dir.mkdir(parents=True)
+    (report_dir / "run-report-20261115T120000Z.json").write_text(
+        json.dumps(
+            {
+                "ok": False,
+                "clean": False,
+                "failed_datasets": ["risk"],
+                "skipped_datasets": [],
+                "degraded_datasets": [],
+                "failure_code": "result_rejected",
+                "rejection_code": "risk_computation_failed",
+                "risk_input_diagnostics": {
+                    "treasury": {
+                        "status": "complete",
+                        "dgs2_observation_count": 1,
+                        "dgs10_observation_count": 1,
+                    },
+                    "macro_dgs2_has_value": True,
+                    "macro_dgs10_has_value": True,
+                    "usable_indicator_count": 1,
+                    "configured_indicator_count": 19,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    summary = cloud._read_collection_summary(artifacts)
+
+    assert summary is not None
+    assert summary.as_dict().get("risk_input_diagnostics") is None
 
 
 @pytest.mark.parametrize(

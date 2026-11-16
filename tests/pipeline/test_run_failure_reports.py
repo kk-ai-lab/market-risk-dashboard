@@ -1,11 +1,22 @@
 from __future__ import annotations
 
 import json
+from datetime import date
+from types import SimpleNamespace
 
 import pytest
 
 from pipeline import run as run_mod
-from pipeline.report import RunFailureCode, write_run_report
+from pipeline.providers.treasury import TREASURY_XML
+from pipeline.report import (
+    RiskInputDiagnostics,
+    RunFailureCode,
+    RunRejectionCode,
+    TreasuryInputEvidence,
+    TreasuryRefreshStatus,
+    write_run_report,
+)
+from pipeline.storage.treasury_snapshot import Observation, TreasurySnapshot, TreasuryYear
 
 
 def _configure_run(monkeypatch, tmp_path, reports):
@@ -117,6 +128,139 @@ def test_run_report_serializes_optional_rejection_code(tmp_path):
     )
 
 
+def test_run_report_serializes_risk_input_diagnostics(tmp_path):
+    diagnostics = RiskInputDiagnostics(
+        treasury=TreasuryInputEvidence(
+            status=TreasuryRefreshStatus.CHECKPOINT_UNAVAILABLE,
+            dgs2_observation_count=0,
+            dgs10_observation_count=0,
+        ),
+        macro_dgs2_has_value=False,
+        macro_dgs10_has_value=False,
+        usable_indicator_count=0,
+        configured_indicator_count=19,
+    )
+
+    report_path = write_run_report(
+        tmp_path,
+        command="full",
+        ok=False,
+        durations={},
+        provider_status={},
+        degraded=[],
+        dataset_counts={},
+        failure_code=RunFailureCode.RESULT_REJECTED,
+        risk_input_diagnostics=diagnostics,
+    )
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["risk_input_diagnostics"] == {
+        "treasury": {
+            "status": "checkpoint_unavailable",
+            "dgs2_observation_count": 0,
+            "dgs10_observation_count": 0,
+        },
+        "macro_dgs2_has_value": False,
+        "macro_dgs10_has_value": False,
+        "usable_indicator_count": 0,
+        "configured_indicator_count": 19,
+    }
+
+
+def test_treasury_input_evidence_preserves_rows_on_failed_refresh():
+    year = TreasuryYear(
+        year=2026,
+        source=(
+            f"{TREASURY_XML}?data=daily_treasury_yield_curve"
+            "&field_tdr_date_value=2026"
+        ),
+        checked_at="2026-11-16T00:00:00+00:00",
+        date_semantics="observation_date",
+        series={
+            "DGS2": [Observation(date=date(2026, 11, 13), value=3.9)],
+            "DGS10": [Observation(date=date(2026, 11, 13), value=4.2)],
+        },
+    )
+    snapshot = TreasurySnapshot(
+        years={2026: year},
+        required_years=[2026],
+        degraded=True,
+        errors={2026: "provider detail must not enter diagnostics"},
+        history_rechecked=False,
+    )
+
+    evidence = run_mod._treasury_input_evidence(
+        snapshot,
+        TreasuryRefreshStatus.REFRESH_FAILED,
+    )
+
+    assert evidence.status is TreasuryRefreshStatus.REFRESH_FAILED
+    assert evidence.dgs2_observation_count == 1
+    assert evidence.dgs10_observation_count == 1
+
+    complete = run_mod._treasury_input_evidence(
+        snapshot.model_copy(update={"degraded": False, "errors": {}})
+    )
+    assert complete.status is TreasuryRefreshStatus.COMPLETE
+
+    failed = run_mod._treasury_input_evidence(snapshot)
+    assert failed.status is TreasuryRefreshStatus.REFRESH_FAILED
+
+
+def test_treasury_input_evidence_distinguishes_empty_and_unconfigured_snapshots():
+    empty_snapshot = TreasurySnapshot(
+        years={},
+        required_years=[2026],
+        degraded=False,
+        errors={},
+        history_rechecked=False,
+    )
+
+    empty = run_mod._treasury_input_evidence(empty_snapshot)
+    unconfigured = run_mod._treasury_input_evidence(None)
+
+    assert empty.status is TreasuryRefreshStatus.NO_OBSERVATIONS
+    assert empty.dgs2_observation_count == 0
+    assert empty.dgs10_observation_count == 0
+    assert unconfigured.status is TreasuryRefreshStatus.NOT_CONFIGURED
+
+
+def test_risk_input_diagnostics_locate_macro_and_model_boundary():
+    treasury = TreasuryInputEvidence(
+        status=TreasuryRefreshStatus.COMPLETE,
+        dgs2_observation_count=1,
+        dgs10_observation_count=1,
+    )
+    macro = SimpleNamespace(
+        rates=[
+            SimpleNamespace(key="dgs2", value=3.9),
+            SimpleNamespace(key="dgs10", value=4.2),
+        ]
+    )
+    risk_result = SimpleNamespace(
+        dimensions=[
+            SimpleNamespace(
+                indicators=[
+                    SimpleNamespace(value=None),
+                    SimpleNamespace(value=None),
+                ]
+            )
+        ]
+    )
+
+    diagnostics = run_mod._risk_input_diagnostics(
+        treasury,
+        macro,
+        risk_result,
+    )
+
+    assert diagnostics.treasury == treasury
+    assert diagnostics.macro_dgs2_has_value is True
+    assert diagnostics.macro_dgs10_has_value is True
+    assert diagnostics.usable_indicator_count == 0
+    assert diagnostics.configured_indicator_count == 2
+
+
 def test_main_full_rejection_rolls_back_before_health_and_reports_fixed_code(
     monkeypatch, tmp_path, capsys
 ):
@@ -162,6 +306,46 @@ def test_main_full_rejection_rolls_back_before_health_and_reports_fixed_code(
     assert reports[0]["failed_datasets"] == health["failed"]
     assert reports[0]["skipped_datasets"] == health["skipped"]
     assert reports[0]["degraded_datasets"] == health["degraded"]
+
+
+def test_main_rejection_carries_risk_input_diagnostics_into_report(
+    monkeypatch, tmp_path, capsys
+):
+    from pipeline.storage import StorageWriter
+
+    reports = []
+    _configure_run(monkeypatch, tmp_path, reports)
+    monkeypatch.setattr(run_mod, "StorageWriter", StorageWriter)
+    monkeypatch.setattr(run_mod, "_run_collection", lambda _command: run_mod._empty_results())
+    health = {"failed": ["risk"], "skipped": [], "degraded": []}
+    monkeypatch.setattr(run_mod, "dataset_health", lambda *_args, **_kwargs: health)
+    diagnostics = RiskInputDiagnostics(
+        treasury=TreasuryInputEvidence(
+            status=TreasuryRefreshStatus.NO_OBSERVATIONS,
+            dgs2_observation_count=0,
+            dgs10_observation_count=0,
+        ),
+        macro_dgs2_has_value=False,
+        macro_dgs10_has_value=False,
+        usable_indicator_count=0,
+        configured_indicator_count=19,
+    )
+    monkeypatch.setattr(
+        run_mod,
+        "_run_risk_and_write",
+        lambda *_args, **_kwargs: run_mod.RunRejection(
+            RunRejectionCode.RISK_NO_USABLE_INDICATORS,
+            "risk calculation has no available indicators",
+            diagnostics,
+        ),
+    )
+
+    assert run_mod.main(["--full"]) == 1
+    capsys.readouterr()
+
+    assert len(reports) == 1
+    assert reports[0]["rejection_code"] == RunRejectionCode.RISK_NO_USABLE_INDICATORS
+    assert reports[0]["risk_input_diagnostics"] is diagnostics
 
 
 def test_finish_run_marks_dataset_health_failure_and_keeps_report_semantics(monkeypatch, tmp_path):
