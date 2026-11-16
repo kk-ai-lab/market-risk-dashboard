@@ -57,6 +57,29 @@ def test_install_replaces_legacy_files_with_current_and_parent_generations(tmp_p
     ).read_bytes()
 
 
+def test_install_preserves_risk_history_index_document(tmp_path):
+    store = tmp_path / "store"
+    index = {"series": "risk", "updated_at": STAMP, "count": 0}
+    publish_snapshot(
+        store,
+        {
+            "latest/risk.json": {"generated_at": STAMP, "payload": {"score": 50}},
+            "history/risk/daily.json": [],
+            "history/risk/index.json": index,
+            "metadata/freshness.json": {"updated_at": STAMP},
+        },
+        parent_id=None,
+        producer_revision=REVISION,
+        created_at=STAMP,
+        validator=lambda _: True,
+    )
+    public_data = tmp_path / "public/data"
+
+    install_generation(store, public_data)
+
+    assert json.loads((public_data / "history/risk/index.json").read_text()) == index
+
+
 def test_install_keeps_legacy_urls_and_projects_new_risk_states(tmp_path):
     store = tmp_path / "store"
     risk = {
