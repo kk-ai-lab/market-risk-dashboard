@@ -197,8 +197,9 @@ def test_main_legacy_data_dir_failure_writes_report_and_keeps_error_output(
 
 
 @pytest.mark.parametrize("failure_path", ["configuration", "legacy_data_dir"])
-def test_main_backfill_early_failures_do_not_add_run_reports(
-    failure_path, monkeypatch, tmp_path, capsys
+@pytest.mark.parametrize("mode_flag", ["--backfill", "--dry-run"])
+def test_main_no_write_early_failures_do_not_add_run_reports(
+    failure_path, mode_flag, monkeypatch, tmp_path, capsys
 ):
     reports = []
     _configure_run(monkeypatch, tmp_path, reports)
@@ -220,6 +221,15 @@ def test_main_backfill_early_failures_do_not_add_run_reports(
         monkeypatch.setattr(run_mod.settings, "data_dir", project_root / "public" / "data")
         monkeypatch.setattr(type(run_mod.settings), "load_public_source_policy", lambda _self: None)
 
-    assert run_mod.main(["--backfill"]) == 1
-    capsys.readouterr()
+    result = run_mod.main([mode_flag])
+    output = capsys.readouterr()
+    if mode_flag == "--dry-run" and failure_path == "legacy_data_dir":
+        assert result == 0
+        assert "dry-run complete, no files written" in output.out
+    else:
+        assert result == 1
+        if failure_path == "configuration":
+            assert "[pipeline] config loading failed: invalid-sources-secret" in output.err
+        else:
+            assert "approved-source mode requires an isolated data_dir" in output.err
     assert reports == []
