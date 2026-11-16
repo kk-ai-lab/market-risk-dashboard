@@ -81,7 +81,7 @@
 | Catalysts | 催化剂 / 关键事件 | 即将发生的可能影响市场的宏观/财报事件。 |
 | Earnings Calendar | 财报日历 | 上市公司财报发布日期。 |
 | Economic Calendar | 经济日历 | 宏观数据发布日程。 |
-| BEA Release Schedule | BEA 发布日程 | BEA 官方计划发布时间；仅包含发布时间，不含实际值或预测值。 |
+| BEA Release Schedule | 美国经济分析局发布日程 | BEA 官方计划发布时间；仅包含发布时间，不含实际值或预测值。 |
 
 BEA release titles are kept verbatim in English and use these Chinese UI translations:
 
