@@ -27,9 +27,9 @@
     "neutral": "中性"
   },
   "energy": {
-    "title": "美国原油周库存",
+    "title": "美国原油周度库存",
     "riskContextTitle": "能源供给背景",
-    "description": "EIA 公布的美国原油周末库存，不含战略石油储备。",
+    "description": "EIA 公布的美国原油周度期末库存，不含战略石油储备。",
     "riskContextNote": "仅作背景信息，不纳入风险分或其覆盖度。",
     "statusLabel": "能源数据状态",
     "collection": {
