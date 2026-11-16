@@ -1158,10 +1158,11 @@ def main(argv: list[str] | None = None) -> int:
     # unbound, so the except block's own NameError was swallowed and no run-report
     # was ever written for an early crash.
     results: dict[str, Any] = _empty_results()
-    failure_code = RunFailureCode.COLLECTION_EXCEPTION
+    failure_code = RunFailureCode.PIPELINE_EXCEPTION
     try:
         started = time.monotonic()
         run_started_at = now_utc()
+        failure_code = RunFailureCode.COLLECTION_EXCEPTION
         results = _run_collection(command)
         failure_code = RunFailureCode.PIPELINE_EXCEPTION
 
