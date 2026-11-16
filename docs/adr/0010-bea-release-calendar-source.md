@@ -6,7 +6,7 @@ BEA uses its own `bea_calendar` provider domain. `CalendarCollector` combines th
 
 Every economic provider returns one normalized `EconomicRow.datetime` in UTC. FRED and Federal Reserve adapters convert their configured Eastern times before returning rows. The BEA adapter validates the external JSON, rejects timestamps without an explicit offset, and normalizes each instant once. A deterministic title-and-instant ID removes duplicate BEA records across retries. The collector keeps the existing FRED event when a BEA event has the same title and instant. Corporate Profits and GDP remain separate events even when they share a release time.
 
-An existing economic last-good cache with the old date/time shape fails replay validation and is quarantined. A live success writes the UTC row shape. The registry's cache age and schema checks remain in effect.
+The economic cache key is `economic_v2_<horizon>d`. Entries under the old `economic_<horizon>d` key lack FRED and FOMC completeness metadata. The registry does not read or quarantine files under the old key. New-key entries use the UTC row shape. The registry checks their age, schema, and replay validity. It quarantines incompatible entries under the new key.
 
 `CalendarDataset.source_status` records the last result for each logical source. A successful fetch with no events is `empty`. Failure, fallback, or cache replay is `degraded`. A feed omitted from the provider registry is `not_configured` and does not count as a failed upstream request. The calendar page displays these states and their check timestamps. The shared `sources.json` projection continues to describe aggregate dataset health, as required by the existing freshness consistency check.
 
