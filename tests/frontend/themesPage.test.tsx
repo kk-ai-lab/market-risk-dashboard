@@ -56,6 +56,6 @@ describe("ThemesPage", () => {
   it("shows the safe not-configured EIA state when no API key is set", async () => {
     renderPage();
     expect(await screen.findByText("尚未配置")).toBeInTheDocument();
-    expect(screen.getByText("美国原油周库存")).toBeInTheDocument();
+    expect(screen.getByText("美国原油周度库存")).toBeInTheDocument();
   });
 });
