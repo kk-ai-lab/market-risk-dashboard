@@ -24,6 +24,9 @@ import httpx
 
 from pipeline.providers._util import UA, _today
 from pipeline.providers.base import (
+    PERMANENT,
+    RATE_LIMITED,
+    TRANSIENT,
     BaseProvider,
     EconomicRow,
     PartialProviderResult,
@@ -50,6 +53,7 @@ _MONTHS = {
     "January": 1, "February": 2, "March": 3, "April": 4, "May": 5, "June": 6,
     "July": 7, "August": 8, "September": 9, "October": 10, "November": 11, "December": 12,
 }
+_ERROR_CLASS_PRIORITY = {PERMANENT: 0, TRANSIENT: 1, RATE_LIMITED: 2}
 
 
 class FredCalendarProvider(BaseProvider):
@@ -90,12 +94,14 @@ class FredCalendarProvider(BaseProvider):
     ) -> list[dict[str, Any]] | PartialProviderResult[list[dict[str, Any]]]:
         rows: list[dict[str, Any]] = []
         errors: list[str] = []
+        failures: list[ProviderError] = []
         successful_requests = 0
         for release_id in RELEASES:
             try:
                 release_rows = self._fred_release_dates(release_id, start, end)
             except ProviderError as exc:
                 errors.append(f"FRED release {release_id} failed ({exc.cls})")
+                failures.append(exc)
             else:
                 successful_requests += 1
                 rows.extend(release_rows)
@@ -103,12 +109,30 @@ class FredCalendarProvider(BaseProvider):
             fomc_rows = self._fomc_meetings(start, end)
         except ProviderError as exc:
             errors.append(f"FOMC schedule failed ({exc.cls})")
+            failures.append(exc)
         else:
             successful_requests += 1
             rows.extend(fomc_rows)
         rows.sort(key=lambda r: r["datetime"])
         if successful_requests == 0:
-            raise ProviderError("FRED calendar all sources failed: " + "; ".join(errors[:3]))
+            error_class = max(
+                (failure.cls for failure in failures),
+                key=lambda cls: _ERROR_CLASS_PRIORITY.get(cls, 0),
+                default=PERMANENT,
+            )
+            retry_after = max(
+                (
+                    failure.retry_after
+                    for failure in failures
+                    if failure.cls == RATE_LIMITED and failure.retry_after is not None
+                ),
+                default=None,
+            )
+            raise ProviderError(
+                "FRED calendar all sources failed: " + "; ".join(errors[:3]),
+                cls=error_class,
+                retry_after=retry_after,
+            )
         if errors:
             return PartialProviderResult(result=rows, errors=tuple(errors))
         return rows

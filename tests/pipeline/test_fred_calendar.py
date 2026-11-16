@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 import pytest
 
-from pipeline.providers.base import TRANSIENT, ProviderError
+from pipeline.providers.base import RATE_LIMITED, TRANSIENT, ProviderError
 from pipeline.providers.fred_calendar import RELEASES, FredCalendarProvider
 from pipeline.settings import Settings
 
@@ -291,6 +291,26 @@ def test_all_sources_failed_raises(tmp_path: Path) -> None:
     with pytest.raises(ProviderError, match="all sources failed") as exc:
         provider.get_economic_calendar("2026-08-07", "2026-08-30")
     assert exc.value.cls == TRANSIENT
+
+
+def test_all_rate_limited_children_preserve_retry_after(tmp_path: Path) -> None:
+    class RateLimitedResponse(_Resp):
+        def __init__(self) -> None:
+            super().__init__(429)
+            self.headers = {"Retry-After": "3"}
+
+    class RateLimitedClient:
+        def get(self, url: str, params: dict | None = None) -> RateLimitedResponse:
+            return RateLimitedResponse()
+
+    provider = _provider(tmp_path)
+    provider._client = RateLimitedClient()
+
+    with pytest.raises(ProviderError) as exc:
+        provider.get_economic_calendar("2026-08-07", "2026-08-30")
+
+    assert exc.value.cls == RATE_LIMITED
+    assert exc.value.retry_after == 3.0
 
 
 def test_fomc_markup_without_year_sections_is_not_silent_empty(tmp_path: Path) -> None:
