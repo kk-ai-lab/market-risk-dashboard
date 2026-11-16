@@ -362,7 +362,18 @@ def test_pipeline_adapter_forces_approved_mode_and_shared_cloud_branch(tmp_path,
     assert "DATA_FRED_API_KEY" not in env
 
 
-def test_child_failure_logs_only_allowlisted_collection_summary(tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize(
+    "failure_code",
+    [
+        "collection_exception",
+        "pipeline_exception",
+        "result_rejected",
+        "dataset_health_failed",
+    ],
+)
+def test_child_failure_logs_only_allowlisted_collection_summary(
+    failure_code, tmp_path, monkeypatch, capsys
+):
     settings = Settings(
         _env_file=None,
         data_dir=tmp_path / "data",
@@ -381,7 +392,7 @@ def test_child_failure_logs_only_allowlisted_collection_summary(tmp_path, monkey
                 "failed_datasets": ["equities", "report-token-secret"],
                 "skipped_datasets": [],
                 "degraded_datasets": ["macro"],
-                "failure_code": "result_rejected",
+                "failure_code": failure_code,
                 "error": "report-error-secret",
                 "degraded": ["provider-note-secret"],
                 "provider_status": {"credential": "provider-secret"},
@@ -424,7 +435,7 @@ def test_child_failure_logs_only_allowlisted_collection_summary(tmp_path, monkey
                 "failed_datasets": ["equities"],
                 "skipped_datasets": [],
                 "degraded_datasets": ["macro"],
-                "failure_code": "result_rejected",
+                "failure_code": failure_code,
             },
         },
     ]

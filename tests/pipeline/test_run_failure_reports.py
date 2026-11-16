@@ -93,3 +93,34 @@ def test_run_report_serializes_failure_code_and_omits_it_when_absent(tmp_path):
         dataset_counts={},
     )
     assert "failure_code" not in json.loads(clean_path.read_text(encoding="utf-8"))
+
+
+def test_finish_run_marks_dataset_health_failure_and_keeps_report_semantics(monkeypatch, tmp_path):
+    reports = []
+    report_paths = []
+    _configure_run(monkeypatch, tmp_path, reports)
+
+    def write_report(artifacts_dir, **kwargs):
+        reports.append(kwargs)
+        report_path = write_run_report(artifacts_dir, **kwargs)
+        report_paths.append(report_path)
+        return report_path
+
+    monkeypatch.setattr(run_mod, "write_run_report", write_report)
+    monkeypatch.setattr(run_mod, "_print_summary", lambda *_args, **_kwargs: None)
+    health = {
+        "failed": ["macro"],
+        "skipped": ["news"],
+        "degraded": ["equities"],
+    }
+
+    exit_code = run_mod._finish_run("full", run_mod._empty_results(), 1.5, health)
+
+    assert exit_code == 1
+    assert reports[0]["failure_code"] == "dataset_health_failed"
+    report = json.loads(report_paths[0].read_text(encoding="utf-8"))
+    assert report["ok"] is True
+    assert report["clean"] is False
+    assert report["failed_datasets"] == health["failed"]
+    assert report["skipped_datasets"] == health["skipped"]
+    assert report["degraded_datasets"] == health["degraded"]
