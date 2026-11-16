@@ -254,6 +254,7 @@ class CloudRefreshResult:
     manifest_sha256: str
     generation_dir: Path
     parent_id: str | None
+    collection_logs_dir: Path | None
 
 
 class PagesGenerationRestorer:
@@ -527,6 +528,7 @@ def refresh_cloud(
         if manifest["generation_id"] != state.deployed.generation_id:
             raise CloudRefreshError("Restored generation does not match checkpoint")
     parent = state.deployed.generation_id if state.deployed else None
+    collection_logs_dir = None
     if restored is not None and mode == "code-only":
         pointer = publish_reused_generation(
             store,
@@ -537,6 +539,7 @@ def refresh_cloud(
     else:
         data = workspace / "data"
         data.mkdir()
+        collection_logs_dir = workspace / "artifacts" / "logs"
         if restored is not None:
             for folder in ("latest", "history", "metadata"):
                 shutil.copytree(restored / folder, data / folder)
@@ -576,7 +579,13 @@ def refresh_cloud(
         diagnostics.enter(RefreshStage.GENERATION_VALIDATION)
     verify_generation(directory, manifest_sha256=pointer["manifest_sha256"])
     return CloudRefreshResult(
-        mode, app_revision, pointer["generation_id"], pointer["manifest_sha256"], directory, parent
+        mode,
+        app_revision,
+        pointer["generation_id"],
+        pointer["manifest_sha256"],
+        directory,
+        parent,
+        collection_logs_dir,
     )
 
 
@@ -612,7 +621,19 @@ def main(argv: list[str] | None = None) -> int:
             restorer=PagesGenerationRestorer(args.site_url),
             diagnostics=diagnostics,
         )
-        print(json.dumps({**asdict(result), "generation_dir": str(result.generation_dir)}))
+        print(
+            json.dumps(
+                {
+                    **asdict(result),
+                    "generation_dir": str(result.generation_dir),
+                    "collection_logs_dir": (
+                        str(result.collection_logs_dir)
+                        if result.collection_logs_dir is not None
+                        else None
+                    ),
+                }
+            )
+        )
         return 0
     except (
         CloudRefreshError,

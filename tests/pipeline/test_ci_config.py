@@ -258,7 +258,7 @@ def test_deploy_pages_runs_full_data_and_secret_gates() -> None:
 
     assert "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065" in workflow
     assert 'python -m pipeline.validation.ci_checks --data-dir "$GENERATION_DIR"' in workflow
-    assert "scripts/scan-secrets.mjs --root ." in workflow
+    assert "args=(--root .)" in workflow
     assert "--run-logs-root \"$RUN_LOGS_DIR\"" in workflow
     assert "DATA_CLOUD_STATE_TOKEN: ${{ github.token }}" in workflow
     assert "npm run check:contracts" in workflow
@@ -267,10 +267,10 @@ def test_deploy_pages_runs_full_data_and_secret_gates() -> None:
     repo_scan = workflow.index("name: Scan repository inputs for secrets")
     pipeline_tests = workflow.index("run: python -m pytest tests/pipeline/ --cov=pipeline --cov-report=term-missing")
     install = workflow.index("python -m scripts.install_cloud_generation")
-    assert node_setup < repo_scan < pipeline_tests < install
+    assert node_setup < pipeline_tests < repo_scan < install
     build = workflow.index("run: npm run build")
     copy_data = workflow.index("cp -R public/data/. dist/data/")
-    scan = workflow.index("node scripts/scan-secrets.mjs --root . --artifact-root dist")
+    scan = workflow.index("args=(--root . --artifact-root dist)")
     upload = workflow.index("actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa")
     artifact_check = workflow.index("python -m scripts.verify_pages_artifact")
     exact_scan = workflow.index("name: Scan exact Pages artifact for secrets")
@@ -417,7 +417,7 @@ def test_pages_release_boundary_is_dev_and_main_and_fully_gated() -> None:
         "npm run check:contracts",
         "npm audit --omit=dev --audit-level=high",
         "npm run build",
-        "node scripts/scan-secrets.mjs --root . --artifact-root dist",
+        "args=(--root . --artifact-root dist)",
         "node scripts/scan-secrets.mjs \"${args[@]}\"",
     ):
         assert command in prepare_job, f"release build is missing required gate: {command}"
@@ -426,7 +426,7 @@ def test_pages_release_boundary_is_dev_and_main_and_fully_gated() -> None:
         "run: python -m pytest tests/pipeline/ --cov=pipeline --cov-report=term-missing",
         "run: ruff check . --select F821",
         "run: npm run build",
-        "node scripts/scan-secrets.mjs --root . --artifact-root dist",
+        "args=(--root . --artifact-root dist)",
         "name: Scan exact Pages artifact for secrets",
         "actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa",
     ):
@@ -435,7 +435,7 @@ def test_pages_release_boundary_is_dev_and_main_and_fully_gated() -> None:
         "python -m scripts.install_cloud_generation"
     ) < prepare_job.index("run: npm run build") < prepare_job.index(
         "cp -R public/data/. dist/data/"
-    ) < prepare_job.index("node scripts/scan-secrets.mjs --root . --artifact-root dist")
+    ) < prepare_job.index("args=(--root . --artifact-root dist)")
     assert prepare_job.index("name: Scan exact Pages artifact for secrets") < prepare_job.index(
         "pipeline.cloud_publication reserve"
     )
