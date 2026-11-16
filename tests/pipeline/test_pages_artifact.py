@@ -66,6 +66,48 @@ def test_uploaded_pages_tar_matches_build_and_candidate(tmp_path):
     _verify(_archive(tmp_path, dist), pointer, dist, generation)
 
 
+def test_verifier_exposes_the_validated_extraction_for_secret_scanning(tmp_path):
+    store, pointer = _store(tmp_path)
+    dist = _site(tmp_path, store)
+    generation = store / "generations" / pointer["generation_id"]
+    payload = tmp_path / "verified-pages-payload"
+
+    verify_pages_artifact(
+        _archive(tmp_path, dist),
+        generation_id=pointer["generation_id"],
+        manifest_sha256=pointer["manifest_sha256"],
+        producer_revision=REVISION,
+        parent_id=None,
+        dist=dist,
+        generation_dir=generation,
+        extraction_dir=payload,
+    )
+
+    assert (payload / "index.html").read_text(encoding="utf-8") == "dashboard"
+    assert (payload / "data/current.json").is_file()
+    assert not (tmp_path / "escape.json").exists()
+
+
+def test_verifier_rejects_a_preexisting_extraction_destination(tmp_path):
+    store, pointer = _store(tmp_path)
+    dist = _site(tmp_path, store)
+    generation = store / "generations" / pointer["generation_id"]
+    payload = tmp_path / "verified-pages-payload"
+    payload.mkdir()
+
+    with pytest.raises(PublicationError, match="extraction destination"):
+        verify_pages_artifact(
+            _archive(tmp_path, dist),
+            generation_id=pointer["generation_id"],
+            manifest_sha256=pointer["manifest_sha256"],
+            producer_revision=REVISION,
+            parent_id=None,
+            dist=dist,
+            generation_dir=generation,
+            extraction_dir=payload,
+        )
+
+
 def test_uploaded_pages_tar_keeps_only_the_immediate_parent_generation(tmp_path):
     store, previous = _store(tmp_path)
     current = publish_snapshot(

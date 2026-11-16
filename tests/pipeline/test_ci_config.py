@@ -259,16 +259,30 @@ def test_deploy_pages_runs_full_data_and_secret_gates() -> None:
     assert "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065" in workflow
     assert 'python -m pipeline.validation.ci_checks --data-dir "$GENERATION_DIR"' in workflow
     assert "scripts/scan-secrets.mjs --root ." in workflow
+    assert "--run-logs-root \"$RUN_LOGS_DIR\"" in workflow
+    assert "DATA_CLOUD_STATE_TOKEN: ${{ github.token }}" in workflow
     assert "npm run check:contracts" in workflow
     assert 'node scripts/validate-json.mjs --data-dir "$GENERATION_DIR"' in workflow
+    node_setup = workflow.index("uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020")
+    repo_scan = workflow.index("name: Scan repository inputs for secrets")
+    pipeline_tests = workflow.index("run: python -m pytest tests/pipeline/ --cov=pipeline --cov-report=term-missing")
+    install = workflow.index("python -m scripts.install_cloud_generation")
+    assert node_setup < repo_scan < pipeline_tests < install
     build = workflow.index("run: npm run build")
     copy_data = workflow.index("cp -R public/data/. dist/data/")
-    scan = workflow.index("run: node scripts/scan-secrets.mjs --root .")
+    scan = workflow.index("node scripts/scan-secrets.mjs --root . --artifact-root dist")
     upload = workflow.index("actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa")
     artifact_check = workflow.index("python -m scripts.verify_pages_artifact")
+    exact_scan = workflow.index("name: Scan exact Pages artifact for secrets")
     reserve = workflow.index("pipeline.cloud_publication reserve")
     assert "VITE_VERSIONED_DATA: \"true\"" in workflow
-    assert build < copy_data < scan < upload < artifact_check < reserve
+    assert build < copy_data < scan < upload < artifact_check < exact_scan < reserve
+    exact_scan_step = workflow.split("name: Scan exact Pages artifact for secrets", maxsplit=1)[1].split(
+        "      - name:", maxsplit=1
+    )[0]
+    assert "if:" not in exact_scan_step, "the exact artifact gate must cover resume runs too"
+    assert "--artifact-root \"$RUNNER_TEMP/pages-payload\"" in exact_scan_step
+    assert '--extract-to "$RUNNER_TEMP/pages-payload"' in workflow
 
 
 def test_theme_health_gate_is_scheduled_read_only_and_runs_symbol_health() -> None:
@@ -403,7 +417,8 @@ def test_pages_release_boundary_is_dev_and_main_and_fully_gated() -> None:
         "npm run check:contracts",
         "npm audit --omit=dev --audit-level=high",
         "npm run build",
-        "node scripts/scan-secrets.mjs --root .",
+        "node scripts/scan-secrets.mjs --root . --artifact-root dist",
+        "node scripts/scan-secrets.mjs \"${args[@]}\"",
     ):
         assert command in prepare_job, f"release build is missing required gate: {command}"
 
@@ -411,14 +426,20 @@ def test_pages_release_boundary_is_dev_and_main_and_fully_gated() -> None:
         "run: python -m pytest tests/pipeline/ --cov=pipeline --cov-report=term-missing",
         "run: ruff check . --select F821",
         "run: npm run build",
-        "run: node scripts/scan-secrets.mjs --root .",
+        "node scripts/scan-secrets.mjs --root . --artifact-root dist",
+        "name: Scan exact Pages artifact for secrets",
         "actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa",
     ):
         assert gate in prepare_job
-    assert prepare_job.index("run: npm run build") < prepare_job.index(
+    assert prepare_job.index("name: Scan repository inputs for secrets") < prepare_job.index(
+        "python -m scripts.install_cloud_generation"
+    ) < prepare_job.index("run: npm run build") < prepare_job.index(
         "cp -R public/data/. dist/data/"
-    ) < prepare_job.index("run: node scripts/scan-secrets.mjs --root .")
-    assert prepare_job.index("run: node scripts/scan-secrets.mjs --root .") < prepare_job.index(
+    ) < prepare_job.index("node scripts/scan-secrets.mjs --root . --artifact-root dist")
+    assert prepare_job.index("name: Scan exact Pages artifact for secrets") < prepare_job.index(
+        "pipeline.cloud_publication reserve"
+    )
+    assert prepare_job.index("name: Scan repository inputs for secrets") < prepare_job.index(
         "actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa"
     )
     artifact = prepare_job.index(

@@ -132,6 +132,7 @@ def test_empty_provisioned_state_bootstraps_only_from_approved_collection(
         restorer=NoRestore(),
     )
     assert len(calls) == 1 and result.parent_id is None and state.writes == 0
+    assert result.collection_logs_dir == result.generation_dir.parents[2] / "artifacts" / "logs"
     assert verify_generation(result.generation_dir)["producer_revision"] == REVISION
 
 
@@ -180,6 +181,7 @@ def test_code_only_preserves_data_timestamps_and_calls_no_provider(
         assert (result.generation_dir / relative).read_bytes() == (
             root / "generations" / generation.generation_id / relative
         ).read_bytes()
+    assert result.collection_logs_dir is None
     assert state.writes == 0
 
 
