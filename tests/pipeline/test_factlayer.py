@@ -653,9 +653,9 @@ def test_full_path_rejections_return_fixed_reason_and_local_error(
 
     rejection = run_module._run_risk_and_write(_full_run_results(), writer, "test-full")
 
-    assert getattr(rejection, "code", None) == expected_code
-    local_error = getattr(rejection, "local_error", None)
-    assert isinstance(local_error, str) and local_error
+    assert rejection is not None
+    assert rejection.code.value == expected_code
+    local_error = rejection.local_error
     if branch == "no_usable_indicators":
         assert local_error == "risk calculation has no available indicators"
     elif branch == "computation":

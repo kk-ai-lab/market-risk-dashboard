@@ -97,14 +97,8 @@ def test_run_report_serializes_failure_code_and_omits_it_when_absent(tmp_path):
 
 
 def test_run_report_serializes_optional_rejection_code(tmp_path):
-    from pipeline.report import run_report as report_module
+    from pipeline.report import RunRejectionCode
 
-    rejection_codes = getattr(report_module, "RunRejectionCode", None)
-    kwargs = (
-        {"rejection_code": rejection_codes.RISK_VALIDATION_FAILED}
-        if rejection_codes is not None
-        else {}
-    )
     report_path = write_run_report(
         tmp_path,
         command="full",
@@ -114,7 +108,7 @@ def test_run_report_serializes_optional_rejection_code(tmp_path):
         degraded=[],
         dataset_counts={},
         failure_code=RunFailureCode.RESULT_REJECTED,
-        **kwargs,
+        rejection_code=RunRejectionCode.RISK_VALIDATION_FAILED,
     )
 
     assert (
@@ -133,12 +127,9 @@ def test_main_full_rejection_rolls_back_before_health_and_reports_fixed_code(
     data_dir = tmp_path / "data"
     marker = data_dir / "latest" / "candidate.json"
     local_error = "validation failed: local-validation-secret"
-    rejection_codes = getattr(run_mod, "RunRejectionCode", None)
-    rejection_type = getattr(run_mod, "RunRejection", None)
-    if rejection_codes is not None and rejection_type is not None:
-        rejection = rejection_type(rejection_codes.RISK_VALIDATION_FAILED, local_error)
-    else:
-        rejection = (False, local_error)
+    rejection = run_mod.RunRejection(
+        run_mod.RunRejectionCode.RISK_VALIDATION_FAILED, local_error
+    )
 
     def reject_candidate(_results, writer, _command):
         writer.write_json(marker, {"value": "candidate"})
