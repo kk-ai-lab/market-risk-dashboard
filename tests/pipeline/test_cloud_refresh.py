@@ -284,6 +284,27 @@ def test_pages_read_pointer_recovers_from_transient_service_unavailable():
     assert len(requests) == 2
 
 
+@pytest.mark.parametrize("status_code", [429, 503])
+def test_pages_read_pointer_recovers_to_valid_pointer_after_transient_status(
+    monkeypatch, status_code
+):
+    pointer = {"version": 1, "generation_id": "a" * 64, "manifest_sha256": "b" * 64}
+    responses = iter((httpx.Response(status_code), httpx.Response(200, json=pointer)))
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        return next(responses)
+
+    monkeypatch.setattr(cloud, "sleep", lambda _: None)
+    reader = cloud.PagesGenerationRestorer(
+        "https://example.test/app", transport=httpx.MockTransport(handle)
+    )
+    assert reader.read_pointer() == pointer
+    assert len(requests) == 2
+    assert requests[0].url.params["refresh"] != requests[1].url.params["refresh"]
+
+
 def test_pages_read_pointer_recovers_from_transient_transport_error():
     requests = []
 
@@ -321,6 +342,22 @@ def test_pages_read_pointer_fails_after_bounded_service_unavailability(monkeypat
     def handle(request):
         requests.append(request)
         return httpx.Response(503)
+
+    monkeypatch.setattr(cloud, "sleep", lambda _: None)
+    reader = cloud.PagesGenerationRestorer(
+        "https://example.test/app", transport=httpx.MockTransport(handle)
+    )
+    with pytest.raises(cloud.CloudRefreshError, match="pointer read failed"):
+        reader.read_pointer()
+    assert len(requests) == 3
+
+
+def test_pages_read_pointer_fails_after_bounded_transport_errors(monkeypatch):
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        raise httpx.ConnectTimeout("connection timed out", request=request)
 
     monkeypatch.setattr(cloud, "sleep", lambda _: None)
     reader = cloud.PagesGenerationRestorer(
