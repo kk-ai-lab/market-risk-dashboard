@@ -1,15 +1,19 @@
 import hashlib
+import json
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
 import pytest
 
+from pipeline import cloud_publication
 from pipeline.cloud_publication import (
     WORKFLOW_PATH,
     CloudPublicationError,
     CloudPublisher,
     GitHubActionsApi,
+    main,
 )
 from pipeline.cloud_refresh import CloudRefreshError
 from pipeline.publication import publish_snapshot
@@ -269,10 +273,11 @@ def test_preflight_fails_closed_on_an_unknown_pages_generation():
 def test_preflight_pauses_while_another_pages_run_is_active():
     actions = Actions(other_runs=[{"id": 49}])
     publisher, _, _, _ = _publisher(actions=actions)
-    with pytest.raises(CloudPublicationError, match="Another Pages workflow"):
+    with pytest.raises(CloudPublicationError, match="Another Pages workflow") as exc_info:
         publisher.preflight(
             mode="code-only", event_ref="refs/heads/dev", event_sha=REVISION, run_id=50
         )
+    assert exc_info.value.code.value == "active_pages_run"
 
 
 def test_empty_checkpoint_refuses_an_unrecorded_pages_generation():
@@ -375,12 +380,197 @@ def test_preflight_rejects_queued_or_rerun_event_after_branch_advances():
     actions = Actions(heads={"dev": NEW_REVISION})
     publisher, checkpoint, _, _ = _publisher(actions=actions)
 
-    with pytest.raises(CloudPublicationError, match="no longer the branch head"):
+    with pytest.raises(CloudPublicationError, match="no longer the branch head") as exc_info:
         publisher.preflight(
             mode="code-only", event_ref="refs/heads/dev", event_sha=REVISION, run_id=50
         )
 
+    assert exc_info.value.code.value == "event_revision_stale"
     assert PublicationCheckpoint(checkpoint).read().candidate is None
+
+
+def test_preflight_cli_emits_fixed_code_and_hides_exception_details(monkeypatch, capsys):
+    checkpoint = MemoryCheckpoint()
+    actions = Actions()
+
+    def fail_to_read_run_list(*, current_run_id):
+        try:
+            raise ValueError("sentinel chained cause")
+        except ValueError as cause:
+            raise CloudPublicationError("sentinel exception text") from cause
+
+    actions.active_workflow_runs = fail_to_read_run_list
+    actions.close = lambda: None
+    checkpoint.close = lambda: None
+    monkeypatch.setattr(
+        cloud_publication,
+        "_runtime",
+        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO)),
+    )
+    monkeypatch.setattr(
+        cloud_publication, "PagesGenerationRestorer", lambda _: Pages(None)
+    )
+
+    result = main(
+        [
+            "preflight",
+            "--mode",
+            "code-only",
+            "--event-ref",
+            "refs/heads/dev",
+            "--event-sha",
+            REVISION,
+            "--run-id",
+            "50",
+            "--site-url",
+            "https://example.test/",
+        ]
+    )
+
+    stderr = capsys.readouterr().err.splitlines()
+    assert result == 1
+    assert json.loads(stderr[0]) == {
+        "event": "cloud_publication.failure",
+        "stage": "preflight",
+        "code": "actions_run_list_read_failed",
+    }
+    assert stderr[1] == "Cloud Pages publication could not be confirmed"
+    assert "sentinel" not in "\n".join(stderr)
+    assert checkpoint.writes == 0
+
+
+def test_preflight_cli_distinguishes_legacy_probe_failure(monkeypatch, capsys):
+    checkpoint = MemoryCheckpoint()
+    actions = Actions()
+    pages = Pages(None)
+
+    def fail_legacy_probe():
+        raise CloudRefreshError("sentinel legacy response")
+
+    actions.close = lambda: None
+    checkpoint.close = lambda: None
+    monkeypatch.setattr(
+        cloud_publication,
+        "_runtime",
+        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO)),
+    )
+    monkeypatch.setattr(cloud_publication, "PagesGenerationRestorer", lambda _: pages)
+    monkeypatch.setattr(pages, "has_legacy_data", fail_legacy_probe)
+
+    result = main(
+        [
+            "preflight",
+            "--mode",
+            "code-only",
+            "--event-ref",
+            "refs/heads/dev",
+            "--event-sha",
+            REVISION,
+            "--run-id",
+            "50",
+            "--site-url",
+            "https://example.test/",
+        ]
+    )
+
+    stderr = capsys.readouterr().err.splitlines()
+    assert result == 1
+    assert json.loads(stderr[0]) == {
+        "event": "cloud_publication.failure",
+        "stage": "preflight",
+        "code": "legacy_data_probe_failed",
+    }
+    assert stderr[1] == "Cloud Pages publication could not be confirmed"
+    assert "sentinel" not in "\n".join(stderr)
+    assert checkpoint.writes == 0
+
+
+def test_preflight_cli_success_outputs_are_unchanged(monkeypatch, capsys, tmp_path):
+    checkpoint = MemoryCheckpoint()
+    actions = Actions()
+    pages = Pages(None)
+    output = tmp_path / "github-output.txt"
+    actions.close = lambda: None
+    checkpoint.close = lambda: None
+    monkeypatch.setattr(
+        cloud_publication,
+        "_runtime",
+        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO)),
+    )
+    monkeypatch.setattr(cloud_publication, "PagesGenerationRestorer", lambda _: pages)
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+
+    result = main(
+        [
+            "preflight",
+            "--mode",
+            "code-only",
+            "--event-ref",
+            "refs/heads/dev",
+            "--event-sha",
+            REVISION,
+            "--run-id",
+            "50",
+            "--site-url",
+            "https://example.test/",
+            "--allow-legacy-bootstrap",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 0
+    assert output.read_text() == f"mode=code-only\napp_revision={REVISION}\nresume=false\n"
+    assert captured.out == ""
+    assert captured.err == ""
+
+
+def test_reserve_and_finish_cli_failures_do_not_emit_preflight_events(
+    monkeypatch, capsys, tmp_path
+):
+    checkpoint = MemoryCheckpoint()
+    actions = Actions()
+    pages = Pages(None)
+    actions.close = lambda: None
+    checkpoint.close = lambda: None
+    monkeypatch.setattr(
+        cloud_publication,
+        "_runtime",
+        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO)),
+    )
+    monkeypatch.setattr(cloud_publication, "PagesGenerationRestorer", lambda _: pages)
+
+    reserve_result = main(
+        [
+            "reserve",
+            "--generation-dir",
+            str(tmp_path / "missing-generation"),
+            "--artifact-id",
+            "42",
+            "--run-id",
+            "50",
+            "--event-sha",
+            REVISION,
+        ]
+    )
+    reserve_stderr = capsys.readouterr().err
+
+    finish_result = main(
+        [
+            "finish",
+            "--run-id",
+            "50",
+            "--event-sha",
+            REVISION,
+            "--site-url",
+            "https://example.test/",
+        ]
+    )
+    finish_stderr = capsys.readouterr().err
+
+    assert reserve_result == 1
+    assert reserve_stderr == "Cloud Pages publication could not be confirmed\n"
+    assert finish_result == 1
+    assert finish_stderr == "Cloud Pages publication could not be confirmed\n"
 
 
 def test_reserve_and_finish_bind_the_exact_artifact_to_pages_readback(tmp_path):
