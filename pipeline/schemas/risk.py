@@ -41,11 +41,13 @@ class RiskIndicator(ContractModel):
     percentile: float | None = Field(default=None, ge=0.0, le=100.0, description="5Y historical percentile 0-100")
     z_score: float | None = None
     risk_score: float = Field(ge=0.0, le=100.0, description="mapped sub-indicator risk score")
+    score_included: bool = Field(default=True, description="whether the observed value contributes to scores and evidence coverage")
     direction: RiskDirection = "neutral"
     weight: float = Field(default=0.0, ge=0.0)
     source: str = Field(min_length=1)
     updated_at: UTCDateTime | None = None
     observation_date: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])$")
+    observation_period: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
     fetched_at: UTCDateTime | None = None
     status: FreshnessStatus = "fresh"
     # No default (#69/#101): an omitted disclosure would read as "not a proxy", which is the
