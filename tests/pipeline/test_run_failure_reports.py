@@ -147,3 +147,50 @@ def test_main_initialization_exception_is_not_mislabeled_as_collection_failure(
     capsys.readouterr()
     assert collection_calls == []
     assert reports[0]["failure_code"] == "pipeline_exception"
+
+
+def test_main_configuration_failure_writes_report_and_keeps_error_output(
+    monkeypatch, tmp_path, capsys
+):
+    reports = []
+    _configure_run(monkeypatch, tmp_path, reports)
+    monkeypatch.setattr(run_mod.settings, "approved_sources_only", True)
+
+    def fail_sources(_self):
+        from pipeline.config.models import ConfigError
+
+        raise ConfigError("invalid-sources-secret")
+
+    monkeypatch.setattr(type(run_mod.settings), "load_sources", fail_sources)
+    monkeypatch.setattr(
+        run_mod,
+        "_run_collection",
+        lambda _command: pytest.fail("collection must not run after config failure"),
+    )
+
+    assert run_mod.main(["--full"]) == 1
+    error = capsys.readouterr().err
+    assert "[pipeline] config loading failed: invalid-sources-secret" in error
+    assert reports[0]["failure_code"] == "configuration_invalid"
+
+
+def test_main_legacy_data_dir_failure_writes_report_and_keeps_error_output(
+    monkeypatch, tmp_path, capsys
+):
+    reports = []
+    _configure_run(monkeypatch, tmp_path, reports)
+    project_root = tmp_path / "project"
+    monkeypatch.setattr(run_mod.settings, "approved_sources_only", True)
+    monkeypatch.setattr(run_mod.settings, "project_root", project_root)
+    monkeypatch.setattr(run_mod.settings, "data_dir", project_root / "public" / "data")
+    monkeypatch.setattr(type(run_mod.settings), "load_public_source_policy", lambda _self: None)
+    monkeypatch.setattr(
+        run_mod,
+        "_run_collection",
+        lambda _command: pytest.fail("collection must not run with the legacy data directory"),
+    )
+
+    assert run_mod.main(["--full"]) == 1
+    error = capsys.readouterr().err
+    assert "approved-source mode requires an isolated data_dir" in error
+    assert reports[0]["failure_code"] == "isolated_data_dir_required"
