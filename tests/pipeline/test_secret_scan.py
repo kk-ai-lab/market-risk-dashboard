@@ -327,18 +327,19 @@ def test_artifact_scan_matches_python_dotenv_secret_resolution(
 @pytest.mark.parametrize(
     "encoded_secret",
     [
-        "synthetic%20runtime%2Fsecret%20value%20123456",
-        "synthetic%20runtime%2fsecret%20value%20123456",
+        "synthetic%20runtime%2Fsecret%2Bvalue%20123456",
+        "synthetic%20runtime%2fsecret%2bvalue%20123456",
+        "synthetic%20runtime%2fsecret%2Bvalue%20123456",
     ],
 )
 def test_artifact_scan_checks_runtime_credentials(
     tmp_path: Path, encoded_secret: str
 ) -> None:
     _init_repo(tmp_path)
-    secret = "synthetic runtime/secret value 123456"
+    secret = "synthetic runtime/secret+value 123456"
     artifact = tmp_path / "dist"
     (artifact / "data").mkdir(parents=True)
-    (artifact / "data" / "current.json").write_text(
+    (artifact / "data" / f"{encoded_secret}.json").write_text(
         json.dumps({"marker": encoded_secret}), encoding="utf-8"
     )
 
@@ -352,6 +353,8 @@ def test_artifact_scan_checks_runtime_credentials(
     assert result.returncode == 1
     assert "literal env value (masked)" in result.stdout
     assert secret not in result.stdout
+    assert encoded_secret not in result.stdout
+    assert "[REDACTED].json" in result.stdout
 
 
 def test_scanner_requires_and_rechecks_the_explicit_cloud_run_log_root(tmp_path: Path) -> None:
