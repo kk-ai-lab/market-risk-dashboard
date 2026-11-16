@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -30,6 +32,7 @@ def _scan(
     root: Path, *arguments: str, environment: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
+    env.setdefault("PYTHON_EXECUTABLE", sys.executable)
     if environment:
         env.update(environment)
     return subprocess.run(
@@ -232,14 +235,23 @@ def test_artifact_scan_reads_dotenv_export_and_inline_comment(tmp_path: Path) ->
     assert secret not in result.stdout
 
 
+@pytest.mark.parametrize("base_first", [True, False])
 def test_artifact_scan_resolves_dotenv_values_before_process_environment(
-    tmp_path: Path,
+    tmp_path: Path, base_first: bool
 ) -> None:
     _init_repo(tmp_path)
-    secret = "synthetic_file_base_value_123456"
+    file_value = "synthetic_file_base_value_123456"
+    environment_value = "synthetic_env_base_value_123456"
+    dotenv_lines = [
+        f"BASE_VALUE={file_value}",
+        "DATA_API_KEY=${BASE_VALUE}",
+    ]
+    if not base_first:
+        dotenv_lines.reverse()
     (tmp_path / ".env").write_text(
-        f"BASE_VALUE={secret}\nDATA_API_KEY=${{BASE_VALUE}}\n", encoding="utf-8"
+        "\n".join(dotenv_lines) + "\n", encoding="utf-8"
     )
+    secret = file_value if base_first else environment_value
     artifact = tmp_path / "dist"
     (artifact / "data").mkdir(parents=True)
     (artifact / "data" / "current.json").write_text(
@@ -250,12 +262,14 @@ def test_artifact_scan_resolves_dotenv_values_before_process_environment(
         tmp_path,
         "--artifact-root",
         str(artifact),
-        environment={"BASE_VALUE": "synthetic_env_base_value_123456"},
+        environment={"BASE_VALUE": environment_value},
     )
 
     assert result.returncode == 1
     assert "literal env value (masked)" in result.stdout
     assert secret not in result.stdout
+    assert file_value not in result.stdout
+    assert environment_value not in result.stdout
 
 
 def test_artifact_scan_redacts_configured_literals_in_finding_paths(tmp_path: Path) -> None:
@@ -276,13 +290,56 @@ def test_artifact_scan_redacts_configured_literals_in_finding_paths(tmp_path: Pa
     assert secret not in result.stdout
 
 
-def test_artifact_scan_checks_runtime_credentials(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("dotenv", "secret"),
+    [
+        (
+            "BASE_VALUE=synthetic_first_value_123456\n"
+            "DATA_API_KEY=${BASE_VALUE}\n"
+            "BASE_VALUE=synthetic_second_value_123456\n",
+            "synthetic_first_value_123456",
+        ),
+        ("'DATA_API_KEY'=synthetic_quoted_key_value_123456\n", "synthetic_quoted_key_value_123456"),
+        (
+            'DATA_API_KEY="synthetic\\\'quote_secret_123456"\n',
+            "synthetic'quote_secret_123456",
+        ),
+    ],
+)
+def test_artifact_scan_matches_python_dotenv_secret_resolution(
+    tmp_path: Path, dotenv: str, secret: str
+) -> None:
+    _init_repo(tmp_path)
+    (tmp_path / ".env").write_text(dotenv, encoding="utf-8")
+    artifact = tmp_path / "dist"
+    (artifact / "data").mkdir(parents=True)
+    (artifact / "data" / "current.json").write_text(
+        json.dumps({"marker": secret}), encoding="utf-8"
+    )
+
+    result = _scan(tmp_path, "--artifact-root", str(artifact))
+
+    assert result.returncode == 1
+    assert "literal env value (masked)" in result.stdout
+    assert secret not in result.stdout
+
+
+@pytest.mark.parametrize(
+    "encoded_secret",
+    [
+        "synthetic%20runtime%2Fsecret%20value%20123456",
+        "synthetic%20runtime%2fsecret%20value%20123456",
+    ],
+)
+def test_artifact_scan_checks_runtime_credentials(
+    tmp_path: Path, encoded_secret: str
+) -> None:
     _init_repo(tmp_path)
     secret = "synthetic runtime/secret value 123456"
     artifact = tmp_path / "dist"
     (artifact / "data").mkdir(parents=True)
     (artifact / "data" / "current.json").write_text(
-        '{"marker":"synthetic%20runtime%2Fsecret%20value%20123456"}', encoding="utf-8"
+        json.dumps({"marker": encoded_secret}), encoding="utf-8"
     )
 
     result = _scan(
