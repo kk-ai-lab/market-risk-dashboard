@@ -15,6 +15,7 @@ from urllib.parse import quote
 from uuid import uuid4
 
 import httpx
+from pydantic import ValidationError
 
 from pipeline.cloud_refresh import CloudRefreshError, PagesGenerationRestorer
 from pipeline.publication import PublicationError, verify_generation
@@ -553,7 +554,13 @@ class CloudPublisher:
 
 
 def _runtime() -> tuple[GitHubCheckpoint, GitHubActionsApi, Settings]:
-    settings = Settings()
+    try:
+        settings = Settings()
+    except ValidationError as exc:
+        raise CloudPublicationFailure(
+            "Cloud publication settings are invalid",
+            code=PublicationFailureCode.PUBLICATION_CONFIGURATION_INVALID,
+        ) from exc
     repository = settings.cloud_state_repo
     token = settings.cloud_state_token.get_secret_value() if settings.cloud_state_token else None
     if not repository or not token:
