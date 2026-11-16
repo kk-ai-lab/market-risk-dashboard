@@ -28,7 +28,12 @@ from pipeline.publication import (
     publish_reused_generation,
     verify_generation,
 )
-from pipeline.report import RunFailureCode, RunRejectionCode
+from pipeline.report import (
+    RiskInputDiagnostics,
+    RunFailureCode,
+    RunRejectionCode,
+    parse_risk_input_diagnostics,
+)
 from pipeline.settings import Settings
 from pipeline.storage.bls_snapshot import SnapshotError as BlsSnapshotError
 from pipeline.storage.cloud_bls import _decode as decode_bls
@@ -73,6 +78,7 @@ class CollectionSummary:
     degraded_datasets: tuple[str, ...]
     failure_code: RunFailureCode | None = None
     rejection_code: RunRejectionCode | None = None
+    risk_input_diagnostics: RiskInputDiagnostics | None = None
 
     def as_dict(self) -> dict[str, object]:
         result: dict[str, object] = {
@@ -86,6 +92,10 @@ class CollectionSummary:
             result["failure_code"] = self.failure_code.value
         if self.rejection_code is not None:
             result["rejection_code"] = self.rejection_code.value
+        if self.risk_input_diagnostics is not None:
+            result["risk_input_diagnostics"] = self.risk_input_diagnostics.model_dump(
+                mode="json"
+            )
         return result
 
 
@@ -185,6 +195,17 @@ def _read_collection_summary(artifacts_dir: Path) -> CollectionSummary | None:
     except (TypeError, ValueError):
         rejection_code = None
 
+    risk_input_diagnostics = None
+    if rejection_code is RunRejectionCode.RISK_NO_USABLE_INDICATORS:
+        risk_input_diagnostics = parse_risk_input_diagnostics(
+            report.get("risk_input_diagnostics")
+        )
+        if (
+            risk_input_diagnostics is not None
+            and risk_input_diagnostics.usable_indicator_count != 0
+        ):
+            risk_input_diagnostics = None
+
     return CollectionSummary(
         ok=flag("ok"),
         clean=flag("clean"),
@@ -193,6 +214,7 @@ def _read_collection_summary(artifacts_dir: Path) -> CollectionSummary | None:
         degraded_datasets=dataset_names("degraded_datasets"),
         failure_code=failure_code,
         rejection_code=rejection_code,
+        risk_input_diagnostics=risk_input_diagnostics,
     )
 
 

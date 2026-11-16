@@ -8,6 +8,10 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+MAX_DIAGNOSTIC_COUNT = 10_000
+
 
 class RunFailureCode(StrEnum):
     CONFIGURATION_INVALID = "configuration_invalid"
@@ -23,6 +27,54 @@ class RunRejectionCode(StrEnum):
     RISK_COMPUTATION_FAILED = "risk_computation_failed"
     RISK_WRITE_FAILED = "risk_write_failed"
     RISK_VALIDATION_FAILED = "risk_validation_failed"
+
+
+class TreasuryRefreshStatus(StrEnum):
+    NOT_CONFIGURED = "not_configured"
+    COMPLETE = "complete"
+    COMPLETE_DEGRADED = "complete_degraded"
+    NO_OBSERVATIONS = "no_observations"
+    REFRESH_FAILED = "refresh_failed"
+    CHECKPOINT_UNAVAILABLE = "checkpoint_unavailable"
+
+
+class TreasuryInputEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    status: TreasuryRefreshStatus
+    dgs2_observation_count: int = Field(ge=0, le=MAX_DIAGNOSTIC_COUNT)
+    dgs10_observation_count: int = Field(ge=0, le=MAX_DIAGNOSTIC_COUNT)
+
+
+class RiskInputDiagnostics(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    treasury: TreasuryInputEvidence
+    macro_dgs2_has_value: bool
+    macro_dgs10_has_value: bool
+    usable_indicator_count: int = Field(ge=0, le=MAX_DIAGNOSTIC_COUNT)
+    configured_indicator_count: int = Field(ge=0, le=MAX_DIAGNOSTIC_COUNT)
+
+    @model_validator(mode="after")
+    def indicator_counts_are_consistent(self) -> RiskInputDiagnostics:
+        if self.usable_indicator_count > self.configured_indicator_count:
+            raise ValueError("usable indicators exceed configured indicators")
+        return self
+
+
+def parse_risk_input_diagnostics(value: object) -> RiskInputDiagnostics | None:
+    if not isinstance(value, dict):
+        return None
+    treasury = value.get("treasury")
+    if not isinstance(treasury, dict):
+        return None
+    try:
+        parsed_treasury = dict(treasury)
+        parsed_treasury["status"] = TreasuryRefreshStatus(parsed_treasury["status"])
+        parsed = {**value, "treasury": parsed_treasury}
+        return RiskInputDiagnostics.model_validate(parsed, strict=True)
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def write_run_report(
@@ -42,6 +94,7 @@ def write_run_report(
     rejection_code: RunRejectionCode | None = None,
     proxy_discounts: list[dict[str, Any]] | None = None,
     risk_evidence: dict[str, Any] | None = None,
+    risk_input_diagnostics: RiskInputDiagnostics | None = None,
 ) -> Path:
     """Write artifacts/logs/run-report-{ts}.json.
 
@@ -79,6 +132,8 @@ def write_run_report(
         "proxy_discounts": list(proxy_discounts or []),
         "risk_evidence": dict(risk_evidence or {}),
     }
+    if risk_input_diagnostics is not None:
+        report["risk_input_diagnostics"] = risk_input_diagnostics.model_dump(mode="json")
     if failure_code is not None:
         report["failure_code"] = failure_code.value
     if rejection_code is not None:
