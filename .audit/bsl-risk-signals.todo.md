@@ -60,4 +60,4 @@ Use already-approved, publicly redistributable BLS observations to improve the r
 - [x] Implement the chosen signal and carry source month, fetch timestamp, and freshness into the risk UI.
 - [x] Review the resulting diff independently and reconcile the architecture artifact.
 - [x] Inspect the real changed artifact without running tests, which the developer instructions prohibit.
-- [ ] Push a feature branch and prepare a review PR if the diff is coherent. Do not merge `dev` to `main`.
+- [x] Push `features/bsl-risk-signal-expansion` and open PR #265 to `dev`. Do not merge `dev` to `main`.

@@ -23,7 +23,7 @@
 - [x] Complete independent standards and spec reviews.
 - [x] Inspect the bilingual UI against checked-in fixtures without rewriting data.
 - [x] Deslop, run permitted non-test checks, and record their limits.
-- [ ] Commit and push the feature branch; open or update the review PR to `dev`.
+- [x] Commit and push the feature branch; open PR #265 to `dev`.
 - [x] Keep the already-approved `dev` to `main` PR open; do not merge or deploy.
 
 ## Constraints
