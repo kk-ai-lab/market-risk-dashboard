@@ -1,5 +1,8 @@
 import hashlib
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
@@ -29,6 +32,7 @@ REVISION = "a" * 40
 NEW_REVISION = "b" * 40
 STAMP = "2026-11-15T12:00:00Z"
 ARTIFACT_DIGEST = "sha256:" + "c" * 64
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class MemoryCheckpoint:
@@ -125,6 +129,28 @@ def _generation(*, artifact_id=41, run_id=40, revision=REVISION, parent_id=None,
         artifact_id,
         run_id,
         ARTIFACT_DIGEST,
+    )
+
+
+def _run_python_with_invalid_settings(*arguments):
+    environment = {
+        key: os.environ[key]
+        for key in ("HOME", "PATH", "TMPDIR", "LANG", "LC_ALL")
+        if key in os.environ
+    }
+    environment.update(
+        {
+            "DATA_COINMETRICS_ENABLED": "not-a-bool",
+            "PYTHONIOENCODING": "utf-8",
+        }
+    )
+    return subprocess.run(
+        [sys.executable, *arguments],
+        cwd=PROJECT_ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
     )
 
 
@@ -439,41 +465,128 @@ def test_preflight_cli_emits_fixed_code_and_hides_exception_details(monkeypatch,
     assert checkpoint.writes == 0
 
 
-def test_preflight_cli_classifies_settings_validation_as_configuration(
-    monkeypatch, capsys
+@pytest.mark.parametrize(
+    ("arguments", "expected_event_code"),
+    [
+        (
+            [
+                "preflight",
+                "--mode",
+                "code-only",
+                "--event-ref",
+                "refs/heads/dev",
+                "--event-sha",
+                REVISION,
+                "--run-id",
+                "50",
+                "--site-url",
+                "https://example.test/",
+            ],
+            "preflight_configuration_invalid",
+        ),
+        (
+            [
+                "reserve",
+                "--generation-dir",
+                "/tmp/generation",
+                "--artifact-id",
+                "41",
+                "--run-id",
+                "50",
+                "--event-sha",
+                REVISION,
+            ],
+            None,
+        ),
+        (
+            [
+                "finish",
+                "--run-id",
+                "50",
+                "--event-sha",
+                REVISION,
+                "--site-url",
+                "https://example.test/",
+            ],
+            None,
+        ),
+    ],
+)
+def test_cloud_publication_cli_classifies_import_time_settings_failure(
+    arguments, expected_event_code
 ):
-    settings_type = cloud_publication.Settings
-    monkeypatch.setattr(
-        cloud_publication,
-        "Settings",
-        lambda: settings_type(coinmetrics_enabled="not-a-bool"),
+    result = _run_python_with_invalid_settings(
+        "-m", "pipeline.cloud_publication", *arguments
     )
 
-    result = main(
-        [
-            "preflight",
-            "--mode",
-            "code-only",
-            "--event-ref",
-            "refs/heads/dev",
-            "--event-sha",
-            REVISION,
-            "--run-id",
-            "50",
-            "--site-url",
-            "https://example.test/",
-        ]
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "Traceback" not in result.stderr
+    assert "not-a-bool" not in result.stderr
+    lines = result.stderr.splitlines()
+    if expected_event_code:
+        assert json.loads(lines[0]) == {
+            "event": "cloud_publication.failure",
+            "stage": "preflight",
+            "code": expected_event_code,
+        }
+        assert lines[1] == "Cloud Pages publication could not be confirmed"
+    else:
+        assert lines == ["Cloud Pages publication could not be confirmed"]
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_returncode"),
+    [(["--help"], 0), (["preflight", "--mode", "invalid"], 2)],
+)
+def test_cloud_publication_cli_parses_arguments_before_settings(
+    arguments, expected_returncode
+):
+    result = _run_python_with_invalid_settings(
+        "-m", "pipeline.cloud_publication", *arguments
     )
 
-    stderr = capsys.readouterr().err.splitlines()
-    assert result == 1
-    assert json.loads(stderr[0]) == {
-        "event": "cloud_publication.failure",
-        "stage": "preflight",
-        "code": "preflight_configuration_invalid",
-    }
-    assert stderr[1] == "Cloud Pages publication could not be confirmed"
-    assert "not-a-bool" not in "\n".join(stderr)
+    assert result.returncode == expected_returncode
+    assert "Traceback" not in result.stderr
+    assert "not-a-bool" not in result.stderr
+    assert "cloud_publication.failure" not in result.stderr
+
+
+def test_settings_import_is_lazy_and_retries_after_failed_validation():
+    code = """
+import os
+from pydantic import ValidationError
+import pipeline.settings as settings_module
+from pipeline.settings import Settings
+
+try:
+    settings_module.missing_name
+except AttributeError:
+    pass
+else:
+    raise AssertionError("unknown attributes must not construct settings")
+
+try:
+    settings_module.settings
+except ValidationError:
+    pass
+else:
+    raise AssertionError("invalid settings must still fail on access")
+
+os.environ["DATA_COINMETRICS_ENABLED"] = "false"
+first = settings_module.settings
+assert isinstance(first, Settings)
+first.coinmetrics_enabled = True
+from pipeline.settings import settings
+assert settings is first
+assert settings_module.settings is first
+assert settings.coinmetrics_enabled is True
+"""
+    result = _run_python_with_invalid_settings("-c", code)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == ""
+    assert result.stderr == ""
 
 
 def test_preflight_cli_distinguishes_legacy_probe_failure(monkeypatch, capsys):
