@@ -166,6 +166,17 @@ def _publisher(state=None, *, pointer=None, actions=None, legacy_data=False):
     )
 
 
+def _stub_cli_runtime(monkeypatch, checkpoint, actions, pages):
+    actions.close = lambda: None
+    checkpoint.close = lambda: None
+    monkeypatch.setattr(
+        cloud_publication,
+        "_runtime",
+        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO)),
+    )
+    monkeypatch.setattr(cloud_publication, "PagesGenerationRestorer", lambda _: pages)
+
+
 def test_preflight_uses_the_deployed_application_for_scheduled_runs():
     deployed = _generation(artifact_id=39, run_id=38, revision=NEW_REVISION)
     publisher, _, _, _ = _publisher(PublicationState(deployed=deployed, last_attempt=1))
@@ -426,16 +437,7 @@ def test_preflight_cli_emits_fixed_code_and_hides_exception_details(monkeypatch,
             raise CloudPublicationError("sentinel exception text") from cause
 
     actions.active_workflow_runs = fail_to_read_run_list
-    actions.close = lambda: None
-    checkpoint.close = lambda: None
-    monkeypatch.setattr(
-        cloud_publication,
-        "_runtime",
-        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO)),
-    )
-    monkeypatch.setattr(
-        cloud_publication, "PagesGenerationRestorer", lambda _: Pages(None)
-    )
+    _stub_cli_runtime(monkeypatch, checkpoint, actions, Pages(None))
 
     result = main(
         [
@@ -597,14 +599,7 @@ def test_preflight_cli_distinguishes_legacy_probe_failure(monkeypatch, capsys):
     def fail_legacy_probe():
         raise CloudRefreshError("sentinel legacy response")
 
-    actions.close = lambda: None
-    checkpoint.close = lambda: None
-    monkeypatch.setattr(
-        cloud_publication,
-        "_runtime",
-        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO)),
-    )
-    monkeypatch.setattr(cloud_publication, "PagesGenerationRestorer", lambda _: pages)
+    _stub_cli_runtime(monkeypatch, checkpoint, actions, pages)
     monkeypatch.setattr(pages, "has_legacy_data", fail_legacy_probe)
 
     result = main(
@@ -640,14 +635,7 @@ def test_preflight_cli_success_outputs_are_unchanged(monkeypatch, capsys, tmp_pa
     actions = Actions()
     pages = Pages(None)
     output = tmp_path / "github-output.txt"
-    actions.close = lambda: None
-    checkpoint.close = lambda: None
-    monkeypatch.setattr(
-        cloud_publication,
-        "_runtime",
-        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO)),
-    )
-    monkeypatch.setattr(cloud_publication, "PagesGenerationRestorer", lambda _: pages)
+    _stub_cli_runtime(monkeypatch, checkpoint, actions, pages)
     monkeypatch.setenv("GITHUB_OUTPUT", str(output))
 
     result = main(
@@ -689,15 +677,9 @@ def test_cloud_publication_cli_success_outputs_cover_each_command(
 
     checkpoint = MemoryCheckpoint()
     actions = Actions()
-    actions.close = lambda: None
-    checkpoint.close = lambda: None
-    monkeypatch.setattr(
-        cloud_publication,
-        "_runtime",
-        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO)),
-    )
+    pages = Pages(None)
+    _stub_cli_runtime(monkeypatch, checkpoint, actions, pages)
     monkeypatch.setattr(cloud_publication, "CloudPublisher", lambda *_: publisher)
-    monkeypatch.setattr(cloud_publication, "PagesGenerationRestorer", lambda _: Pages(None))
     output = tmp_path / "github-output.txt"
     monkeypatch.setenv("GITHUB_OUTPUT", str(output))
 
@@ -783,14 +765,7 @@ def test_reserve_and_finish_cli_failures_do_not_emit_preflight_events(
     checkpoint = MemoryCheckpoint()
     actions = Actions()
     pages = Pages(None)
-    actions.close = lambda: None
-    checkpoint.close = lambda: None
-    monkeypatch.setattr(
-        cloud_publication,
-        "_runtime",
-        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO)),
-    )
-    monkeypatch.setattr(cloud_publication, "PagesGenerationRestorer", lambda _: pages)
+    _stub_cli_runtime(monkeypatch, checkpoint, actions, pages)
 
     reserve_result = main(
         [
