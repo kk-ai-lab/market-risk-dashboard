@@ -120,6 +120,58 @@ The macro history index contains every series in `SERIES_GROUPS`. It records una
 
 The code-only path cannot call `stage_candidate()` on a prior generation because that validator treats old envelope `generated_at` values as blocking warnings. It must reuse an already-validated generation without rewriting its data timestamps.
 
+## Candidate-stage diagnostics
+
+The cloud refresh records `candidate_staging` before it calls `stage_candidate()`. A generic `refresh_failed` event does not show whether candidate loading, client contracts, Python checks, Node checks, or publication failed. The next normal Pages run must identify that boundary without weakening validation or publishing a rejected generation.
+
+### Usage
+
+The cloud refresh keeps its existing staging call and records a code only when candidate staging raises a typed error.
+
+```python
+try:
+    pointer = stage_candidate(data, store, parent_id=parent, revision=revision, created_at=now)
+except CandidateStageError as exc:
+    diagnostics.record_candidate_stage_failure(exc.code)
+    raise
+```
+
+### Shape
+
+`scripts/stage_publication.py` owns a finite `CandidateStageCode` enum and a `CandidateStageError(PublicationError)` that carries one code. The error message contains only the enum value because the staging CLI prints caught publication errors. The staging validator returns `Literal[True]` when it accepts the candidate and raises a typed error for each known rejection. `stage_candidate()` keeps its successful pointer return and maps expected load and publication failures to fixed codes.
+
+```python
+class CandidateStageCode(StrEnum):
+    SOURCE_LOAD_FAILED = "source_load_failed"
+    REQUIRED_CLIENT_FILES_MISSING = "required_client_files_missing"
+    CLIENT_CONTRACT_REJECTED = "client_contract_rejected"
+    PYTHON_VALIDATION_ERRORS = "python_validation_errors"
+    PYTHON_BLOCKING_WARNINGS = "python_blocking_warnings"
+    PYTHON_VALIDATION_EXECUTION_FAILED = "python_validation_execution_failed"
+    NODE_VALIDATOR_UNAVAILABLE = "node_validator_unavailable"
+    NODE_VALIDATOR_TIMEOUT = "node_validator_timeout"
+    NODE_VALIDATION_REJECTED = "node_validation_rejected"
+    PUBLICATION_FAILED = "publication_failed"
+
+class CandidateStageError(PublicationError):
+    code: CandidateStageCode
+    def __init__(self, code: CandidateStageCode): ...
+
+def validate_candidate(path: Path) -> Literal[True]: ...
+
+def stage_candidate(...) -> dict: ...
+
+@dataclass(frozen=True)
+class RefreshDiagnostic:
+    candidate_stage_code: CandidateStageCode | None = None
+```
+
+`pipeline/cloud_refresh.py` catches the typed error only around its existing staging call and records the code in `RefreshDiagnostics`. The existing `cloud_refresh.failure` event keeps `code=refresh_failed` and adds an optional `candidate_stage_code`. The event omits that field for every other failure. It contains no exception text, file paths, provider output, or data values. `publish_snapshot()` retains its generic boolean validator contract, so its other callers continue to reject `False` and `None` exactly as before. The previous generation remains current on every rejection.
+
+The code distinguishes Python errors from blocking warnings and a Node timeout from a missing validator or rejected data. When both Python errors and warnings exist, the error code takes precedence. Either outcome still rejects the candidate. Validator execution errors map only known `OSError` and `ValueError` failures. Unexpected programming exceptions keep their existing behavior.
+
+The exception design was selected over a `CandidateStageResult` union because the union changes return handling in the cloud refresh, shadow runner, and CLI, then forces each caller to convert a rejection back into a failed run. A callback would pass cloud diagnostic state through the generic publisher and expose its internal validation order. The chosen design uses the error-code owner from the result sketch and the fixed `str(error)` rule from the third exception sketch. The typed exception preserves the successful call shape and keeps failure translation at the cloud boundary. The failed run's actual candidate-stage cause remains unknown until a later serialized Pages run emits one of these codes.
+
 ## Open questions and risks
 
 - The user confirmed noncommercial use, but the public history still contains data from sources whose redistribution rights have not been confirmed. The first scheduled generation must omit those historical payloads.

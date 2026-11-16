@@ -13,7 +13,7 @@ import sys
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
 from urllib.parse import urlsplit
 from uuid import uuid4
 
@@ -43,6 +43,9 @@ from pipeline.storage.publication_checkpoint import Generation, PublicationCheck
 from pipeline.storage.strict_json import load_json_rejecting_duplicates
 from pipeline.storage.treasury_snapshot import SnapshotError as TreasurySnapshotError
 from pipeline.utils import now_utc
+
+if TYPE_CHECKING:
+    from scripts.stage_publication import CandidateStageCode
 
 CloudMode = Literal["scheduled", "code-only"]
 
@@ -105,6 +108,7 @@ class RefreshDiagnostic:
     code: RefreshFailureCode
     exit_code: int | None = None
     collection: CollectionSummary | None = None
+    candidate_stage_code: CandidateStageCode | None = None
 
     def as_dict(self) -> dict[str, object]:
         result: dict[str, object] = {
@@ -116,6 +120,8 @@ class RefreshDiagnostic:
             result["exit_code"] = self.exit_code
         if self.collection is not None:
             result["collection"] = self.collection.as_dict()
+        if self.candidate_stage_code is not None:
+            result["candidate_stage_code"] = self.candidate_stage_code.value
         return result
 
 
@@ -126,6 +132,7 @@ class RefreshDiagnostics:
     failure_code: RefreshFailureCode = RefreshFailureCode.REFRESH_FAILED
     exit_code: int | None = None
     collection: CollectionSummary | None = None
+    candidate_stage_code: CandidateStageCode | None = None
 
     def enter(self, stage: RefreshStage) -> None:
         self.stage = stage
@@ -147,11 +154,18 @@ class RefreshDiagnostics:
         self.exit_code = exit_code
         self.collection = collection
 
+    def record_candidate_stage_failure(self, code: CandidateStageCode) -> None:
+        self.candidate_stage_code = code
+
     def emit_failure(self) -> None:
         if not self.enabled:
             return
         diagnostic = RefreshDiagnostic(
-            self.stage, self.failure_code, self.exit_code, self.collection
+            self.stage,
+            self.failure_code,
+            self.exit_code,
+            self.collection,
+            self.candidate_stage_code,
         )
         print(
             json.dumps(diagnostic.as_dict(), sort_keys=True, separators=(",", ":")),
@@ -534,13 +548,18 @@ def refresh_cloud(
         if diagnostics is not None:
             diagnostics.enter(RefreshStage.PROVIDER_CHECKPOINT_RECHECK)
         _require_provisioned_provider_state(checkpoint, paths)
-        from scripts.stage_publication import stage_candidate
+        from scripts.stage_publication import CandidateStageError, stage_candidate
 
         if diagnostics is not None:
             diagnostics.enter(RefreshStage.CANDIDATE_STAGING)
-        pointer = stage_candidate(
-            data, store, parent_id=parent, revision=app_revision, created_at=now_utc()
-        )
+        try:
+            pointer = stage_candidate(
+                data, store, parent_id=parent, revision=app_revision, created_at=now_utc()
+            )
+        except CandidateStageError as exc:
+            if diagnostics is not None:
+                diagnostics.record_candidate_stage_failure(exc.code)
+            raise
     directory = store / "generations" / pointer["generation_id"]
     if diagnostics is not None:
         diagnostics.enter(RefreshStage.GENERATION_VALIDATION)
