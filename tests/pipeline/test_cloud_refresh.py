@@ -395,6 +395,11 @@ def test_child_failure_logs_only_allowlisted_collection_summary(
                 "skipped_datasets": [],
                 "degraded_datasets": ["macro"],
                 "failure_code": failure_code,
+                **(
+                    {"rejection_code": "risk_validation_failed"}
+                    if failure_code == "result_rejected"
+                    else {}
+                ),
                 "error": "report-error-secret",
                 "degraded": ["provider-note-secret"],
                 "provider_status": {"credential": "provider-secret"},
@@ -432,12 +437,19 @@ def test_child_failure_logs_only_allowlisted_collection_summary(
             "code": "child_exit_nonzero",
             "exit_code": 1,
             "collection": {
-                "ok": True,
-                "clean": False,
-                "failed_datasets": ["equities"],
-                "skipped_datasets": [],
-                "degraded_datasets": ["macro"],
-                "failure_code": failure_code,
+                **{
+                    "ok": True,
+                    "clean": False,
+                    "failed_datasets": ["equities"],
+                    "skipped_datasets": [],
+                    "degraded_datasets": ["macro"],
+                    "failure_code": failure_code,
+                },
+                **(
+                    {"rejection_code": "risk_validation_failed"}
+                    if failure_code == "result_rejected"
+                    else {}
+                ),
             },
         },
     ]
@@ -698,6 +710,46 @@ def test_collection_summary_omits_unknown_failure_codes(tmp_path, failure_code):
 
     assert summary is not None
     assert "failure_code" not in summary.as_dict()
+
+
+@pytest.mark.parametrize(
+    ("rejection_code", "expected"),
+    [
+        ("risk_no_usable_indicators", "risk_no_usable_indicators"),
+        ("risk_computation_failed", "risk_computation_failed"),
+        ("risk_write_failed", "risk_write_failed"),
+        ("risk_validation_failed", "risk_validation_failed"),
+        ("provider-token-secret", None),
+        ({"value": "risk_validation_failed"}, None),
+        (17, None),
+        (None, None),
+    ],
+)
+def test_collection_summary_parses_only_known_rejection_codes(tmp_path, rejection_code, expected):
+    artifacts = tmp_path / "artifacts"
+    report_dir = artifacts / "logs"
+    report_dir.mkdir(parents=True)
+    (report_dir / "run-report-20261115T120000Z.json").write_text(
+        json.dumps(
+            {
+                "ok": False,
+                "clean": False,
+                "failed_datasets": ["equities"],
+                "skipped_datasets": [],
+                "degraded_datasets": [],
+                "failure_code": "result_rejected",
+                "rejection_code": rejection_code,
+                "error": "free-text-secret",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    summary = cloud._read_collection_summary(artifacts)
+
+    assert summary is not None
+    assert summary.as_dict().get("rejection_code") == expected
+    assert "free-text-secret" not in json.dumps(summary.as_dict())
 
 
 @pytest.mark.parametrize(

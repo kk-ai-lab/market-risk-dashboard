@@ -93,6 +93,84 @@ def test_run_report_serializes_failure_code_and_omits_it_when_absent(tmp_path):
         dataset_counts={},
     )
     assert "failure_code" not in json.loads(clean_path.read_text(encoding="utf-8"))
+    assert "rejection_code" not in json.loads(clean_path.read_text(encoding="utf-8"))
+
+
+def test_run_report_serializes_optional_rejection_code(tmp_path):
+    from pipeline.report import run_report as report_module
+
+    rejection_codes = getattr(report_module, "RunRejectionCode", None)
+    kwargs = (
+        {"rejection_code": rejection_codes.RISK_VALIDATION_FAILED}
+        if rejection_codes is not None
+        else {}
+    )
+    report_path = write_run_report(
+        tmp_path,
+        command="full",
+        ok=False,
+        durations={},
+        provider_status={},
+        degraded=[],
+        dataset_counts={},
+        failure_code=RunFailureCode.RESULT_REJECTED,
+        **kwargs,
+    )
+
+    assert (
+        json.loads(report_path.read_text(encoding="utf-8")).get("rejection_code")
+        == "risk_validation_failed"
+    )
+
+
+def test_main_full_rejection_rolls_back_before_health_and_reports_fixed_code(
+    monkeypatch, tmp_path, capsys
+):
+    from pipeline.storage.writer import StorageWriter
+
+    reports = []
+    _configure_run(monkeypatch, tmp_path, reports)
+    data_dir = tmp_path / "data"
+    marker = data_dir / "latest" / "candidate.json"
+    local_error = "validation failed: local-validation-secret"
+    rejection_codes = getattr(run_mod, "RunRejectionCode", None)
+    rejection_type = getattr(run_mod, "RunRejection", None)
+    if rejection_codes is not None and rejection_type is not None:
+        rejection = rejection_type(rejection_codes.RISK_VALIDATION_FAILED, local_error)
+    else:
+        rejection = (False, local_error)
+
+    def reject_candidate(_results, writer, _command):
+        writer.write_json(marker, {"value": "candidate"})
+        return rejection
+
+    monkeypatch.setattr(run_mod, "StorageWriter", StorageWriter)
+    monkeypatch.setattr(run_mod, "_run_collection", lambda _command: run_mod._empty_results())
+    monkeypatch.setattr(run_mod, "_run_risk_and_write", reject_candidate)
+
+    health = {
+        "failed": ["macro"],
+        "skipped": ["news"],
+        "degraded": ["equities"],
+    }
+
+    def inspect_after_rollback(*_args, **_kwargs):
+        assert not marker.exists()
+        return health
+
+    monkeypatch.setattr(run_mod, "dataset_health", inspect_after_rollback)
+
+    assert run_mod.main(["--full"]) == 1
+    error = capsys.readouterr().err
+
+    assert f"[pipeline] failed: {local_error}" in error
+    assert len(reports) == 1
+    assert reports[0]["failure_code"] == "result_rejected"
+    assert reports[0].get("rejection_code") == "risk_validation_failed"
+    assert reports[0]["error"] == local_error
+    assert reports[0]["failed_datasets"] == health["failed"]
+    assert reports[0]["skipped_datasets"] == health["skipped"]
+    assert reports[0]["degraded_datasets"] == health["degraded"]
 
 
 def test_finish_run_marks_dataset_health_failure_and_keeps_report_semantics(monkeypatch, tmp_path):
