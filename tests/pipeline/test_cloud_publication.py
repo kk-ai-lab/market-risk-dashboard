@@ -439,6 +439,43 @@ def test_preflight_cli_emits_fixed_code_and_hides_exception_details(monkeypatch,
     assert checkpoint.writes == 0
 
 
+def test_preflight_cli_classifies_settings_validation_as_configuration(
+    monkeypatch, capsys
+):
+    settings_type = cloud_publication.Settings
+    monkeypatch.setattr(
+        cloud_publication,
+        "Settings",
+        lambda: settings_type(coinmetrics_enabled="not-a-bool"),
+    )
+
+    result = main(
+        [
+            "preflight",
+            "--mode",
+            "code-only",
+            "--event-ref",
+            "refs/heads/dev",
+            "--event-sha",
+            REVISION,
+            "--run-id",
+            "50",
+            "--site-url",
+            "https://example.test/",
+        ]
+    )
+
+    stderr = capsys.readouterr().err.splitlines()
+    assert result == 1
+    assert json.loads(stderr[0]) == {
+        "event": "cloud_publication.failure",
+        "stage": "preflight",
+        "code": "preflight_configuration_invalid",
+    }
+    assert stderr[1] == "Cloud Pages publication could not be confirmed"
+    assert "not-a-bool" not in "\n".join(stderr)
+
+
 def test_preflight_cli_distinguishes_legacy_probe_failure(monkeypatch, capsys):
     checkpoint = MemoryCheckpoint()
     actions = Actions()
