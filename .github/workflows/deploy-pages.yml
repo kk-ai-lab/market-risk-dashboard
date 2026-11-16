@@ -118,16 +118,9 @@ jobs:
           echo "application_revision=$(jq -r .application_revision "$result")" >> "$GITHUB_OUTPUT"
           echo "parent_id=$(jq -r '.parent_id // empty' "$result")" >> "$GITHUB_OUTPUT"
           echo "generation_dir=$(jq -r .generation_dir "$result")" >> "$GITHUB_OUTPUT"
-
-      - name: Install candidate into Pages data tree
-        if: steps.preflight.outputs.resume != 'true'
-        run: |
-          generation_dir='${{ steps.refresh.outputs.generation_dir }}'
-          store="$(dirname "$(dirname "$generation_dir")")"
-          python -m scripts.install_cloud_generation --store "$store" --public-data public/data
+          echo "run_logs_dir=$(jq -r '.collection_logs_dir // empty' "$result")" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node
-        if: steps.preflight.outputs.resume != 'true'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 20
@@ -149,6 +142,18 @@ jobs:
         if: steps.preflight.outputs.resume != 'true' && steps.preflight.outputs.mode == 'code-only'
         run: npm audit --omit=dev --audit-level=high
 
+      - name: Lint frontend for code changes
+        if: steps.preflight.outputs.resume != 'true' && steps.preflight.outputs.mode == 'code-only'
+        run: npm run lint
+
+      - name: Type check frontend for code changes
+        if: steps.preflight.outputs.resume != 'true' && steps.preflight.outputs.mode == 'code-only'
+        run: npm run typecheck
+
+      - name: Test frontend for code changes
+        if: steps.preflight.outputs.resume != 'true' && steps.preflight.outputs.mode == 'code-only'
+        run: npm test
+
       - name: Check generated contracts
         if: steps.preflight.outputs.resume != 'true'
         run: npm run check:contracts
@@ -161,6 +166,32 @@ jobs:
         if: steps.preflight.outputs.resume != 'true'
         run: npm run check:language
 
+      - name: Scan repository inputs for secrets
+        env:
+          DATA_CLOUD_STATE_TOKEN: ${{ github.token }}
+          MODE: ${{ steps.preflight.outputs.mode }}
+          RESUME: ${{ steps.preflight.outputs.resume }}
+          RUN_LOGS_DIR: ${{ steps.refresh.outputs.run_logs_dir }}
+        run: |
+          args=(--root .)
+          if [[ "$RESUME" != "true" ]]; then
+            if [[ "$MODE" == "scheduled" && -z "$RUN_LOGS_DIR" ]]; then
+              echo "Scheduled collection did not provide its run-log directory" >&2
+              exit 1
+            fi
+            if [[ -n "$RUN_LOGS_DIR" ]]; then
+              args+=(--run-logs-root "$RUN_LOGS_DIR")
+            fi
+          fi
+          node scripts/scan-secrets.mjs "${args[@]}"
+
+      - name: Install candidate into Pages data tree
+        if: steps.preflight.outputs.resume != 'true'
+        run: |
+          generation_dir='${{ steps.refresh.outputs.generation_dir }}'
+          store="$(dirname "$(dirname "$generation_dir")")"
+          python -m scripts.install_cloud_generation --store "$store" --public-data public/data
+
       - name: Validate candidate data
         if: steps.preflight.outputs.resume != 'true'
         env:
@@ -168,18 +199,6 @@ jobs:
         run: |
           python -m pipeline.validation.ci_checks --data-dir "$GENERATION_DIR"
           node scripts/validate-json.mjs --data-dir "$GENERATION_DIR"
-
-      - name: Lint frontend for code changes
-        if: steps.preflight.outputs.resume != 'true' && steps.preflight.outputs.mode == 'code-only'
-        run: npm run lint
-
-      - name: Type check frontend for code changes
-        if: steps.preflight.outputs.resume != 'true' && steps.preflight.outputs.mode == 'code-only'
-        run: npm run typecheck
-
-      - name: Test frontend for code changes
-        if: steps.preflight.outputs.resume != 'true' && steps.preflight.outputs.mode == 'code-only'
-        run: npm test
 
       - name: Build site
         if: steps.preflight.outputs.resume != 'true'
@@ -195,7 +214,15 @@ jobs:
 
       - name: Scan the built site for secrets
         if: steps.preflight.outputs.resume != 'true'
-        run: node scripts/scan-secrets.mjs --root .
+        env:
+          DATA_CLOUD_STATE_TOKEN: ${{ github.token }}
+          RUN_LOGS_DIR: ${{ steps.refresh.outputs.run_logs_dir }}
+        run: |
+          args=(--root . --artifact-root dist)
+          if [[ -n "$RUN_LOGS_DIR" ]]; then
+            args+=(--run-logs-root "$RUN_LOGS_DIR")
+          fi
+          node scripts/scan-secrets.mjs "${args[@]}"
 
       - name: Upload Pages artifact
         id: pages-artifact
@@ -244,7 +271,27 @@ jobs:
           if [ -n "$GEN_DIR" ]; then
             args+=(--dist dist --generation-dir "$GEN_DIR")
           fi
+          args+=(--extract-to "$RUNNER_TEMP/pages-payload")
           python -m scripts.verify_pages_artifact "${args[@]}"
+
+      - name: Scan exact Pages artifact for secrets
+        env:
+          DATA_CLOUD_STATE_TOKEN: ${{ github.token }}
+          MODE: ${{ steps.preflight.outputs.mode }}
+          RESUME: ${{ steps.preflight.outputs.resume }}
+          RUN_LOGS_DIR: ${{ steps.refresh.outputs.run_logs_dir }}
+        run: |
+          args=(--root . --artifact-root "$RUNNER_TEMP/pages-payload")
+          if [[ "$RESUME" != "true" ]]; then
+            if [[ "$MODE" == "scheduled" && -z "$RUN_LOGS_DIR" ]]; then
+              echo "Scheduled collection did not provide its run-log directory" >&2
+              exit 1
+            fi
+            if [[ -n "$RUN_LOGS_DIR" ]]; then
+              args+=(--run-logs-root "$RUN_LOGS_DIR")
+            fi
+          fi
+          node scripts/scan-secrets.mjs "${args[@]}"
 
       - name: Reserve the verified Pages artifact
         if: steps.preflight.outputs.resume != 'true'

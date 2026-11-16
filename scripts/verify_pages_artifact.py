@@ -9,6 +9,7 @@ import shutil
 import sys
 import tarfile
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
 from pipeline.legacy_publication import legacy_publication_bytes
@@ -88,6 +89,113 @@ def _inventory(root: Path) -> set[str]:
     return files
 
 
+@contextmanager
+def _extracted_payload(archive: Path, destination: Path | None):
+    if destination is None:
+        with tempfile.TemporaryDirectory(prefix="pages-artifact-") as temporary:
+            extracted = Path(temporary) / "site"
+            extracted.mkdir()
+            yield extracted, _extract(archive, extracted)
+        return
+
+    extracted = Path(destination)
+    if extracted.exists() or extracted.is_symlink():
+        raise PublicationError("Pages artifact extraction destination already exists")
+    created = False
+    try:
+        extracted.mkdir(parents=True, exist_ok=False)
+        created = True
+        yield extracted, _extract(archive, extracted)
+    except Exception:
+        if created:
+            shutil.rmtree(extracted, ignore_errors=True)
+        raise
+
+
+def _verify_extracted_payload(
+    extracted: Path,
+    files: set[str],
+    *,
+    generation_id: str,
+    manifest_sha256: str,
+    producer_revision: str,
+    parent_id: str | None,
+    dist: Path | None,
+    generation_dir: Path | None,
+) -> None:
+    if dist is not None:
+        expected_files = _inventory(dist)
+        if files != expected_files:
+            raise PublicationError("Uploaded Pages artifact differs from the build output")
+        for relative in files:
+            if (extracted / relative).read_bytes() != (dist / relative).read_bytes():
+                raise PublicationError("Uploaded Pages artifact changed a build file")
+    try:
+        pointer = json.loads(
+            (extracted / "data/current.json").read_text(encoding="utf-8"),
+            object_pairs_hook=_unique_object,
+            parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)),
+        )
+    except (OSError, ValueError, UnicodeError) as exc:
+        raise PublicationError("Uploaded Pages artifact has no valid generation pointer") from exc
+    expected_pointer = {
+        "version": 1,
+        "generation_id": generation_id,
+        "manifest_sha256": manifest_sha256,
+    }
+    if (
+        not isinstance(pointer, dict)
+        or type(pointer.get("version")) is not int
+        or pointer != expected_pointer
+    ):
+        raise PublicationError("Uploaded Pages artifact points at another generation")
+    data_root = extracted / "data"
+    if {path.name for path in data_root.iterdir()} != {
+        "current.json", "generations", "latest", "history", "metadata"
+    }:
+        raise PublicationError("Uploaded Pages artifact contains unsupported data files")
+    generations_root = data_root / "generations"
+    expected_generations = {generation_id}
+    if parent_id is not None:
+        expected_generations.add(parent_id)
+    if {path.name for path in generations_root.iterdir()} != expected_generations:
+        raise PublicationError("Uploaded Pages artifact contains an unexpected generation")
+    candidate = extracted / "data/generations" / generation_id
+    manifest = verify_generation(candidate, manifest_sha256=manifest_sha256)
+    if manifest["producer_revision"] != producer_revision or manifest["parent_id"] != parent_id:
+        raise PublicationError("Uploaded Pages generation provenance does not match")
+    expected_legacy_files = {
+        relative
+        for relative in manifest["files"]
+        if legacy_publication_bytes(relative, (candidate / relative).read_bytes()) is not None
+    }
+    actual_legacy_files = {
+        path.relative_to(data_root).as_posix()
+        for folder in ("latest", "history", "metadata")
+        for path in (data_root / folder).rglob("*")
+        if path.is_file()
+    }
+    if actual_legacy_files != expected_legacy_files:
+        raise PublicationError("Legacy Pages paths do not match the current generation")
+    for relative in expected_legacy_files:
+        original = (candidate / relative).read_bytes()
+        expected = legacy_publication_bytes(relative, original)
+        if expected is None:
+            raise PublicationError("Legacy Pages path exposes an unsupported risk score")
+        if (data_root / relative).read_bytes() != expected:
+            raise PublicationError("Legacy Pages path differs from its generation projection")
+    if generation_dir is not None:
+        verify_generation(generation_dir, manifest_sha256=manifest_sha256)
+        for path in (candidate / "manifest.json", *candidate.glob("**/*.json")):
+            relative = path.relative_to(candidate)
+            source = generation_dir / relative
+            if not source.is_file() or path.read_bytes() != source.read_bytes():
+                raise PublicationError("Uploaded Pages generation differs from its candidate")
+    if parent_id is not None:
+        previous = extracted / "data/generations" / parent_id
+        verify_generation(previous)
+
+
 def verify_pages_artifact(
     archive: Path,
     *,
@@ -97,6 +205,7 @@ def verify_pages_artifact(
     parent_id: str | None,
     dist: Path | None = None,
     generation_dir: Path | None = None,
+    extraction_dir: Path | None = None,
 ) -> None:
     if (
         re.fullmatch(r"[0-9a-f]{64}", generation_id) is None
@@ -104,85 +213,17 @@ def verify_pages_artifact(
         or re.fullmatch(r"[0-9a-f]{40}", producer_revision) is None
     ):
         raise PublicationError("Expected generation identity is invalid")
-    with tempfile.TemporaryDirectory(prefix="pages-artifact-") as temporary:
-        extracted = Path(temporary) / "site"
-        extracted.mkdir()
-        files = _extract(archive, extracted)
-        if dist is not None:
-            expected_files = _inventory(dist)
-            if files != expected_files:
-                raise PublicationError("Uploaded Pages artifact differs from the build output")
-            for relative in files:
-                if (extracted / relative).read_bytes() != (dist / relative).read_bytes():
-                    raise PublicationError("Uploaded Pages artifact changed a build file")
-        try:
-            pointer = json.loads(
-                (extracted / "data/current.json").read_text(encoding="utf-8"),
-                object_pairs_hook=_unique_object,
-                parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)),
-            )
-        except (OSError, ValueError, UnicodeError) as exc:
-            raise PublicationError(
-                "Uploaded Pages artifact has no valid generation pointer"
-            ) from exc
-        expected_pointer = {
-            "version": 1,
-            "generation_id": generation_id,
-            "manifest_sha256": manifest_sha256,
-        }
-        if (
-            not isinstance(pointer, dict)
-            or type(pointer.get("version")) is not int
-            or pointer != expected_pointer
-        ):
-            raise PublicationError("Uploaded Pages artifact points at another generation")
-        data_root = extracted / "data"
-        if {path.name for path in data_root.iterdir()} != {
-            "current.json", "generations", "latest", "history", "metadata"
-        }:
-            raise PublicationError("Uploaded Pages artifact contains unsupported data files")
-        generations_root = data_root / "generations"
-        expected_generations = {generation_id}
-        if parent_id is not None:
-            expected_generations.add(parent_id)
-        if {path.name for path in generations_root.iterdir()} != expected_generations:
-            raise PublicationError("Uploaded Pages artifact contains an unexpected generation")
-        candidate = extracted / "data/generations" / generation_id
-        manifest = verify_generation(candidate, manifest_sha256=manifest_sha256)
-        if manifest["producer_revision"] != producer_revision or manifest["parent_id"] != parent_id:
-            raise PublicationError("Uploaded Pages generation provenance does not match")
-        expected_legacy_files = {
-            relative
-            for relative in manifest["files"]
-            if legacy_publication_bytes(
-                relative, (candidate / relative).read_bytes()
-            ) is not None
-        }
-        actual_legacy_files = {
-            path.relative_to(data_root).as_posix()
-            for folder in ("latest", "history", "metadata")
-            for path in (data_root / folder).rglob("*")
-            if path.is_file()
-        }
-        if actual_legacy_files != expected_legacy_files:
-            raise PublicationError("Legacy Pages paths do not match the current generation")
-        for relative in expected_legacy_files:
-            original = (candidate / relative).read_bytes()
-            expected = legacy_publication_bytes(relative, original)
-            if expected is None:
-                raise PublicationError("Legacy Pages path exposes an unsupported risk score")
-            if (data_root / relative).read_bytes() != expected:
-                raise PublicationError("Legacy Pages path differs from its generation projection")
-        if generation_dir is not None:
-            verify_generation(generation_dir, manifest_sha256=manifest_sha256)
-            for path in (candidate / "manifest.json", *candidate.glob("**/*.json")):
-                relative = path.relative_to(candidate)
-                source = generation_dir / relative
-                if not source.is_file() or path.read_bytes() != source.read_bytes():
-                    raise PublicationError("Uploaded Pages generation differs from its candidate")
-        if parent_id is not None:
-            previous = extracted / "data/generations" / parent_id
-            verify_generation(previous)
+    with _extracted_payload(archive, extraction_dir) as (extracted, files):
+        _verify_extracted_payload(
+            extracted,
+            files,
+            generation_id=generation_id,
+            manifest_sha256=manifest_sha256,
+            producer_revision=producer_revision,
+            parent_id=parent_id,
+            dist=dist,
+            generation_dir=generation_dir,
+        )
 
 
 def main() -> int:
@@ -196,6 +237,7 @@ def main() -> int:
     parser.add_argument("--parent-id", default=None)
     parser.add_argument("--dist", type=Path)
     parser.add_argument("--generation-dir", type=Path)
+    parser.add_argument("--extract-to", type=Path)
     args = parser.parse_args()
     try:
         verify_pages_artifact(
@@ -206,6 +248,7 @@ def main() -> int:
             parent_id=args.parent_id,
             dist=args.dist,
             generation_dir=args.generation_dir,
+            extraction_dir=args.extract_to,
         )
         return 0
     except (OSError, PublicationError, ValueError) as exc:
