@@ -300,6 +300,21 @@ def test_pages_read_pointer_recovers_from_transient_transport_error():
     assert len(requests) == 2
 
 
+def test_pages_read_pointer_does_not_retry_response_decoding_errors():
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        raise httpx.DecodingError("invalid response encoding")
+
+    reader = cloud.PagesGenerationRestorer(
+        "https://example.test/app", transport=httpx.MockTransport(handle)
+    )
+    with pytest.raises(cloud.CloudRefreshError, match="pointer read failed"):
+        reader.read_pointer()
+    assert len(requests) == 1
+
+
 def test_pages_read_pointer_fails_after_bounded_service_unavailability(monkeypatch):
     requests = []
 
