@@ -23,6 +23,7 @@ import sys
 import time
 import traceback
 from contextlib import suppress
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -37,7 +38,7 @@ from pipeline.factlayer import FactLayerBuilder
 from pipeline.indicators.derived_series import derive_report
 from pipeline.metadata import oldest_source_timestamp, row_count_for
 from pipeline.providers import build_registry
-from pipeline.report import RunFailureCode, write_run_report
+from pipeline.report import RunFailureCode, RunRejectionCode, write_run_report
 from pipeline.risk.model import RiskModel
 from pipeline.risk_context import (  # signal assembly + gated set (#192 extraction)
     COMMAND_DATASETS,
@@ -711,8 +712,15 @@ def _run_collection(command: str) -> dict[str, Any]:
     return results
 
 
-def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command: str) -> tuple[bool, str | None]:
-    """Compute risk + fact layer + dashboard + write + unified freshness + validate. Returns (ok, error)."""
+@dataclass(frozen=True)
+class RunRejection:
+    code: RunRejectionCode
+    local_error: str
+
+
+def _run_risk_and_write(
+    results: dict[str, Any], writer: StorageWriter, command: str
+) -> RunRejection | None:
     market_meta = results.get("market_meta", {})
     macro_meta = results.get("macro_meta", {})
     news_meta = results.get("news_meta", {})
@@ -819,7 +827,10 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
         ctx["_as_of_date"] = today
         risk_result = risk_model.score(ctx)
         if not any(indicator.value is not None for dimension in risk_result.dimensions for indicator in dimension.indicators):
-            return False, "risk calculation has no available indicators"
+            return RunRejection(
+                RunRejectionCode.RISK_NO_USABLE_INDICATORS,
+                "risk calculation has no available indicators",
+            )
         risk_source_updated_at = oldest_source_timestamp(
             [
                 macro.envelope.source_updated_at,
@@ -844,7 +855,10 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
             sectors=sectors.envelope if sectors is not None else None,
         )
     except Exception as exc:  # noqa: BLE001
-        return False, f"risk/fact layer computation failed: {exc}"
+        return RunRejection(
+            RunRejectionCode.RISK_COMPUTATION_FAILED,
+            f"risk/fact layer computation failed: {exc}",
+        )
 
     # ---- Write (persist after unified freshness determination, P1-7) ----
     outcomes = RunOutcomes(scope=_run_scope(command))
@@ -991,17 +1005,20 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
         _publish_metadata(writer, outcomes, results["provider_status"])
         writer.write_schema_version()  # defaults to the live SCHEMA_VERSION
     except Exception as exc:  # noqa: BLE001
-        return False, f"write to disk failed: {exc}"
+        return RunRejection(RunRejectionCode.RISK_WRITE_FAILED, f"write to disk failed: {exc}")
 
     # ---- Validate ----
     report = run_data_validation(writer.latest_dir.parent)
     blocking_issues = [*report.errors, *report.blocking_warnings]
     if blocking_issues:
-        return False, "validation failed: " + "; ".join(blocking_issues)
+        return RunRejection(
+            RunRejectionCode.RISK_VALIDATION_FAILED,
+            "validation failed: " + "; ".join(blocking_issues),
+        )
 
     results["risk"] = risk_env
     results["dashboard"] = dashboard_env
-    return True, None
+    return None
 
 
 # ============================================================
@@ -1015,6 +1032,7 @@ def _write_failure_report(
     error: str,
     *,
     failure_code: RunFailureCode,
+    rejection_code: RunRejectionCode | None = None,
     health: dict[str, list[str]] | None = None,
 ) -> None:
     """Write an ok=False run report — shared by the explicit failure path and the
@@ -1032,6 +1050,7 @@ def _write_failure_report(
         skipped_datasets=health["skipped"] if health is not None else [],
         degraded_datasets=health["degraded"] if health is not None else [],
         failure_code=failure_code,
+        rejection_code=rejection_code,
     )
 
 
@@ -1255,14 +1274,18 @@ def main(argv: list[str] | None = None) -> int:
             return _finish_run(command, results, time.monotonic() - started, health)
 
         # full / fact-layer
+        rejection_code: RunRejectionCode | None = None
         if command == "fact-layer":
             ok, error = _run_fact_layer_only()
         else:
             writer = StorageWriter(settings.data_dir)
             with writer.atomic_group() as publication:
-                ok, error = _run_risk_and_write(results, writer, command)
-                if not ok:
+                rejection = _run_risk_and_write(results, writer, command)
+                if rejection is not None:
                     publication.rollback()
+            ok = rejection is None
+            error = rejection.local_error if rejection is not None else None
+            rejection_code = rejection.code if rejection is not None else None
             results["durations"]["total"] = time.monotonic() - started
 
         health = dataset_health(StorageWriter(settings.data_dir), command, run_started_at=run_started_at)
@@ -1276,6 +1299,7 @@ def main(argv: list[str] | None = None) -> int:
             results,
             error,
             failure_code=RunFailureCode.RESULT_REJECTED,
+            rejection_code=rejection_code,
             health=health,
         )
         return 1

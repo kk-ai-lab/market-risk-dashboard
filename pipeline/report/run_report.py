@@ -18,6 +18,13 @@ class RunFailureCode(StrEnum):
     DATASET_HEALTH_FAILED = "dataset_health_failed"
 
 
+class RunRejectionCode(StrEnum):
+    RISK_NO_USABLE_INDICATORS = "risk_no_usable_indicators"
+    RISK_COMPUTATION_FAILED = "risk_computation_failed"
+    RISK_WRITE_FAILED = "risk_write_failed"
+    RISK_VALIDATION_FAILED = "risk_validation_failed"
+
+
 def write_run_report(
     artifacts_dir: Path,
     *,
@@ -32,6 +39,7 @@ def write_run_report(
     skipped_datasets: list[str] | None = None,
     degraded_datasets: list[str] | None = None,
     failure_code: RunFailureCode | None = None,
+    rejection_code: RunRejectionCode | None = None,
     proxy_discounts: list[dict[str, Any]] | None = None,
     risk_evidence: dict[str, Any] | None = None,
 ) -> Path:
@@ -73,6 +81,8 @@ def write_run_report(
     }
     if failure_code is not None:
         report["failure_code"] = failure_code.value
+    if rejection_code is not None:
+        report["rejection_code"] = rejection_code.value
     path = logs_dir / f"run-report-{ts}.json"
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
