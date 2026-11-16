@@ -70,7 +70,7 @@ def snapshots():
     return bls, treasury_snapshot()
 
 
-def test_policy_loads_licensed_sources_and_builds_only_coinmetrics(tmp_path):
+def test_policy_loads_licensed_sources_and_builds_approved_providers(tmp_path):
     settings = public_settings(tmp_path)
     policy = settings.load_public_source_policy()
 
@@ -82,7 +82,10 @@ def test_policy_loads_licensed_sources_and_builds_only_coinmetrics(tmp_path):
     assert policy.sources["coinmetrics"].permitted_use == "noncommercial"
 
     providers = build_default_providers(settings)
-    assert [(provider.name, provider.domain) for provider in providers] == [("coinmetrics", "crypto")]
+    assert [(provider.name, provider.domain) for provider in providers] == [
+        ("coinmetrics", "crypto"),
+        ("eia", "energy"),
+    ]
     assert isinstance(providers[0], CoinMetricsProvider)
 
 

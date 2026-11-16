@@ -466,6 +466,12 @@ def _collect_approved(settings: Settings, *, diagnostics: RefreshDiagnostics | N
             "DATA_TREASURY_CHECKPOINT_PATH": settings.treasury_checkpoint_path,
         }
     )
+    eia_api_key = (
+        settings.eia_api_key.get_secret_value().strip()
+        if settings.eia_api_key is not None else ""
+    )
+    if eia_api_key:
+        env["DATA_EIA_API_KEY"] = eia_api_key
     result = subprocess.run(
         [sys.executable, "-m", "pipeline.run", "--full"],
         cwd=settings.project_root,

@@ -106,6 +106,7 @@ jobs:
           MODE: ${{ steps.preflight.outputs.mode }}
           APP_REVISION: ${{ steps.preflight.outputs.app_revision }}
           PAGES_URL: ${{ steps.pages-url.outputs.url }}
+          DATA_EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: |
           python -m pipeline.cloud_refresh \
             --mode "$MODE" \

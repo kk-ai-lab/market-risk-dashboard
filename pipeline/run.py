@@ -28,7 +28,13 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 from pipeline import __version__
-from pipeline.collectors import CalendarCollector, MacroCollector, MarketCollector, NewsCollector
+from pipeline.collectors import (
+    CalendarCollector,
+    EnergyCollector,
+    MacroCollector,
+    MarketCollector,
+    NewsCollector,
+)
 from pipeline.collectors.news import (
     news_translation_coverage,
     translation_sidecar_matches_news_batch,
@@ -162,10 +168,12 @@ def dataset_health(writer: StorageWriter, command: str, *, run_started_at: str) 
     degraded: list[str] = []
     policy_excluded: set[str] = set()
     for name in attempted:
+        spec = dataset_registry.require(name)
+        optional_full_run = bool(spec.full_run and not spec.required)
         entry = metadata.get(name)
         if not isinstance(entry, dict):
             # Attempted but no record written: the write did not complete.
-            failed.append(name)
+            (degraded if optional_full_run else failed).append(name)
             continue
         # QA finding 1: an entry not written during this run is a previous run's record,
         # and must not mask a dataset that died before its freshness write. All freshness
@@ -174,10 +182,13 @@ def dataset_health(writer: StorageWriter, command: str, *, run_started_at: str) 
         # timestamp cannot be proven current and is treated as stale as well.
         updated_at = str(entry.get("updated_at", ""))
         if updated_at < run_started_at:
-            failed.append(name)
+            (degraded if optional_full_run else failed).append(name)
             continue
         status = str(entry.get("status", ""))
         if status in FAILED_FRESHNESS_STATUSES:
+            if optional_full_run:
+                degraded.append(name)
+                continue
             reason = entry.get("reason")
             reason_code = reason.get("code") if isinstance(reason, dict) else None
             if reason_code == SOURCE_POLICY_EXCLUDED_REASON_CODE:
@@ -186,7 +197,7 @@ def dataset_health(writer: StorageWriter, command: str, *, run_started_at: str) 
                 degraded.append(name)
             else:
                 failed.append(name)
-        elif status in DEGRADED_FRESHNESS_STATUSES:
+        elif status in DEGRADED_FRESHNESS_STATUSES or optional_full_run and status == "empty":
             degraded.append(name)
 
     skipped = [name for name in FULL_RUN_DATASETS if name not in attempted or name in policy_excluded]
@@ -521,6 +532,7 @@ def _run_collection(command: str) -> dict[str, Any]:
     need_macro = command in ("full", "macro-only")
     need_news = command in ("full", "news-only")
     need_calendar = command in ("full",)
+    need_energy = command == "full"
 
     if need_market:
         t0 = time.monotonic()
@@ -760,6 +772,25 @@ def _run_collection(command: str) -> dict[str, Any]:
         }
         results["durations"]["news"] = time.monotonic() - t0
 
+    if need_energy:
+        t0 = time.monotonic()
+        energy_writer = StorageWriter(settings.data_dir)
+        try:
+            previous_energy = energy_writer.read_latest("energy")
+        except (CorruptDataError, OSError):
+            previous_energy = None
+        energy_meta = EnergyCollector(registry, settings).collect(previous_energy)
+        results["energy"] = energy_meta["payload"]
+        results["energy_meta"] = energy_meta
+        results["provider_status"]["energy"] = {
+            "provider": energy_meta.get("provider", "eia"),
+            "degraded": bool(energy_meta.get("degraded", False)),
+            "error": energy_meta.get("detail", "") or None,
+        }
+        if energy_meta.get("degraded"):
+            results["degraded"].append("energy: optional EIA inventory is unavailable or degraded")
+        results["durations"]["energy"] = time.monotonic() - t0
+
     results["durations"]["collection"] = time.monotonic() - started
     return results
 
@@ -801,6 +832,7 @@ def _run_risk_and_write(
     macro_meta = results.get("macro_meta", {})
     news_meta = results.get("news_meta", {})
     calendar_meta = results.get("calendar_meta", {})
+    energy_meta = results.get("energy_meta", {})
     # #119: degradation is PER-DATASET, not a single global flag. The old code passed
     # `bool(results["degraded"])` — a list extended by market + macro + calendar + news
     # collectors — to every market envelope, so an RSS outage degraded equities/sectors/
@@ -862,6 +894,19 @@ def _run_risk_and_write(
                              source_updated_at=calendar_meta.get("source_updated_at"),
                              detail=calendar_meta.get("detail", ""),
                              error_code=calendar_meta.get("error_code"))
+        energy = None
+        if "energy" in results:
+            energy = _assemble(
+                "energy",
+                results["energy"],
+                bool(energy_meta.get("degraded", False)),
+                provider=str(energy_meta.get("provider", "eia")),
+                from_cache=bool(energy_meta.get("from_cache", False)),
+                data_quality=0.0 if energy_meta.get("degraded") else 1.0,
+                generated_at=results["energy"].last_attempt_at,
+                error_code=energy_meta.get("error_code"),
+                detail=energy_meta.get("detail", ""),
+            )
 
         risk_model = RiskModel(settings)
         market_histories = results.get("histories", {})
@@ -968,6 +1013,8 @@ def _run_risk_and_write(
         )
         news = _write_finalized(writer, "news", news, outcomes)
         calendar = _write_finalized(writer, "calendar", calendar, outcomes)
+        if energy is not None:
+            energy = _write_finalized(writer, "energy", energy, outcomes)
         risk_env = _write_finalized(writer, "risk", risk_env, outcomes)
 
         writer.write_standalone("facts", facts.model_dump(mode="json"))

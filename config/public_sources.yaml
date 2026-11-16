@@ -34,3 +34,15 @@ sources:
     attribution: "U.S. Department of the Treasury, Daily Treasury Yield Curve Rates"
     permitted_use: public-domain
     cadence_minutes: 1440
+  eia_weekly_crude_inventory:
+    provider: eia
+    registry_domain: energy
+    datasets: [energy]
+    macro_series: []
+    market_symbols: []
+    energy_series: [WCESTUS1]
+    license_id: public-domain
+    license_url: https://www.eia.gov/about/copyrights_reuse.php
+    attribution: "U.S. Energy Information Administration, Weekly U.S. Ending Stocks of Crude Oil Excluding SPR (WCESTUS1)"
+    permitted_use: public-domain
+    cadence_minutes: 15

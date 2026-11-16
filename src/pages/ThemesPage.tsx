@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight } from "lucide-react";
 import { useDataset } from "@/hooks/useDataset";
-import { CONTRACT_CONSTANTS, type CommoditiesEnvelope, type CryptoEnvelope, type EquitiesEnvelope, type SectorsEnvelope } from "@/schemas";
+import { CONTRACT_CONSTANTS, type CommoditiesEnvelope, type CryptoEnvelope, type EnergyEnvelope, type EquitiesEnvelope, type SectorsEnvelope } from "@/schemas";
 import { MemorySectorTable } from "@/components/equities/MemorySectorTable";
 import { AssetCard } from "@/components/cross-asset/AssetCard";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent } from "@/components/ui/Card";
 import { dirTone, dirClasses } from "@/lib/riskColors";
 import { displayCryptoName, displayLocalizedValue } from "@/lib/displayLanguage";
+import { EnergyContextCard } from "@/components/energy/EnergyContextCard";
 
 /**
  * ThemesPage: themes page (semis / memory (incl. 11 A-shares) / commodities / crypto).
@@ -99,6 +100,7 @@ export default function ThemesPage() {
   const equitiesQ = useDataset<EquitiesEnvelope>("equities");
   const cryptoQ = useDataset<CryptoEnvelope>("crypto");
   const commoditiesQ = useDataset<CommoditiesEnvelope>("commodities");
+  const energyQ = useDataset<EnergyEnvelope>("energy");
 
   const themes = sectorsQ.data?.payload.themes ?? [];
   const sectors = sectorsQ.data?.payload.sectors ?? [];
@@ -168,6 +170,16 @@ export default function ThemesPage() {
         ) : (
           <EmptyState title={t("commodities.na")} message={t("commodities.naHint")} />
         )}
+      </section>
+
+      {/* Weekly EIA inventory is context data, separate from commodity prices. */}
+      <section className="border-t border-hairline pt-4" data-testid="section-energy">
+        <EnergyContextCard
+          dataset={energyQ.data}
+          isLoading={energyQ.isLoading}
+          isError={energyQ.isError}
+          onRetry={energyQ.refetch}
+        />
       </section>
 
       {/* Crypto */}

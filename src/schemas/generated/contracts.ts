@@ -14,6 +14,7 @@ import { z } from "zod";
 
 /** ISO 8601 UTC + Z timestamp, e.g. 2026-08-03T10:00:00Z. */
 export const utcDateTime = z.string().datetime();
+export const isoDate = z.iso.date();
 
 // ---- Enumerations (Literal aliases in pipeline/schemas/) ----
 
@@ -494,6 +495,43 @@ export const DomainStatus = z
   })
   .passthrough();
 export type DomainStatus = z.infer<typeof DomainStatus>;
+
+/** One reported weekly U.S. crude inventory observation. */
+export const EnergyObservation = z
+  .object({
+    week_ending: isoDate,
+    value: z.number().finite().min(0),
+  })
+  .passthrough();
+export type EnergyObservation = z.infer<typeof EnergyObservation>;
+
+/** Latest 260-or-fewer weekly observations for EIA series WCESTUS1. */
+export const EnergyDataset = z
+  .object({
+    series_id: z.string().default("WCESTUS1"),
+    unit: z.string().default("thousand_barrels"),
+    observations: z.array(EnergyObservation).default([]),
+    collection_status: z.enum(["not_configured", "available", "empty", "degraded"]),
+    observation_age: z.enum(["unknown", "within_window", "overdue"]),
+    last_attempt_at: utcDateTime,
+    last_successful_fetch_at: utcDateTime.nullable().default(null),
+  })
+  .passthrough();
+export type EnergyDataset = z.infer<typeof EnergyDataset>;
+
+export const EnergyEnvelope = z
+  .object({
+    generated_at: utcDateTime,
+    schema_version: z.string().min(1),
+    source: z.union([z.string(), z.array(z.string())]),
+    source_updated_at: utcDateTime.nullable().default(null),
+    freshness_status: FreshnessStatus,
+    data_quality: z.number().finite().min(0).max(1),
+    provenance: ProviderProvenance,
+    payload: EnergyDataset,
+  })
+  .passthrough();
+export type EnergyEnvelope = z.infer<typeof EnergyEnvelope>;
 
 /** Card-level data of a single equity. */
 export const EquityAsset = z

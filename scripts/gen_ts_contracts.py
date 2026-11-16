@@ -207,6 +207,10 @@ class Emitter:
                 if {"minLength", "maxLength"} & node.keys():
                     raise UnsupportedSchema(where, node)
                 return "utcDateTime"
+            if node.get("format") == "date":
+                if {"minLength", "maxLength", "pattern"} & node.keys():
+                    raise UnsupportedSchema(where, node)
+                return "isoDate"
             if node.get("format"):
                 raise UnsupportedSchema(where, node)
             out = "z.string()"
@@ -377,6 +381,7 @@ import { z } from "zod";
 
 /** ISO 8601 UTC + Z timestamp, e.g. 2026-08-03T10:00:00Z. */
 export const utcDateTime = z.string().datetime();
+export const isoDate = z.iso.date();
 """
 
 

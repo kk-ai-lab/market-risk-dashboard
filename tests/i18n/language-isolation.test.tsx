@@ -5,6 +5,7 @@ import i18n from "@/i18n";
 import { AssetHeatmap } from "@/charts/AssetHeatmap";
 import { RiskDimensionBreakdown } from "@/components/risk/RiskDimensionBreakdown";
 import ThemesPage from "@/pages/ThemesPage";
+import RiskLabPage from "@/pages/RiskLabPage";
 import type { RiskModelResult } from "@/schemas";
 import riskFixture from "../fixtures/risk.json";
 import { installFixtureFetch } from "../frontend/helpers/fetchMock";
@@ -61,10 +62,13 @@ describe("display-language policy", () => {
         <AssetHeatmap cells={[{ asset: "NVDA", category: locale === "zh-CN" ? "板块" : "Equities", change1d: 1.2 }]} />
         <RiskDimensionBreakdown result={riskFixture.payload as unknown as RiskModelResult} />
         <ThemesPage />
+        <RiskLabPage />
       </QueryClientProvider>,
     );
 
     expect(await screen.findByTestId("theme-card-memory")).toBeInTheDocument();
+    expect((await screen.findAllByText(locale === "zh-CN" ? "尚未配置" : "Not configured")).length).toBeGreaterThanOrEqual(2);
+    expect(await screen.findByText(locale === "zh-CN" ? "仅作背景信息，不纳入风险分或其覆盖度。" : "Context only; excluded from the risk score and its coverage.")).toBeInTheDocument();
     expect(screen.getAllByTestId("risk-dimension").length).toBeGreaterThan(0);
     expect(screen.getByTestId("asset-heatmap")).toBeInTheDocument();
     const renderedText = Array.from(document.body.querySelectorAll("*"))

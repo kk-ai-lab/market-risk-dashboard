@@ -450,10 +450,11 @@ _RESULT_MODELS: dict[str, type[BaseModel]] = {
     "fetch_news": NewsRow,
     "get_crypto_market": CryptoMarketResult,
     "get_series": SeriesRow,
+    "get_weekly_inventory": SeriesRow,
     "get_contract_prices": FedWatchPrices,
 }
 _LIST_RESULT_METHODS = frozenset(
-    {"get_earnings_calendar", "get_economic_calendar", "fetch_news", "get_series"}
+    {"get_earnings_calendar", "get_economic_calendar", "fetch_news", "get_series", "get_weekly_inventory"}
 )
 
 

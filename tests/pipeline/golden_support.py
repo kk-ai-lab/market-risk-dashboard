@@ -65,6 +65,21 @@ def publish(writer, generated_at: str, frozen_freshness_now: Any, frozen_outcome
         data_quality=0.9, generated_at=generated_at, error_code="provider_http_5xx",
         detail="fallback exercised",
     )
+    from pipeline.schemas.energy import EnergyDataset
+
+    energy_payload = EnergyDataset(
+        observations=[],
+        collection_status="not_configured",
+        observation_age="unknown",
+        last_attempt_at=generated_at,
+        last_successful_fetch_at=None,
+    )
+    _finalize_and_write(
+        writer, "energy", energy_payload, True, outcomes,
+        provider="unavailable", data_quality=0.0, generated_at=generated_at,
+        error_code="provider_auth_failed",
+        detail="DATA_EIA_API_KEY is not configured; no request was sent",
+    )
     sectors = _finalize_and_write(
         writer, "sectors", factories.make_sectors_payload(), False, outcomes,
         provider="fmp", data_quality=1.0, generated_at=generated_at,

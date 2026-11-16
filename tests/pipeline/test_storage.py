@@ -775,7 +775,7 @@ def test_dataset_health_skips_only_explicit_source_policy_omissions(tmp_path: Pa
     assert health == {
         "failed": ["sectors", "crypto", "commodities"],
         "degraded": [],
-        "skipped": ["equities", "macro", "calendar", "news", "risk", "dashboard", "factlayer"],
+        "skipped": ["equities", "energy", "macro", "calendar", "news", "risk", "dashboard", "factlayer"],
     }
 
 
@@ -865,7 +865,7 @@ def test_dataset_health_reports_datasets_a_partial_command_skipped(tmp_path: Pat
 
     assert health["failed"] == []
     assert health["degraded"] == []
-    assert health["skipped"] == ["macro", "calendar", "news", "risk", "dashboard", "factlayer"]
+    assert health["skipped"] == ["energy", "macro", "calendar", "news", "risk", "dashboard", "factlayer"]
 
 
 def test_dataset_health_treats_an_unrecorded_attempt_as_failed(tmp_path: Path) -> None:
@@ -897,10 +897,10 @@ def test_dataset_health_treats_a_stale_fresh_entry_from_a_previous_run_as_failed
 
     health = dataset_health(StorageWriter(data_dir), "full", run_started_at="2026-08-05T00:00:00Z")
 
-    assert health["failed"] == list(FULL_RUN_DATASETS), (
+    assert health["failed"] == [name for name in FULL_RUN_DATASETS if name != "energy"], (
         "yesterday's fresh entries must not hide datasets that never wrote this run"
     )
-    assert health["degraded"] == []
+    assert health["degraded"] == ["energy"]
 
 
 def test_dataset_health_accepts_entries_written_during_this_run(tmp_path: Path) -> None:
@@ -923,7 +923,8 @@ def test_dataset_health_before_the_first_run_fails_everything(tmp_path: Path) ->
 
     health = dataset_health(StorageWriter(tmp_path / "data"), "full", run_started_at=_RUN_START)
 
-    assert health["failed"] == list(FULL_RUN_DATASETS)
+    assert health["failed"] == [name for name in FULL_RUN_DATASETS if name != "energy"]
+    assert health["degraded"] == ["energy"]
 
 
 def test_partial_command_writes_a_run_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -59,6 +59,7 @@
     "sectors",
     "crypto",
     "commodities",
+    "energy",
     "macro",
     "calendar",
     "news",
@@ -73,6 +74,7 @@
     "sectors": 480,
     "crypto": 480,
     "commodities": 480,
+    "energy": 15,
     "macro": 240,
     "calendar": 1440,
     "news": 480,
@@ -120,6 +122,16 @@
       "enveloped": true,
       "domain": "market",
       "required": true,
+      "row_counted": true,
+      "has_schema_version": true
+    },
+    "energy": {
+      "filenames": [
+        "energy.json"
+      ],
+      "enveloped": true,
+      "domain": "energy",
+      "required": false,
       "row_counted": true,
       "has_schema_version": true
     },
@@ -218,6 +230,9 @@
     ],
     "economic": [
       "calendar"
+    ],
+    "energy": [
+      "energy"
     ],
     "macro": [
       "macro"
