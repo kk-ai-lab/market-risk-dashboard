@@ -284,6 +284,53 @@ def test_pages_read_pointer_recovers_from_transient_service_unavailable():
     assert len(requests) == 2
 
 
+def test_pages_read_pointer_recovers_from_transient_transport_error():
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        if len(requests) == 1:
+            raise httpx.ConnectError("connection unavailable", request=request)
+        return httpx.Response(404)
+
+    reader = cloud.PagesGenerationRestorer(
+        "https://example.test/app", transport=httpx.MockTransport(handle)
+    )
+    assert reader.read_pointer() is None
+    assert len(requests) == 2
+
+
+def test_pages_read_pointer_fails_after_bounded_service_unavailability(monkeypatch):
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(503)
+
+    monkeypatch.setattr(cloud, "sleep", lambda _: None)
+    reader = cloud.PagesGenerationRestorer(
+        "https://example.test/app", transport=httpx.MockTransport(handle)
+    )
+    with pytest.raises(cloud.CloudRefreshError, match="pointer read failed"):
+        reader.read_pointer()
+    assert len(requests) == 3
+
+
+def test_pages_read_pointer_does_not_retry_non_transient_client_errors():
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(403)
+
+    reader = cloud.PagesGenerationRestorer(
+        "https://example.test/app", transport=httpx.MockTransport(handle)
+    )
+    with pytest.raises(cloud.CloudRefreshError, match="pointer read failed"):
+        reader.read_pointer()
+    assert len(requests) == 1
+
+
 def test_pages_detect_legacy_data_without_treating_a_missing_file_as_success():
     requests = []
 

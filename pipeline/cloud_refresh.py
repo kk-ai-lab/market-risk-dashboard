@@ -13,6 +13,7 @@ import sys
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 from pathlib import Path
+from time import sleep
 from typing import TYPE_CHECKING, Literal, Protocol
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -48,6 +49,7 @@ if TYPE_CHECKING:
     from scripts.stage_publication import CandidateStageCode
 
 CloudMode = Literal["scheduled", "code-only"]
+_PAGES_POINTER_RETRY_DELAYS = (0.25, 0.5)
 
 
 class CloudRefreshError(ValueError):
@@ -356,15 +358,22 @@ class PagesGenerationRestorer:
         with httpx.Client(
             transport=self.transport, timeout=30, follow_redirects=False, trust_env=False
         ) as client:
-            try:
-                response = client.get(
-                    self.base_url + "/data/current.json?refresh=" + uuid4().hex,
-                    headers={"Cache-Control": "no-cache"},
-                )
-            except httpx.HTTPError as exc:
-                raise CloudRefreshError("Pages pointer read failed") from exc
-        if response.status_code == 404:
-            return None
+            for attempt in range(len(_PAGES_POINTER_RETRY_DELAYS) + 1):
+                try:
+                    response = client.get(
+                        self.base_url + "/data/current.json?refresh=" + uuid4().hex,
+                        headers={"Cache-Control": "no-cache"},
+                    )
+                except httpx.HTTPError as exc:
+                    if attempt == len(_PAGES_POINTER_RETRY_DELAYS):
+                        raise CloudRefreshError("Pages pointer read failed") from exc
+                else:
+                    if response.status_code == 404:
+                        return None
+                    retryable = response.status_code == 429 or response.status_code >= 500
+                    if not retryable or attempt == len(_PAGES_POINTER_RETRY_DELAYS):
+                        break
+                sleep(_PAGES_POINTER_RETRY_DELAYS[attempt])
         if response.status_code != 200 or len(response.content) > 1024 * 1024:
             raise CloudRefreshError("Pages pointer read failed")
         try:
