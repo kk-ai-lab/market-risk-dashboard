@@ -40,7 +40,7 @@
   },
   "bea": {
     "notice": "This product uses the Bureau of Economic Analysis (BEA) Data API but is not endorsed or certified by BEA.",
-    "calendarLink": "Official release calendar",
+    "calendarLink": "Official BEA release schedule",
     "scheduleOnly": "Scheduled release time. Actual values and forecasts are not supplied by this calendar."
   },
   "filter": {

@@ -67,7 +67,7 @@
     "crypto": "Crypto",
     "calendar": "Calendar",
     "economic": "Economic calendar",
-    "bea_calendar": "BEA release calendar",
+    "bea_calendar": "BEA release schedule",
     "news": "News"
   }
 }

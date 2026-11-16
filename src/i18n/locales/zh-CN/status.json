@@ -67,7 +67,7 @@
     "crypto": "加密资产",
     "calendar": "事件日历",
     "economic": "经济日历",
-    "bea_calendar": "美国经济分析局日历",
+    "bea_calendar": "BEA 发布日程",
     "news": "新闻"
   }
 }
