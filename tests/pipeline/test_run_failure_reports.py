@@ -124,3 +124,26 @@ def test_finish_run_marks_dataset_health_failure_and_keeps_report_semantics(monk
     assert report["failed_datasets"] == health["failed"]
     assert report["skipped_datasets"] == health["skipped"]
     assert report["degraded_datasets"] == health["degraded"]
+
+
+def test_main_initialization_exception_is_not_mislabeled_as_collection_failure(
+    monkeypatch, tmp_path, capsys
+):
+    reports = []
+    _configure_run(monkeypatch, tmp_path, reports)
+    collection_calls = []
+
+    def fail_clock():
+        raise RuntimeError("clock-secret")
+
+    monkeypatch.setattr(run_mod, "now_utc", fail_clock)
+    monkeypatch.setattr(
+        run_mod,
+        "_run_collection",
+        lambda _command: collection_calls.append(True) or run_mod._empty_results(),
+    )
+
+    assert run_mod.main(["--fact-layer"]) == 1
+    capsys.readouterr()
+    assert collection_calls == []
+    assert reports[0]["failure_code"] == "pipeline_exception"
