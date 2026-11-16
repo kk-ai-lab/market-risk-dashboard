@@ -5,7 +5,7 @@ import json
 import pytest
 
 from pipeline import run as run_mod
-from pipeline.report import write_run_report
+from pipeline.report import RunFailureCode, write_run_report
 
 
 def _configure_run(monkeypatch, tmp_path, reports):
@@ -79,7 +79,7 @@ def test_run_report_serializes_failure_code_and_omits_it_when_absent(tmp_path):
         provider_status={},
         degraded=[],
         dataset_counts={},
-        failure_code="result_rejected",
+        failure_code=RunFailureCode.RESULT_REJECTED,
     )
     assert json.loads(report_path.read_text(encoding="utf-8"))["failure_code"] == "result_rejected"
 

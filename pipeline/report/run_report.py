@@ -4,8 +4,15 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
+
+
+class RunFailureCode(StrEnum):
+    COLLECTION_EXCEPTION = "collection_exception"
+    PIPELINE_EXCEPTION = "pipeline_exception"
+    RESULT_REJECTED = "result_rejected"
 
 
 def write_run_report(
@@ -21,6 +28,7 @@ def write_run_report(
     failed_datasets: list[str] | None = None,
     skipped_datasets: list[str] | None = None,
     degraded_datasets: list[str] | None = None,
+    failure_code: RunFailureCode | None = None,
     proxy_discounts: list[dict[str, Any]] | None = None,
     risk_evidence: dict[str, Any] | None = None,
 ) -> Path:
@@ -60,6 +68,8 @@ def write_run_report(
         "proxy_discounts": list(proxy_discounts or []),
         "risk_evidence": dict(risk_evidence or {}),
     }
+    if failure_code is not None:
+        report["failure_code"] = failure_code.value
     path = logs_dir / f"run-report-{ts}.json"
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     return path

@@ -28,6 +28,7 @@ from pipeline.publication import (
     publish_reused_generation,
     verify_generation,
 )
+from pipeline.report import RunFailureCode
 from pipeline.settings import Settings
 from pipeline.storage.bls_snapshot import SnapshotError as BlsSnapshotError
 from pipeline.storage.cloud_bls import _decode as decode_bls
@@ -70,15 +71,19 @@ class CollectionSummary:
     failed_datasets: tuple[str, ...]
     skipped_datasets: tuple[str, ...]
     degraded_datasets: tuple[str, ...]
+    failure_code: RunFailureCode | None = None
 
     def as_dict(self) -> dict[str, object]:
-        return {
+        result: dict[str, object] = {
             "ok": self.ok,
             "clean": self.clean,
             "failed_datasets": list(self.failed_datasets),
             "skipped_datasets": list(self.skipped_datasets),
             "degraded_datasets": list(self.degraded_datasets),
         }
+        if self.failure_code is not None:
+            result["failure_code"] = self.failure_code.value
+        return result
 
 
 @dataclass(frozen=True)
@@ -168,12 +173,18 @@ def _read_collection_summary(artifacts_dir: Path) -> CollectionSummary | None:
             sorted({value for value in values if isinstance(value, str) and value in allowed})
         )
 
+    try:
+        failure_code = RunFailureCode(report.get("failure_code"))
+    except (TypeError, ValueError):
+        failure_code = None
+
     return CollectionSummary(
         ok=flag("ok"),
         clean=flag("clean"),
         failed_datasets=dataset_names("failed_datasets"),
         skipped_datasets=dataset_names("skipped_datasets"),
         degraded_datasets=dataset_names("degraded_datasets"),
+        failure_code=failure_code,
     )
 
 
