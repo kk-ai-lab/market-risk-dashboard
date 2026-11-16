@@ -20,6 +20,12 @@ export const utcDateTime = z.string().datetime();
 export const AnalysisLanguage = z.enum(["zh-CN", "en"]);
 export type AnalysisLanguage = z.infer<typeof AnalysisLanguage>;
 
+export const CalendarSource = z.enum(["earnings", "economic", "bea_calendar"]);
+export type CalendarSource = z.infer<typeof CalendarSource>;
+
+export const CalendarSourceState = z.enum(["fresh", "empty", "degraded", "not_configured"]);
+export type CalendarSourceState = z.infer<typeof CalendarSourceState>;
+
 export const CryptoSentiment = z.enum(["risk_on", "risk_off", "neutral"]);
 export type CryptoSentiment = z.infer<typeof CryptoSentiment>;
 
@@ -200,10 +206,23 @@ export const CalendarEvent = z
   .passthrough();
 export type CalendarEvent = z.infer<typeof CalendarEvent>;
 
+export const CalendarSourceStatus = z
+  .object({
+    source: CalendarSource,
+    state: CalendarSourceState,
+    provider: z.string().min(1),
+    checked_at: utcDateTime.nullable().default(null),
+    used_fallback: z.boolean().default(false),
+    from_cache: z.boolean().default(false),
+  })
+  .passthrough();
+export type CalendarSourceStatus = z.infer<typeof CalendarSourceStatus>;
+
 /** calendar.json payload. */
 export const CalendarDataset = z
   .object({
     events: z.array(CalendarEvent).default([]),
+    source_status: z.array(CalendarSourceStatus).default([]),
     updated_at: utcDateTime.nullable().default(null),
   })
   .passthrough();

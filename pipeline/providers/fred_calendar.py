@@ -10,8 +10,7 @@ Two traps from #83, encoded here: `release_id=101` (FOMC Press Release) is NOT t
 meeting calendar — FOMC comes from the federalreserve.gov page; and the FRED list is
 driven from an explicit `release_id` allowlist, never the unfiltered `/releases/dates`.
 
-FRED gives *dates only* — the per-release ET release time is attached here as a constant
-and the collector converts (date, ET) → UTC (pipeline.utils.et_instant).
+FRED gives *dates only*.
 """
 
 from __future__ import annotations
@@ -24,9 +23,11 @@ from typing import Any
 from pipeline.providers._util import UA, _today
 from pipeline.providers.base import (
     BaseProvider,
+    EconomicRow,
     ProviderError,
     ProviderHealth,
 )
+from pipeline.utils import et_instant
 
 FRED_BASE = "https://api.stlouisfed.org/fred"
 FOMC_CALENDAR_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
@@ -82,15 +83,6 @@ class FredCalendarProvider(BaseProvider):
             )
 
     def get_economic_calendar(self, start: str, end: str) -> list[dict[str, Any]]:
-        """Economic-event rows in the shared shape (id/title/date/time_et/importance/source).
-
-        FRED release dates + FOMC meeting dates, filtered to ``[start, end]``, sorted by
-        date. Retries live in ProviderRegistry.call (#103/E-3).
-
-        Sources are isolated: one failing release (or the FOMC page) never discards the
-        rows already fetched — the calendar must not be empty because its most fragile
-        (scraped) source hiccupped. An error is raised only when *every* source failed.
-        """
         rows: list[dict[str, Any]] = []
         errors: list[str] = []
         for release_id in RELEASES:
@@ -102,7 +94,7 @@ class FredCalendarProvider(BaseProvider):
             rows.extend(self._fomc_meetings(start, end))
         except ProviderError as exc:
             errors.append(f"fomc: {exc}")
-        rows.sort(key=lambda r: (r["date"], r["time_et"]))
+        rows.sort(key=lambda r: r["datetime"])
         if not rows and errors:
             raise ProviderError("FRED calendar all sources failed: " + "; ".join(errors[:3]))
         return rows
@@ -139,17 +131,14 @@ class FredCalendarProvider(BaseProvider):
             day = str(row.get("date", ""))
             if not day:
                 continue
-            out.append(
-                {
-                    "id": f"econ-fred-{release_id}-{day}",
-                    "title": name,
-                    "date": day,
-                    "time_et": time_et,
-                    "importance": importance,
-                    "country": "US",
-                    "source": "fred",
-                }
-            )
+            out.append(EconomicRow(
+                id=f"econ-fred-{release_id}-{day}",
+                title=name,
+                datetime=et_instant(day, time_et),
+                importance=importance,
+                country="US",
+                source="fred",
+            ).model_dump(mode="json"))
         return out
 
     # ---- FOMC meetings (federalreserve.gov, official) ----
@@ -196,17 +185,14 @@ class FredCalendarProvider(BaseProvider):
                 if not (start <= day <= end):
                     continue
                 title = "FOMC Meeting" + (" (press conference)" if press_conf else "")
-                out.append(
-                    {
-                        "id": f"econ-fomc-{day}",
-                        "title": title,
-                        "date": day,
-                        "time_et": "14:00",
-                        "importance": "high",
-                        "country": "US",
-                        "source": "fomc",
-                    }
-                )
+                out.append(EconomicRow(
+                    id=f"econ-fomc-{day}",
+                    title=title,
+                    datetime=et_instant(day, "14:00"),
+                    importance="high",
+                    country="US",
+                    source="fomc",
+                ).model_dump(mode="json"))
         if not out:
             raise ProviderError("FOMC calendar parse returned no meeting rows")
         return out

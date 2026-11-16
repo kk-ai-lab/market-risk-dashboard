@@ -61,6 +61,8 @@
     },
     "providerNames": {
       "akshare": "A-share data provider",
+      "bea": "US Bureau of Economic Analysis",
+      "beaCalendar": "BEA release schedule",
       "bls": "US Bureau of Labor Statistics",
       "calibrationPanel": "Calibration panel",
       "coingecko": "Crypto market data",
@@ -70,7 +72,9 @@
       "fmpQuotes": "Financial market quotes",
       "fred": "US economic data",
       "fredCalendar": "Economic calendar data",
+      "federalReserve": "Federal Reserve",
       "multipleSources": "Multiple data sources",
+      "nasdaq": "Nasdaq earnings calendar",
       "riskModel": "Risk model",
       "rssNews": "News aggregation",
       "unavailable": "No available source",

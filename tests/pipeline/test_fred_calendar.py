@@ -98,7 +98,6 @@ FOMC_HTML = """
 
 
 def test_fred_release_dates_with_server_side_window(tmp_path: Path) -> None:
-    """#83 §3A: realtime_start/end bound the window; rows carry the stable id + ET time."""
     client = _Client(
         fred_by_release={
             10: ["2026-08-12", "2026-09-11"],  # out-of-window date must be filtered by the API's own window
@@ -115,8 +114,8 @@ def test_fred_release_dates_with_server_side_window(tmp_path: Path) -> None:
     assert params["realtime_start"] == "2026-08-07" and params["realtime_end"] == "2026-08-30"
     assert params["release_id"] == 10 and params["api_key"] == "test-fred-key"
     assert rows == [
-        {"id": "econ-fred-10-2026-08-12", "title": "Consumer Price Index", "date": "2026-08-12",
-         "time_et": "08:30", "importance": "high", "country": "US", "source": "fred"}
+        {"id": "econ-fred-10-2026-08-12", "title": "Consumer Price Index", "datetime": "2026-08-12T12:30:00Z",
+         "importance": "high", "country": "US", "source": "fred"}
     ]
 
 
@@ -130,7 +129,7 @@ def test_fomc_meeting_parse(tmp_path: Path) -> None:
 
     by_id = {r["id"]: r for r in rows}
     # January 27-28 has a press-conf link → decision day 28.
-    assert by_id["econ-fomc-2026-01-28"]["time_et"] == "14:00"
+    assert by_id["econ-fomc-2026-01-28"]["datetime"] == "2026-01-28T19:00:00Z"
     assert by_id["econ-fomc-2026-01-28"]["title"] == "FOMC Meeting (press conference)"
     assert by_id["econ-fomc-2026-01-28"]["source"] == "fomc"
     # March 17-18 has no press-conf link.
@@ -138,7 +137,7 @@ def test_fomc_meeting_parse(tmp_path: Path) -> None:
     # September 15-16 → decision day 16.
     assert "econ-fomc-2026-09-16" in by_id
     # 2027 rows exist but fall outside the window → filtered.
-    assert not any(r["date"].startswith("2027") for r in rows)
+    assert not any(r["datetime"].startswith("2027") for r in rows)
 
 
 def test_get_economic_calendar_merges_and_sorts(tmp_path: Path) -> None:
@@ -154,12 +153,12 @@ def test_get_economic_calendar_merges_and_sorts(tmp_path: Path) -> None:
 
     rows = provider.get_economic_calendar("2026-08-07", "2026-09-30")
 
-    dates = [r["date"] for r in rows]
+    dates = [r["datetime"][:10] for r in rows]
     assert dates == sorted(dates)
     by_id = {r["id"]: r for r in rows}
     assert by_id["econ-fred-10-2026-08-12"]["importance"] == "high"
     assert by_id["econ-fred-192-2026-09-01"]["importance"] == "medium"
-    assert by_id["econ-fred-192-2026-09-01"]["time_et"] == "10:00"
+    assert by_id["econ-fred-192-2026-09-01"]["datetime"] == "2026-09-01T14:00:00Z"
     assert by_id["econ-fomc-2026-09-16"]["source"] == "fomc"
     # 2027 FOMC and the out-of-window CPI date are excluded.
     assert all("2026-08-07" <= d <= "2026-09-30" for d in dates)

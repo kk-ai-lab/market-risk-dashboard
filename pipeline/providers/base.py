@@ -46,10 +46,11 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, Field, RootModel, field_validator
 
-from pipeline.degrade import degrade_factor as resolve_degrade_factor
-from pipeline.schemas.envelope import SCHEMA_VERSION
-from pipeline.schemas.news import _validate_news_url
 from pipeline.config.models import ApprovedCollectionPlan
+from pipeline.degrade import degrade_factor as resolve_degrade_factor
+from pipeline.schemas.calendar import EventImportance
+from pipeline.schemas.envelope import SCHEMA_VERSION, UTCDateTime
+from pipeline.schemas.news import _validate_news_url
 from pipeline.settings import Settings
 from pipeline.utils import now_utc
 
@@ -390,9 +391,8 @@ class EarningsRow(BaseModel):
 class EconomicRow(BaseModel):
     id: str = Field(min_length=1)
     title: str = Field(min_length=1)
-    date: str = Field(min_length=1)
-    time_et: str = Field(min_length=1)
-    importance: str = "medium"
+    datetime: UTCDateTime
+    importance: EventImportance = "medium"
     country: str = "US"
     source: str = Field(min_length=1)
 

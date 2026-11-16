@@ -34,6 +34,9 @@ class _FakeRegistry:
             return {"result": self.economic, "meta": {"provider": "fred_calendar", "used_fallback": False, "from_cache": False}}
         raise AssertionError(f"unexpected domain {domain}")
 
+    def providers_for(self, domain: str):
+        return [object()] if domain in {"calendar", "economic"} else []
+
 
 def _collector(registry: _FakeRegistry, tmp_path: Path) -> CalendarCollector:
     return CalendarCollector(registry, Settings(_env_file=None, artifacts_dir=tmp_path))
@@ -46,10 +49,10 @@ EARNINGS = [
      "revenue_estimate": None, "revenue_actual": None, "session": "AMC"},
 ]
 ECONOMIC = [
-    {"id": "econ-fred-10-2026-08-12", "title": "Consumer Price Index", "date": "2026-08-12",
-     "time_et": "08:30", "importance": "high", "country": "US", "source": "fred"},
-    {"id": "econ-fomc-2026-09-16", "title": "FOMC Meeting (press conference)", "date": "2026-09-16",
-     "time_et": "14:00", "importance": "high", "country": "US", "source": "fomc"},
+    {"id": "econ-fred-10-2026-08-12", "title": "Consumer Price Index", "datetime": "2026-08-12T12:30:00Z",
+     "importance": "high", "country": "US", "source": "fred"},
+    {"id": "econ-fomc-2026-09-16", "title": "FOMC Meeting (press conference)", "datetime": "2026-09-16T18:00:00Z",
+     "importance": "high", "country": "US", "source": "fomc"},
 ]
 
 
@@ -123,8 +126,8 @@ def test_both_fail_publishes_unavailable_outcome(tmp_path: Path) -> None:
 
 
 def test_malformed_economic_row_is_skipped_not_fatal(tmp_path: Path) -> None:
-    bad = {"id": "econ-fred-9-2026-08-14", "title": "Advance Retail Sales", "date": "not-a-date",
-           "time_et": "08:30", "importance": "high", "country": "US", "source": "fred"}
+    bad = {"id": "econ-fred-9-2026-08-14", "title": "Advance Retail Sales", "datetime": "not-a-date",
+           "importance": "high", "country": "US", "source": "fred"}
     registry = _FakeRegistry(earnings=[], economic=[bad, ECONOMIC[0]])
     payload, meta = _collector(registry, tmp_path).collect()
     assert [e.id for e in payload.events] == ["econ-fred-10-2026-08-12"]

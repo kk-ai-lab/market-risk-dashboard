@@ -74,7 +74,7 @@
     "crypto": 480,
     "commodities": 480,
     "macro": 240,
-    "calendar": 1440,
+    "calendar": 15,
     "news": 480,
     "risk": 480,
     "dashboard": 480,
@@ -210,6 +210,9 @@
     "news_translations"
   ],
   "domain_datasets": {
+    "bea_calendar": [
+      "calendar"
+    ],
     "calendar": [
       "calendar"
     ],

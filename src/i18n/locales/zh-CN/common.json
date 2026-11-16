@@ -61,6 +61,8 @@
     },
     "providerNames": {
       "akshare": "中国股票数据源",
+      "bea": "美国经济分析局",
+      "beaCalendar": "美国经济分析局发布日程",
       "bls": "美国劳工统计局",
       "calibrationPanel": "校准样本",
       "coingecko": "加密资产行情源",
@@ -70,7 +72,9 @@
       "fmpQuotes": "金融行情数据源",
       "fred": "美国经济数据源",
       "fredCalendar": "经济日历数据源",
+      "federalReserve": "美联储",
       "multipleSources": "多个数据源",
+      "nasdaq": "纳斯达克财报日历",
       "riskModel": "风险模型",
       "rssNews": "新闻聚合源",
       "unavailable": "无可用数据源",

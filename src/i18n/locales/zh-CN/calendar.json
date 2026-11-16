@@ -19,6 +19,30 @@
     "source": "来源"
   },
   "none": "暂无日历事件",
+  "coverage": {
+    "title": "来源检查",
+    "description": "以下为上次采集结果。云端每 15 分钟检查日程，官方发布计划可能调整。",
+    "unavailable": "当前快照没有逐来源检查记录。",
+    "checkedAt": "检查于 {{time}}",
+    "cached": "缓存响应",
+    "fallback": "备用来源",
+    "sources": {
+      "earnings": "财报日历",
+      "economic": "美国经济数据与美联储日历",
+      "bea_calendar": "美国经济分析局发布日程"
+    },
+    "states": {
+      "fresh": "已获取",
+      "empty": "时间窗内无事件",
+      "degraded": "不可用或降级",
+      "not_configured": "本次未配置"
+    }
+  },
+  "bea": {
+    "notice": "本产品使用美国经济分析局数据接口，但未经该局背书或认证。",
+    "calendarLink": "官方发布日历",
+    "scheduleOnly": "此为计划发布时间，该日历不提供实际值或预测值。"
+  },
   "filter": {
     "label": "按类型筛选",
     "all": "全部"
@@ -34,7 +58,38 @@
       "employmentSituation": "就业状况报告",
       "jobOpenings": "职位空缺和劳动力流动调查",
       "fomcMeeting": "联邦公开市场委员会会议",
-      "fomcMeetingPressConference": "联邦公开市场委员会会议及新闻发布会"
+      "fomcMeetingPressConference": "联邦公开市场委员会会议及新闻发布会",
+      "internationalTrade": "美国货物与服务国际贸易",
+      "travelAndTourism": "旅行与旅游卫星账户",
+      "internationalTransactions": "美国国际收支交易",
+      "internationalInvestmentPosition": "美国国际投资头寸",
+      "stateGdpAndPersonalIncome": "各州国内生产总值与个人收入",
+      "spaceEconomy": "太空经济卫星账户",
+      "artsAndCulture": "艺术与文化生产卫星账户",
+      "industryProduction": "经济分析局与劳工统计局行业综合生产账户",
+      "marineEconomy": "海洋经济卫星账户",
+      "tradeInValueAdded": "增加值贸易",
+      "tradeInServices": "美国服务贸易明细表",
+      "prototypeStateIncomeDistribution": "各州个人收入分布试算",
+      "newForeignDirectInvestment": "新增对美外国直接投资",
+      "directInvestment": "按国家与行业划分的直接投资",
+      "personalIncomeDistribution": "美国个人收入分布",
+      "usMultinationalActivities": "美国跨国企业经营活动",
+      "researchAndDevelopmentSatellite": "研发卫星账户试验统计",
+      "puertoRicoGdp": "波多黎各国内生产总值",
+      "affiliateServices": "通过关联企业提供的服务",
+      "foreignMultinationalAffiliateActivities": "外国跨国企业在美关联企业经营活动",
+      "countyMetroGdpAndIncome": "各县与都市区国内生产总值及个人收入",
+      "stateRealConsumptionAndIncome": "各州实际个人消费支出与实际个人收入",
+      "outdoorRecreation": "户外休闲经济统计",
+      "internationalTransactionsAndPosition": "美国国际收支交易与投资头寸",
+      "globalValueChains": "全球价值链与增加值贸易",
+      "householdProduction": "美国家庭生产经济统计",
+      "researchAndDevelopmentStatistics": "研发经济试验统计",
+      "countyGdpAndIncome": "各县国内生产总值与个人收入",
+      "countyGdpAndPersonalIncome": "各县国内生产总值及个人收入",
+      "stateRealSpendingAndIncome": "各州实际消费支出与实际个人收入",
+      "corporateProfits": "企业利润"
     }
   }
 }

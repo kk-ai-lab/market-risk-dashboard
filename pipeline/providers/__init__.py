@@ -12,6 +12,7 @@ from pipeline.providers.base import (
     ProviderRegistry,
     QuoteResult,
 )
+from pipeline.providers.bea_calendar import BeaCalendarProvider
 from pipeline.providers.coingecko import CoinGeckoProvider
 from pipeline.providers.coinmetrics import CoinMetricsProvider
 from pipeline.providers.fedwatch import FedWatchProvider
@@ -37,6 +38,7 @@ _PROVIDER_CLASSES: dict[str, type[BaseProvider]] = {
     "fmp_quotes": FmpQuotesProvider,
     "nasdaq": NasdaqCalendarProvider,
     "fred_calendar": FredCalendarProvider,
+    "bea_calendar": BeaCalendarProvider,
     "fedwatch": FedWatchProvider,
     "akshare": AkshareProvider,
     "rss_news": RssNewsProvider,
