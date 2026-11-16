@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 import pytest
 
-from pipeline.providers.base import ProviderError
+from pipeline.providers.base import TRANSIENT, ProviderError
 from pipeline.providers.fred_calendar import RELEASES, FredCalendarProvider
 from pipeline.settings import Settings
 
@@ -288,8 +288,9 @@ def test_all_sources_failed_raises(tmp_path: Path) -> None:
     client = _Client(fred_by_release={}, failing_releases=set(RELEASES), fomc_fails=True)
     provider = _provider(tmp_path)
     provider._client = client
-    with pytest.raises(ProviderError, match="all sources failed"):
+    with pytest.raises(ProviderError, match="all sources failed") as exc:
         provider.get_economic_calendar("2026-08-07", "2026-08-30")
+    assert exc.value.cls == TRANSIENT
 
 
 def test_fomc_markup_without_year_sections_is_not_silent_empty(tmp_path: Path) -> None:
