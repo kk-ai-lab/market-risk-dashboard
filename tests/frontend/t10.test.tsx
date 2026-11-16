@@ -26,16 +26,16 @@ describe("T10 frontend hardening", () => {
     const { rerender } = render(
       <RiskTrendChart
         points={[
-          { date: "2026-08-01", total_score: 48.1 },
-          { date: "2026-08-02", total_score: 52.3 },
+          { date: "2026-08-01", total_score: 48.1, model_version: "1.1.0" },
+          { date: "2026-08-02", total_score: 52.3, model_version: "1.1.0" },
         ]}
       />,
     );
     rerender(
       <RiskTrendChart
         points={[
-          { date: "2026-08-01", total_score: 49.1 },
-          { date: "2026-08-02", total_score: 53.3 },
+          { date: "2026-08-01", total_score: 49.1, model_version: "1.1.0" },
+          { date: "2026-08-02", total_score: 53.3, model_version: "1.1.0" },
         ]}
       />,
     );

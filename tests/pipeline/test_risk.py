@@ -224,7 +224,7 @@ def test_risk_model_produces_valid_result() -> None:
     assert 0 <= result.confidence <= 1
     assert len(result.dimensions) == 6
     assert result.top_drivers  # has top drivers
-    assert result.calibration_policy_version == "1.0.0"
+    assert result.calibration_policy_version == "1.1.0"
     assert result.calibration_status == "provisional"
     assert "definitive probability" not in result.disclaimer or "modeled estimate" in result.disclaimer
 
@@ -246,7 +246,7 @@ def test_risk_evidence_state_and_bounds_are_published() -> None:
     assert result.score_lower_bound <= result.total_score <= result.score_upper_bound
     macro = next(d for d in result.dimensions if d.key == "macro")
     assert macro.evidence_state == "partial"
-    assert macro.missing_indicators == ["dollar_index"]
+    assert macro.missing_indicators == ["dollar_index", "sahm_style_labor_stress"]
 
 
 def test_missing_evidence_is_insufficient_with_full_deterministic_bounds() -> None:
@@ -260,6 +260,8 @@ def test_missing_evidence_is_insufficient_with_full_deterministic_bounds() -> No
 
 
 def test_complete_evidence_collapses_bounds_to_point_estimate(monkeypatch) -> None:
+    from datetime import date
+
     from tests.pipeline.factories import make_envelope, make_macro_indicator, make_macro_payload
 
     # Treat the proxy inputs as fully trusted for this semantic test; their proxy disclosure
@@ -281,9 +283,26 @@ def test_complete_evidence_collapses_bounds_to_point_estimate(monkeypatch) -> No
             make_macro_indicator(key="rrpontsyd", label="RRP", value=100.0, source="FRED"),
         ],
         fx=[make_macro_indicator(key="dtwexbgs", label="Dollar", value=98.0, source="FRED")],
+        labor=[make_macro_indicator(
+            key="unrate", label="Unemployment Rate", value=3.5, unit="pct", source="BLS",
+            observation_period="2026-08",
+        )],
     )
     ctx = _synthetic_context()
     ctx["macro"] = MacroEnvelope.model_validate(make_envelope("macro", payload=payload)).payload
+    ctx["_as_of_date"] = "2026-08-04"
+    start_year, start_month = 2025, 6
+    ctx["series_history"] = {
+        "unrate": [
+            {
+                "date": date(start_year + year_offset, month_index + 1, 1).isoformat(),
+                "value": 3.5,
+                "source": "BLS",
+            }
+            for offset in range(15)
+            for year_offset, month_index in [divmod(start_month - 1 + offset, 12)]
+        ]
+    }
 
     result = RiskModel().score(ctx)
 
@@ -617,12 +636,12 @@ def test_ig_oas_is_scored_under_liquidity_credit() -> None:
             seen[ind.key] = dim.key
 
 
-def test_macro_dimension_has_exactly_four_indicators() -> None:
-    """After the hy_oas/ig_oas removals, macro is rates + curve + dollar + nominal yield."""
+def test_macro_dimension_has_exactly_five_indicators() -> None:
     result = _risk_result()
     macro = next(d for d in result.dimensions if d.key == "macro")
     assert {i.key for i in macro.indicators} == {
         "real_rate_dfii10", "yield_curve_10y2y", "dollar_index", "dgs10",
+        "sahm_style_labor_stress",
     }
 
 

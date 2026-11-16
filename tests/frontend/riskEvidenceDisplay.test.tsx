@@ -24,6 +24,6 @@ it("does not invent an evidence range and names missing inputs", async () => {
   render(<RiskDimensionBreakdown result={risk} />);
   expect(screen.getByTestId("risk-evidence-state")).toHaveTextContent("Evidence score range: —");
   const dimension = screen.getAllByTestId("risk-dimension")[0];
-  expect(within(dimension).getByText(/Missing indicators:/)).toHaveTextContent("10Y Real Rate");
+  expect(within(dimension).getByText(/Missing or excluded indicators:/)).toHaveTextContent("10Y Real Rate");
   expect(dimension).toHaveTextContent("Trust-adjusted coverage: —");
 });
