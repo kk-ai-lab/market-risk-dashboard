@@ -1,5 +1,3 @@
-"""Monthly labor stress derived from revised BLS unemployment observations."""
-
 from __future__ import annotations
 
 from collections import Counter
