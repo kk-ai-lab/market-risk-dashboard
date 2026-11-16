@@ -172,7 +172,6 @@ export default function ThemesPage() {
         )}
       </section>
 
-      {/* Weekly EIA inventory is context data, separate from commodity prices. */}
       <section className="border-t border-hairline pt-4" data-testid="section-energy">
         <EnergyContextCard
           dataset={energyQ.data}

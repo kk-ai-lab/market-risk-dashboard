@@ -1,5 +1,3 @@
-"""EIA API v2 adapter restricted to the public WCESTUS1 weekly series."""
-
 from __future__ import annotations
 
 import math
@@ -63,7 +61,6 @@ class EiaProvider(BaseProvider):
         except httpx.TransportError as exc:
             raise ProviderError("EIA weekly inventory transport failed", cls=TRANSIENT) from exc
         except ProviderError as exc:
-            # GuardedClient errors can contain the full request URL; retain only its class.
             raise ProviderError("EIA weekly inventory request was blocked") from exc
 
         if response.status_code != 200:
@@ -86,5 +83,4 @@ class EiaProvider(BaseProvider):
             safe_rows.sort(key=lambda item: item["date"])
             return safe_rows[-260:]
         except (KeyError, TypeError, ValueError, OverflowError) as exc:
-            # Do not include the response, request params, or exception body in this message.
             raise ProviderError("EIA weekly inventory response could not be parsed", cls=PERMANENT) from exc

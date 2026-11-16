@@ -661,7 +661,6 @@ def make_dashboard_payload(**overrides: Any) -> dict[str, Any]:
 
 
 def make_energy_payload(**overrides: Any) -> dict[str, Any]:
-    """``energy.json`` payload with a valid weekly observation and frozen retrieval times."""
     return _build(
         {
             "series_id": "WCESTUS1",

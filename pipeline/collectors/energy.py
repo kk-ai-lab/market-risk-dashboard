@@ -1,5 +1,3 @@
-"""Collect one weekly inventory series without coupling it to the risk model."""
-
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -42,7 +40,6 @@ class EnergyCollector:
                 previous_payload = old.payload
                 previous_provider = old.provenance.provider
         except (TypeError, ValueError):
-            # An artifact from the old contract is not eligible for fallback.
             previous_payload = None
 
         api_key = self.settings.eia_api_key

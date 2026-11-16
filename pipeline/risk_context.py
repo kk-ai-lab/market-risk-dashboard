@@ -233,8 +233,6 @@ def read_prev_risk(writer: StorageWriter, *, as_of_date: str | None = None) -> t
 # Dataset health for the run report (#63)
 # ============================================================
 
-#: Every dataset a `--full` run attempts, in canonical registry keys. Optional full-run
-#: datasets are reported as degraded health but do not block required core outputs.
 FULL_RUN_DATASETS: tuple[str, ...] = tuple(
     spec.key for spec in dataset_registry.DATASETS if spec.required or spec.full_run
 )

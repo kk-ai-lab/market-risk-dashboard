@@ -1,5 +1,3 @@
-"""Weekly EIA crude inventory context; independent from price and risk inputs."""
-
 from __future__ import annotations
 
 from datetime import date, datetime
