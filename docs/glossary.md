@@ -81,6 +81,45 @@
 | Catalysts | 催化剂 / 关键事件 | 即将发生的可能影响市场的宏观/财报事件。 |
 | Earnings Calendar | 财报日历 | 上市公司财报发布日期。 |
 | Economic Calendar | 经济日历 | 宏观数据发布日程。 |
+| BEA Release Schedule | BEA 发布日程 | BEA 官方计划发布时间；仅包含发布时间，不含实际值或预测值。 |
+
+BEA release titles are kept verbatim in English and use these Chinese UI translations:
+
+| English source title | 中文 UI 标题 |
+|---|---|
+| Activities of U.S. Affiliates of Foreign Multinational Enterprises | 外国跨国企业在美关联企业经营活动 |
+| Activities of U.S. Multinational Enterprises | 美国跨国企业经营活动 |
+| Arts and Cultural Production Satellite Account | 艺术与文化生产卫星账户 |
+| Corporate Profits | 企业利润 |
+| Direct Investment by Country and Industry | 按国家与行业划分的直接投资 |
+| Distribution of U.S. Personal Income | 美国个人收入分布 |
+| Experimental Research and Development Economic Statistics | 研发经济试验统计 |
+| Experimental Research and Development Satellite Account | 研发卫星账户试验统计 |
+| GDP by County and Personal Income by County | 各县国内生产总值与个人收入 |
+| Global Value Chains (Trade in Value Added) | 全球价值链与增加值贸易 |
+| Gross Domestic Product | 国内生产总值 |
+| Gross Domestic Product by County and Metropolitan Area and Personal Income by County and Metropolitan Area | 各县与都市区国内生产总值及个人收入 |
+| Gross Domestic Product by County and Personal Income by County | 各县国内生产总值及个人收入 |
+| Gross Domestic Product by State and Personal Income by State | 各州国内生产总值与个人收入 |
+| Gross Domestic Product for Puerto Rico | 波多黎各国内生产总值 |
+| Integrated BEA-BLS Industry-Level Production Account | 经济分析局与劳工统计局行业综合生产账户 |
+| Marine Economy Satellite Account | 海洋经济卫星账户 |
+| New Foreign Direct Investment in the United States | 新增对美外国直接投资 |
+| Outdoor Recreation Economic Statistics | 户外休闲经济统计 |
+| Personal Income and Outlays | 个人收入和支出 |
+| Prototype Distribution of State Personal Income | 各州个人收入分布试算 |
+| Real Consumer Spending by State and Real Personal Income by State | 各州实际消费支出与实际个人收入 |
+| Real Personal Consumption Expenditures by State and Real Personal Income by State | 各州实际个人消费支出与实际个人收入 |
+| Services Supplied Through Affiliates | 通过关联企业提供的服务 |
+| Space Economy Statellite Account | 太空经济卫星账户 |
+| Trade in Value Added | 增加值贸易 |
+| Travel and Tourism Satellite Account | 旅行与旅游卫星账户 |
+| U.S. Household Production Economic Statistics | 美国家庭生产经济统计 |
+| U.S. International Investment Position | 美国国际投资头寸 |
+| U.S. International Trade in Goods and Services | 美国货物与服务国际贸易 |
+| U.S. International Transactions | 美国国际收支交易 |
+| U.S. International Transactions and Investment Position | 美国国际收支交易与投资头寸 |
+| U.S. Trade in Services Detailed Tables | 美国服务贸易明细表 |
 
 ## 5. 状态与数据质量
 

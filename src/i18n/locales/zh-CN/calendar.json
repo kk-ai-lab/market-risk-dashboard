@@ -29,7 +29,7 @@
     "sources": {
       "earnings": "财报日历",
       "economic": "美国经济数据与美联储日历",
-      "bea_calendar": "BEA 发布日程"
+      "bea_calendar": "美国经济分析局发布日程"
     },
     "states": {
       "fresh": "已获取",
@@ -40,7 +40,7 @@
   },
   "bea": {
     "notice": "本产品使用美国经济分析局数据接口，但未经该局背书或认证。",
-    "calendarLink": "BEA 官方发布日程",
+    "calendarLink": "美国经济分析局官方发布日程",
     "scheduleOnly": "此为计划发布时间，该日历不提供实际值或预测值。"
   },
   "filter": {
