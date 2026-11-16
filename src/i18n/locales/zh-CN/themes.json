@@ -36,7 +36,7 @@
       "not_configured": "尚未配置",
       "available": "可用",
       "empty": "暂无观测",
-      "degraded": "更新异常"
+      "degraded": "降级"
     },
     "age": {
       "unknown": "时效未知",
