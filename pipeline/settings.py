@@ -211,7 +211,6 @@ if TYPE_CHECKING:
 
 
 def __getattr__(name: str) -> Any:
-    """Keep class imports safe while preserving the legacy singleton import."""
     if name != "settings":
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
