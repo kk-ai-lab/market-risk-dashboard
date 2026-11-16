@@ -269,6 +269,21 @@ def test_pages_read_pointer_treats_only_an_explicit_404_as_empty():
     assert reader.read_pointer() is None
 
 
+def test_pages_read_pointer_recovers_from_transient_service_unavailable():
+    responses = iter((httpx.Response(503), httpx.Response(404)))
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        return next(responses)
+
+    reader = cloud.PagesGenerationRestorer(
+        "https://example.test/app", transport=httpx.MockTransport(handle)
+    )
+    assert reader.read_pointer() is None
+    assert len(requests) == 2
+
+
 def test_pages_detect_legacy_data_without_treating_a_missing_file_as_success():
     requests = []
 
