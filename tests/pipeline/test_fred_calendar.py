@@ -188,12 +188,66 @@ def test_one_failing_release_does_not_discard_the_rest(tmp_path: Path) -> None:
     provider = _provider(tmp_path)
     provider._client = client
 
-    rows = provider.get_economic_calendar("2026-08-07", "2026-09-30")
+    outcome = provider.get_economic_calendar("2026-08-07", "2026-09-30")
 
-    by_id = {r["id"]: r for r in rows}
+    assert not isinstance(outcome, list)
+    assert outcome.errors
+    by_id = {r["id"]: r for r in outcome.result}
     assert "econ-fred-10-2026-08-12" not in by_id  # the failing release contributes nothing
     assert by_id["econ-fred-192-2026-09-01"]["source"] == "fred"
     assert by_id["econ-fomc-2026-09-16"]["source"] == "fomc"
+
+
+def test_fomc_valid_schedule_with_no_meeting_in_window_is_empty(tmp_path: Path) -> None:
+    provider = _provider(tmp_path)
+    provider._client = _Client(fred_by_release={}, fomc_html=FOMC_HTML)
+
+    assert provider._fomc_meetings("2026-01-01", "2026-01-01") == []
+
+
+def test_fomc_date_does_not_borrow_from_the_next_month(tmp_path: Path) -> None:
+    provider = _provider(tmp_path)
+    provider._client = _Client(
+        fred_by_release={},
+        fomc_html='''<h4><a id="2026">2026 FOMC Meetings</a></h4>
+          <div class="fomc-meeting__month"><strong>January</strong></div>
+          <div class="fomc-meeting__month"><strong>March</strong></div>
+          <div class="fomc-meeting__date">17-18</div>''',
+    )
+
+    rows = provider._fomc_meetings("2026-01-01", "2026-12-31")
+
+    assert [row["id"] for row in rows] == ["econ-fomc-2026-03-18"]
+
+
+def test_fomc_missing_requested_year_is_not_a_valid_empty_window(tmp_path: Path) -> None:
+    provider = _provider(tmp_path)
+    provider._client = _Client(fred_by_release={}, fomc_html=FOMC_HTML)
+
+    with pytest.raises(ProviderError, match="requested year coverage"):
+        provider._fomc_meetings("2028-01-01", "2028-01-14")
+
+
+def test_transport_error_in_one_child_preserves_other_calendar_rows(tmp_path: Path) -> None:
+    class TransportErrorClient(_Client):
+        def get(self, url: str, params: dict | None = None) -> Any:
+            params = params or {}
+            if "fomccalendars" not in url and int(params.get("release_id", 0)) == 10:
+                request = httpx.Request("GET", "https://api.stlouisfed.org/fred/release/dates")
+                raise httpx.ConnectError("simulated connection failure", request=request)
+            return super().get(url, params)
+
+    provider = _provider(tmp_path)
+    provider._client = TransportErrorClient(
+        fred_by_release={192: ["2026-09-01"]},
+        fomc_html=FOMC_HTML,
+    )
+
+    outcome = provider.get_economic_calendar("2026-08-07", "2026-09-30")
+
+    assert not isinstance(outcome, list)
+    assert "econ-fred-192-2026-09-01" in {row["id"] for row in outcome.result}
+    assert all("simulated connection failure" not in error for error in outcome.errors)
 
 
 def test_all_sources_failed_raises(tmp_path: Path) -> None:
