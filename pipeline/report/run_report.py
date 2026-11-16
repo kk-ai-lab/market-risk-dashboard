@@ -10,7 +10,9 @@ from typing import Any
 
 
 class RunFailureCode(StrEnum):
+    CONFIGURATION_INVALID = "configuration_invalid"
     COLLECTION_EXCEPTION = "collection_exception"
+    ISOLATED_DATA_DIR_REQUIRED = "isolated_data_dir_required"
     PIPELINE_EXCEPTION = "pipeline_exception"
     RESULT_REJECTED = "result_rejected"
     DATASET_HEALTH_FAILED = "dataset_health_failed"

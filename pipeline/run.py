@@ -22,6 +22,7 @@ import argparse
 import sys
 import time
 import traceback
+from contextlib import suppress
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -1132,6 +1133,14 @@ def main(argv: list[str] | None = None) -> int:
             settings.load_public_source_policy()
     except ConfigError as exc:
         print(f"[pipeline] config loading failed: {exc}", file=sys.stderr)
+        if not args.backfill:
+            with suppress(Exception):
+                _write_failure_report(
+                    command,
+                    _empty_results(),
+                    f"ConfigError: {exc}",
+                    failure_code=RunFailureCode.CONFIGURATION_INVALID,
+                )
         return 1
 
     if args.dry_run:
@@ -1148,6 +1157,14 @@ def main(argv: list[str] | None = None) -> int:
                 "public/data contains legacy source payloads",
                 file=sys.stderr,
             )
+            if not args.backfill:
+                with suppress(Exception):
+                    _write_failure_report(
+                        command,
+                        _empty_results(),
+                        "approved-source mode requires an isolated data_dir",
+                        failure_code=RunFailureCode.ISOLATED_DATA_DIR_REQUIRED,
+                    )
             return 1
 
     if args.backfill:
