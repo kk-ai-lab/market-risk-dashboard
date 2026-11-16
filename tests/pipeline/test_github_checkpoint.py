@@ -44,7 +44,7 @@ class Server:
             assert request.method == "POST"
             assert "createCommitOnBranch" in data["query"]
             inputs = data["variables"]["input"]
-            assert inputs["branch"] == {"repositoryNameWithOwner": "owner/repo", "refName": "checkpoint"}
+            assert inputs["branch"] == {"repositoryNameWithOwner": "owner/repo", "branchName": "checkpoint"}
             if inputs["expectedHeadOid"] != self.head:
                 return httpx.Response(200, json={"errors": [{"type": "STALE_DATA"}], "data": {"createCommitOnBranch": None}})
             additions = inputs["fileChanges"]["additions"]
