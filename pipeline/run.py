@@ -1133,7 +1133,7 @@ def main(argv: list[str] | None = None) -> int:
             settings.load_public_source_policy()
     except ConfigError as exc:
         print(f"[pipeline] config loading failed: {exc}", file=sys.stderr)
-        if not args.backfill:
+        if not args.backfill and not args.dry_run:
             with suppress(Exception):
                 _write_failure_report(
                     command,
@@ -1157,7 +1157,7 @@ def main(argv: list[str] | None = None) -> int:
                 "public/data contains legacy source payloads",
                 file=sys.stderr,
             )
-            if not args.backfill:
+            if not args.backfill and not args.dry_run:
                 with suppress(Exception):
                     _write_failure_report(
                         command,
