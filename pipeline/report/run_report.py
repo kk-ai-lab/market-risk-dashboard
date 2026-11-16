@@ -13,6 +13,7 @@ class RunFailureCode(StrEnum):
     COLLECTION_EXCEPTION = "collection_exception"
     PIPELINE_EXCEPTION = "pipeline_exception"
     RESULT_REJECTED = "result_rejected"
+    DATASET_HEALTH_FAILED = "dataset_health_failed"
 
 
 def write_run_report(

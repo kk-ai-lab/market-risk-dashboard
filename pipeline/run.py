@@ -1053,6 +1053,7 @@ def _finish_run(command: str, results: dict[str, Any], elapsed: float, health: d
         failed_datasets=health["failed"],
         skipped_datasets=health["skipped"],
         degraded_datasets=health["degraded"],
+        failure_code=RunFailureCode.DATASET_HEALTH_FAILED if health["failed"] else None,
         proxy_discounts=_risk_proxy_discounts(results),
         risk_evidence=_risk_evidence_summary(results),
     )
