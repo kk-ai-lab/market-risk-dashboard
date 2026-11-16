@@ -22,18 +22,22 @@ import argparse
 import sys
 import time
 import traceback
+from contextlib import suppress
 from datetime import UTC, date, datetime
 from typing import Any
 
 from pipeline import __version__
 from pipeline.collectors import CalendarCollector, MacroCollector, MarketCollector, NewsCollector
-from pipeline.collectors.news import news_translation_coverage, translation_sidecar_matches_news_batch
+from pipeline.collectors.news import (
+    news_translation_coverage,
+    translation_sidecar_matches_news_batch,
+)
 from pipeline.config.models import ApprovedCollectionPlan
 from pipeline.factlayer import FactLayerBuilder
 from pipeline.indicators.derived_series import derive_report
 from pipeline.metadata import oldest_source_timestamp, row_count_for
 from pipeline.providers import build_registry
-from pipeline.report import write_run_report
+from pipeline.report import RunFailureCode, write_run_report
 from pipeline.risk.model import RiskModel
 from pipeline.risk_context import (  # signal assembly + gated set (#192 extraction)
     COMMAND_DATASETS,
@@ -1004,18 +1008,30 @@ def _run_risk_and_write(results: dict[str, Any], writer: StorageWriter, command:
 # main
 # ============================================================
 
-def _write_failure_report(command: str, results: dict[str, Any], error: str) -> None:
+
+def _write_failure_report(
+    command: str,
+    results: dict[str, Any],
+    error: str,
+    *,
+    failure_code: RunFailureCode,
+    health: dict[str, list[str]] | None = None,
+) -> None:
     """Write an ok=False run report — shared by the explicit failure path and the
     crash path (E-5), so a dead run always leaves a record with the reason."""
     write_run_report(
         settings.artifacts_dir,
-        command=command, ok=False,
+        command=command,
+        ok=False,
         durations=results.get("durations", {}),
         provider_status=results.get("provider_status", {}),
         degraded=results.get("degraded", []),
         dataset_counts={},
         error=error,
-        failed_datasets=[], skipped_datasets=[], degraded_datasets=[],
+        failed_datasets=health["failed"] if health is not None else [],
+        skipped_datasets=health["skipped"] if health is not None else [],
+        degraded_datasets=health["degraded"] if health is not None else [],
+        failure_code=failure_code,
     )
 
 
@@ -1038,6 +1054,7 @@ def _finish_run(command: str, results: dict[str, Any], elapsed: float, health: d
         failed_datasets=health["failed"],
         skipped_datasets=health["skipped"],
         degraded_datasets=health["degraded"],
+        failure_code=RunFailureCode.DATASET_HEALTH_FAILED if health["failed"] else None,
         proxy_discounts=_risk_proxy_discounts(results),
         risk_evidence=_risk_evidence_summary(results),
     )
@@ -1116,6 +1133,14 @@ def main(argv: list[str] | None = None) -> int:
             settings.load_public_source_policy()
     except ConfigError as exc:
         print(f"[pipeline] config loading failed: {exc}", file=sys.stderr)
+        if not args.backfill and not args.dry_run:
+            with suppress(Exception):
+                _write_failure_report(
+                    command,
+                    _empty_results(),
+                    f"ConfigError: {exc}",
+                    failure_code=RunFailureCode.CONFIGURATION_INVALID,
+                )
         return 1
 
     if args.dry_run:
@@ -1132,6 +1157,14 @@ def main(argv: list[str] | None = None) -> int:
                 "public/data contains legacy source payloads",
                 file=sys.stderr,
             )
+            if not args.backfill and not args.dry_run:
+                with suppress(Exception):
+                    _write_failure_report(
+                        command,
+                        _empty_results(),
+                        "approved-source mode requires an isolated data_dir",
+                        failure_code=RunFailureCode.ISOLATED_DATA_DIR_REQUIRED,
+                    )
             return 1
 
     if args.backfill:
@@ -1142,10 +1175,13 @@ def main(argv: list[str] | None = None) -> int:
     # unbound, so the except block's own NameError was swallowed and no run-report
     # was ever written for an early crash.
     results: dict[str, Any] = _empty_results()
+    failure_code = RunFailureCode.PIPELINE_EXCEPTION
     try:
         started = time.monotonic()
         run_started_at = now_utc()
+        failure_code = RunFailureCode.COLLECTION_EXCEPTION
         results = _run_collection(command)
+        failure_code = RunFailureCode.PIPELINE_EXCEPTION
 
         # Single-domain commands write only the corresponding dataset (unified freshness, P1-7)
         if command == "market-only":
@@ -1235,12 +1271,23 @@ def main(argv: list[str] | None = None) -> int:
             return _finish_run(command, results, results.get("durations", {}).get("total", 0.0), health)
 
         print(f"[pipeline] failed: {error}", file=sys.stderr)
-        _write_failure_report(command, results, error)
+        _write_failure_report(
+            command,
+            results,
+            error,
+            failure_code=RunFailureCode.RESULT_REJECTED,
+            health=health,
+        )
         return 1
     except Exception as exc:  # E-5: a crashed run still writes a run-report with a traceback summary
         traceback.print_exc()
         try:
-            _write_failure_report(command, results, f"{type(exc).__name__}: {exc}")
+            _write_failure_report(
+                command,
+                results,
+                f"{type(exc).__name__}: {exc}",
+                failure_code=failure_code,
+            )
         except Exception:  # noqa: BLE001 - never mask the original crash with a report failure
             pass
         return 1
