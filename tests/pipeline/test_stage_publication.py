@@ -43,8 +43,9 @@ def test_missing_client_file_preserves_existing_pointer(make_data_dir, tmp_path)
     store = tmp_path / "store"
     first = stage(source, store)
     (source / "history" / "macro" / "rates.30d.json").unlink()
-    with pytest.raises(PublicationError):
+    with pytest.raises(PublicationError) as error:
         stage(source, store, first["generation_id"])
+    assert str(error.value) == "required_client_files_missing"
     assert read_current(store) == first
 
 
