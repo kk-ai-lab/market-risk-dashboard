@@ -28,6 +28,7 @@ from pipeline.storage.publication_checkpoint import (
 )
 
 REPO = "owner/repo"
+REPOSITORY_ID = 1321685294
 REVISION = "a" * 40
 NEW_REVISION = "b" * 40
 STAMP = "2026-11-15T12:00:00Z"
@@ -113,7 +114,8 @@ def _artifact(artifact_id, run_id, *, event_sha=REVISION):
         "workflow_run": {
             "id": run_id,
             "head_sha": event_sha,
-            "head_repository": {"full_name": REPO},
+            "repository_id": REPOSITORY_ID,
+            "head_repository_id": REPOSITORY_ID,
         },
     }
 
@@ -751,7 +753,7 @@ def test_reserve_and_finish_cli_failures_do_not_emit_preflight_events(
     assert finish_stderr == "Cloud Pages publication could not be confirmed\n"
 
 
-def test_reserve_and_finish_bind_the_exact_artifact_to_pages_readback(tmp_path):
+def test_artifact_api_provenance_flows_through_reserve_resume_and_finish(tmp_path):
     files = {
         "latest/data.json": {"generated_at": STAMP, "value": 3},
         "history/data.json": [{"date": "2026-11-14", "value": 2}],
@@ -766,19 +768,58 @@ def test_reserve_and_finish_bind_the_exact_artifact_to_pages_readback(tmp_path):
         validator=lambda _: True,
     )
     generation_dir = tmp_path / "store/generations" / pointer["generation_id"]
-    actions = Actions(current_run=50)
-    actions.artifacts[42] = _artifact(42, 50)
-    publisher, checkpoint, _, pages = _publisher(actions=actions)
-    generation = publisher.reserve(
-        generation_dir=generation_dir, artifact_id=42, run_id=50, event_sha=REVISION
-    )
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        path = request.url.path
+        if path.endswith("/actions/artifacts/42"):
+            return httpx.Response(200, json=_artifact(42, 50))
+        if path.endswith("/actions/workflows/" + Path(WORKFLOW_PATH).name + "/runs"):
+            return httpx.Response(200, json={"total_count": 0, "workflow_runs": []})
+        if path.endswith("/git/ref/heads/dev"):
+            return httpx.Response(
+                200, json={"ref": "refs/heads/dev", "object": {"sha": REVISION}}
+            )
+        if path.endswith("/actions/runs/50"):
+            return httpx.Response(
+                200,
+                json={
+                    "id": 50,
+                    "path": WORKFLOW_PATH,
+                    "status": "completed",
+                    "head_repository": {"full_name": REPO},
+                    "head_sha": REVISION,
+                },
+            )
+        raise AssertionError(f"Unexpected GitHub API request: {path}")
+
+    actions = GitHubActionsApi(REPO, "token", transport=httpx.MockTransport(handle))
+    checkpoint = MemoryCheckpoint()
+    pages = Pages(None)
+    publisher = CloudPublisher(PublicationCheckpoint(checkpoint), actions, pages, REPO)
+    try:
+        generation = publisher.reserve(
+            generation_dir=generation_dir, artifact_id=42, run_id=50, event_sha=REVISION
+        )
+    except CloudPublicationError as error:
+        reservation = f"rejected: {error}"
+    else:
+        reservation = f"reserved: {generation.artifact_id}"
+    assert reservation == "reserved: 42"
     pages.pointer = {
         "version": 1,
         "generation_id": generation.generation_id,
         "manifest_sha256": generation.manifest_sha256,
     }
+    plan = publisher.preflight(
+        mode="code-only", event_ref="refs/heads/dev", event_sha=REVISION, run_id=50
+    )
+    assert plan.application_revision == REVISION
     deployed = publisher.finish(current_run_id=50, event_sha=REVISION)
     assert deployed == generation
     state = PublicationCheckpoint(checkpoint).read()
     assert state.deployed == generation and state.candidate is None
     assert pages.restored == [generation.generation_id]
+    assert sum(request.url.path.endswith("/actions/artifacts/42") for request in requests) == 3
+    actions.close()
