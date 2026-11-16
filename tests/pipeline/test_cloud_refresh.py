@@ -381,6 +381,7 @@ def test_child_failure_logs_only_allowlisted_collection_summary(tmp_path, monkey
                 "failed_datasets": ["equities", "report-token-secret"],
                 "skipped_datasets": [],
                 "degraded_datasets": ["macro"],
+                "failure_code": "result_rejected",
                 "error": "report-error-secret",
                 "degraded": ["provider-note-secret"],
                 "provider_status": {"credential": "provider-secret"},
@@ -423,6 +424,7 @@ def test_child_failure_logs_only_allowlisted_collection_summary(tmp_path, monkey
                 "failed_datasets": ["equities"],
                 "skipped_datasets": [],
                 "degraded_datasets": ["macro"],
+                "failure_code": "result_rejected",
             },
         },
     ]
@@ -654,6 +656,35 @@ def test_main_checkpoint_initialization_failure_emits_startup_diagnostic(monkeyp
         },
     ]
     assert "checkpoint-secret" not in output.err
+
+
+@pytest.mark.parametrize(
+    "failure_code",
+    ["provider-token-secret", {"value": "result_rejected"}, 17, None],
+)
+def test_collection_summary_omits_unknown_failure_codes(tmp_path, failure_code):
+    artifacts = tmp_path / "artifacts"
+    report_dir = artifacts / "logs"
+    report_dir.mkdir(parents=True)
+    (report_dir / "run-report-20261115T120000Z.json").write_text(
+        json.dumps(
+            {
+                "ok": False,
+                "clean": False,
+                "failed_datasets": ["equities"],
+                "skipped_datasets": [],
+                "degraded_datasets": [],
+                "failure_code": failure_code,
+                "error": "free-text-secret",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    summary = cloud._read_collection_summary(artifacts)
+
+    assert summary is not None
+    assert "failure_code" not in summary.as_dict()
 
 
 @pytest.mark.parametrize(
