@@ -45,6 +45,10 @@ class PublicationFailureCode(StrEnum):
     ACTIONS_RUN_LIST_INVALID = "actions_run_list_invalid"
     BRANCH_HEAD_READ_FAILED = "branch_head_read_failed"
     BRANCH_HEAD_INVALID = "branch_head_invalid"
+    WORKFLOW_JOB_LIST_READ_FAILED = "workflow_job_list_read_failed"
+    WORKFLOW_JOB_LIST_INVALID = "workflow_job_list_invalid"
+    PAGES_DEPLOYMENT_STATUS_READ_FAILED = "pages_deployment_status_read_failed"
+    PAGES_DEPLOYMENT_STATUS_INVALID = "pages_deployment_status_invalid"
     EVENT_REVISION_STALE = "event_revision_stale"
     PUBLICATION_CHECKPOINT_READ_FAILED = "publication_checkpoint_read_failed"
     PUBLICATION_CHECKPOINT_TRANSITION_UNCONFIRMED = "publication_checkpoint_transition_unconfirmed"
@@ -252,6 +256,101 @@ class GitHubActionsApi:
             )
         return [run for run in runs if run["id"] != current_run_id]
 
+    def deployment_action_was_skipped(self, run_id: int) -> bool:
+        if type(run_id) is not int or run_id < 1:
+            raise CloudPublicationFailure(
+                "Invalid publication workflow run ID",
+                code=PublicationFailureCode.WORKFLOW_RUN_INVALID,
+            )
+        value = self._get(
+            f"/actions/runs/{run_id}/jobs",
+            params={"per_page": 100},
+            read_failure_code=PublicationFailureCode.WORKFLOW_JOB_LIST_READ_FAILED,
+            invalid_response_code=PublicationFailureCode.WORKFLOW_JOB_LIST_INVALID,
+        )
+        jobs = value.get("jobs")
+        if not isinstance(jobs, list) or any(not isinstance(job, dict) for job in jobs):
+            raise CloudPublicationFailure(
+                "Publication workflow jobs could not be enumerated",
+                code=PublicationFailureCode.WORKFLOW_JOB_LIST_INVALID,
+            )
+        deploy_jobs = [job for job in jobs if job.get("name") == "deploy"]
+        if len(deploy_jobs) != 1:
+            return False
+        deploy_job = deploy_jobs[0]
+        if deploy_job.get("conclusion") == "skipped":
+            return True
+        steps = deploy_job.get("steps")
+        if not isinstance(steps, list) or any(not isinstance(step, dict) for step in steps):
+            raise CloudPublicationFailure(
+                "Publication deployment steps could not be enumerated",
+                code=PublicationFailureCode.WORKFLOW_JOB_LIST_INVALID,
+            )
+        deploy_steps = [step for step in steps if step.get("name") == "Deploy the reserved artifact"]
+        if len(deploy_steps) != 1:
+            return False
+        deploy_step = deploy_steps[0]
+        return deploy_step.get("status") == "completed" and deploy_step.get("conclusion") == "skipped"
+
+
+class GitHubPagesDeploymentStatusApi:
+    def __init__(
+        self, repository: str, token: str, *, transport: httpx.BaseTransport | None = None
+    ):
+        parts = repository.split("/")
+        if len(parts) != 2 or any(re.fullmatch(r"[A-Za-z0-9_.-]+", part) is None for part in parts):
+            raise ValueError("Invalid GitHub repository")
+        self._root = "https://api.github.com/repos/" + quote(repository, safe="/")
+        self._client = httpx.Client(
+            transport=transport,
+            timeout=30,
+            follow_redirects=False,
+            trust_env=False,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
+
+    def close(self) -> None:
+        self._client.close()
+
+    def status(self, commit_sha: str) -> str | None:
+        if re.fullmatch(r"[0-9a-f]{40}", commit_sha) is None:
+            raise CloudPublicationFailure(
+                "Invalid Pages deployment revision",
+                code=PublicationFailureCode.PAGES_DEPLOYMENT_STATUS_INVALID,
+            )
+        try:
+            response = self._client.get(self._root + "/pages/deployments/" + commit_sha)
+        except httpx.HTTPError as exc:
+            raise CloudPublicationFailure(
+                "GitHub Pages deployment status could not be read",
+                code=PublicationFailureCode.PAGES_DEPLOYMENT_STATUS_READ_FAILED,
+            ) from exc
+        if response.status_code == 404:
+            return None
+        if response.status_code != 200:
+            raise CloudPublicationFailure(
+                "GitHub Pages deployment status could not be read",
+                code=PublicationFailureCode.PAGES_DEPLOYMENT_STATUS_READ_FAILED,
+            )
+        try:
+            value = response.json()
+        except ValueError as exc:
+            raise CloudPublicationFailure(
+                "GitHub returned an invalid Pages deployment status",
+                code=PublicationFailureCode.PAGES_DEPLOYMENT_STATUS_INVALID,
+            ) from exc
+        status = value.get("status") if isinstance(value, dict) else None
+        if not isinstance(status, str) or not status or len(status) > 64:
+            raise CloudPublicationFailure(
+                "GitHub returned an invalid Pages deployment status",
+                code=PublicationFailureCode.PAGES_DEPLOYMENT_STATUS_INVALID,
+            )
+        return status
+
 
 @dataclass(frozen=True)
 class PublicationPlan:
@@ -266,12 +365,14 @@ class CloudPublisher:
         publication: PublicationCheckpoint,
         actions: GitHubActionsApi,
         pages: PagesGenerationRestorer,
+        pages_deployments: GitHubPagesDeploymentStatusApi,
         repository: str,
         repository_id: int,
     ):
         self.publication = publication
         self.actions = actions
         self.pages = pages
+        self.pages_deployments = pages_deployments
         self.repository = repository
         self.repository_id = repository_id
 
@@ -435,6 +536,32 @@ class CloudPublisher:
                 "Pages still serves the previous generation after a successful run",
                 code=PublicationFailureCode.PRIOR_RUN_OUTCOME_NOT_ABANDONABLE,
             )
+        deployment_revision = previous_run.get("head_sha")
+        if not isinstance(deployment_revision, str) or re.fullmatch(
+            r"[0-9a-f]{40}", deployment_revision
+        ) is None:
+            raise CloudPublicationFailure(
+                "Prior publication run revision could not be verified",
+                code=PublicationFailureCode.WORKFLOW_RUN_INVALID,
+            )
+        deployment_status = self.pages_deployments.status(deployment_revision)
+        deployment_terminated = deployment_status in {
+            "failed",
+            "cancelled",
+            "deployment_failed",
+            "deployment_perms_error",
+            "deployment_content_failed",
+            "deployment_cancelled",
+        }
+        if deployment_status is None:
+            deployment_terminated = self.actions.deployment_action_was_skipped(
+                candidate.workflow_run_id
+            )
+        if not deployment_terminated:
+            raise CloudPublicationFailure(
+                "Pages deployment has not confirmed termination",
+                code=PublicationFailureCode.PRIOR_RUN_OUTCOME_NOT_ABANDONABLE,
+            )
         expected = PublicationState(
             deployed=state.deployed, abandoned=candidate, last_attempt=state.last_attempt
         )
@@ -442,7 +569,7 @@ class CloudPublisher:
             lambda: self.publication.abandon(
                 candidate,
                 observed_deployed=DeploymentObservation(state.deployed),
-                deployment_terminated=True,
+                deployment_terminated=deployment_terminated,
             ),
             expected,
         )
@@ -578,7 +705,9 @@ class CloudPublisher:
         return candidate
 
 
-def _runtime() -> tuple[GitHubCheckpoint, GitHubActionsApi, Settings, int]:
+def _runtime() -> tuple[
+    GitHubCheckpoint, GitHubActionsApi, GitHubPagesDeploymentStatusApi, Settings, int
+]:
     try:
         settings = Settings()
     except ValidationError as exc:
@@ -624,7 +753,13 @@ def _runtime() -> tuple[GitHubCheckpoint, GitHubActionsApi, Settings, int]:
             code=PublicationFailureCode.PUBLICATION_CONFIGURATION_INVALID,
         )
     checkpoint = GitHubCheckpoint(*checkpoint_parts, settings.cloud_state_branch, token)
-    return checkpoint, GitHubActionsApi(repository, token), settings, repository_id
+    return (
+        checkpoint,
+        GitHubActionsApi(repository, token),
+        GitHubPagesDeploymentStatusApi(repository, token),
+        settings,
+        repository_id,
+    )
 
 
 def _write_outputs(values: dict[str, object]) -> None:
@@ -693,14 +828,14 @@ def main(argv: list[str] | None = None) -> int:
     finish.add_argument("--event-sha", required=True)
     finish.add_argument("--site-url", required=True)
     args = parser.parse_args(argv)
-    checkpoint = actions = None
+    checkpoint = actions = pages_deployments = None
     try:
-        checkpoint, actions, settings, repository_id = _runtime()
+        checkpoint, actions, pages_deployments, settings, repository_id = _runtime()
         publication = PublicationCheckpoint(checkpoint)
         site_url = getattr(args, "site_url", None)
         pages = PagesGenerationRestorer(site_url) if site_url else None
         publisher = CloudPublisher(
-            publication, actions, pages, settings.cloud_state_repo, repository_id
+            publication, actions, pages, pages_deployments, settings.cloud_state_repo, repository_id
         )
         if args.command == "preflight":
             plan = publisher.preflight(
@@ -762,6 +897,8 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         if actions is not None:
             actions.close()
+        if pages_deployments is not None:
+            pages_deployments.close()
         if checkpoint is not None:
             checkpoint.close()
 
