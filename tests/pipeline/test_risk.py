@@ -92,61 +92,61 @@ def test_regime_crisis_on_vix_40() -> None:
 
 def test_intraday_refresh_compares_risk_with_the_previous_day(tmp_path, monkeypatch) -> None:
     writer = StorageWriter(tmp_path / "data")
-    yesterday = {"date": "2026-11-12", "total_score": 60, "evidence_state": "partial", "dim_scores": {"macro": 40}, "dim_evidence_states": {"macro": "partial"}}
-    today = {"date": "2026-11-13", "total_score": 65, "evidence_state": "complete", "dim_scores": {"macro": 45}, "dim_evidence_states": {"macro": "complete"}}
+    yesterday = {"date": "2026-11-12", "model_version": "1.1.0", "total_score": 60, "evidence_state": "partial", "dim_scores": {"macro": 40}, "dim_evidence_states": {"macro": "partial"}}
+    today = {"date": "2026-11-13", "model_version": "1.1.0", "total_score": 65, "evidence_state": "complete", "dim_scores": {"macro": 45}, "dim_evidence_states": {"macro": "complete"}}
     writer.write_slices("risk", [yesterday, today])
-    previous, dimensions, history = read_prev_risk(writer, as_of_date="2026-11-13")
+    previous, dimensions, history = read_prev_risk(writer, model_version="1.1.0", as_of_date="2026-11-13")
     assert previous == 60
     assert dimensions == {"macro": 40.0}
     assert history == [yesterday]
     writer.write_slices("risk", [{**today, "total_score": 68}])
-    assert read_prev_risk(writer, as_of_date="2026-11-13")[0] == 60
-    assert read_prev_risk(writer, as_of_date="2026-11-14")[0] == 68
+    assert read_prev_risk(writer, model_version="1.1.0", as_of_date="2026-11-13")[0] == 60
+    assert read_prev_risk(writer, model_version="1.1.0", as_of_date="2026-11-14")[0] == 68
     monkeypatch.setattr("pipeline.risk_context.now_utc", lambda: "2026-11-13T12:00:00Z")
-    assert read_prev_risk(writer)[0] == 60
+    assert read_prev_risk(writer, model_version="1.1.0")[0] == 60
 
 
 def test_previous_risk_excludes_insufficient_evidence_from_history(tmp_path) -> None:
     writer = StorageWriter(tmp_path / "data")
     writer.write_slices("risk", [
-        {"date": "2026-11-10", "total_score": 60, "evidence_state": "partial"},
-        {"date": "2026-11-11", "total_score": 5, "evidence_state": "insufficient_evidence"},
+        {"date": "2026-11-10", "model_version": "1.1.0", "total_score": 60, "evidence_state": "partial"},
+        {"date": "2026-11-11", "model_version": "1.1.0", "total_score": 5, "evidence_state": "insufficient_evidence"},
     ])
-    previous, _, history = read_prev_risk(writer, as_of_date="2026-11-12")
+    previous, _, history = read_prev_risk(writer, model_version="1.1.0", as_of_date="2026-11-12")
     assert previous is None
     assert [row["date"] for row in history] == ["2026-11-10"]
-    assert read_prev_risk(writer, as_of_date="2026-11-11")[0] == 60
+    assert read_prev_risk(writer, model_version="1.1.0", as_of_date="2026-11-11")[0] == 60
 
 
 def test_legacy_history_and_unobserved_dimensions_are_not_comparison_baselines(tmp_path) -> None:
     writer = StorageWriter(tmp_path / "data")
     writer.write_slices("risk", [
         {"date": "2026-11-01", "total_score": 1},
-        {"date": "2026-11-10", "total_score": 40, "evidence_state": "partial"},
-        {"date": "2026-11-11", "total_score": 50, "evidence_state": "partial",
+        {"date": "2026-11-10", "model_version": "1.1.0", "total_score": 40, "evidence_state": "partial"},
+        {"date": "2026-11-11", "model_version": "1.1.0", "total_score": 50, "evidence_state": "partial",
          "dim_scores": {"macro": 0, "volatility": 30},
          "dim_evidence_states": {"macro": "insufficient_evidence", "volatility": "complete"}},
     ])
-    previous, dimensions, history = read_prev_risk(writer, as_of_date="2026-11-12")
+    previous, dimensions, history = read_prev_risk(writer, model_version="1.1.0", as_of_date="2026-11-12")
     assert previous == 50
     assert dimensions == {"volatility": 30.0}
     assert [row["date"] for row in history] == ["2026-11-10", "2026-11-11"]
-    writer.write_slices("risk", [{"date": "2026-11-11", "total_score": 50,
+    writer.write_slices("risk", [{"date": "2026-11-11", "model_version": "1.1.0", "total_score": 50,
                                    "evidence_state": "partial", "dim_scores": {"macro": 0}}])
-    assert read_prev_risk(writer, as_of_date="2026-11-12")[1] is None
+    assert read_prev_risk(writer, model_version="1.1.0", as_of_date="2026-11-12")[1] is None
 
 
 def test_corrupt_risk_history_does_not_become_a_baseline() -> None:
     class History:
         def read_history(self, *_args):
             return [
-                {"date": "2026-11-10", "total_score": 30, "evidence_state": "partial"},
-                {"date": "2026-11-11", "total_score": "bad", "evidence_state": "complete"},
-                {"date": "2026-11-09", "total_score": 1, "evidence_state": []},
+                {"date": "2026-11-10", "model_version": "1.1.0", "total_score": 30, "evidence_state": "partial"},
+                {"date": "2026-11-11", "model_version": "1.1.0", "total_score": "bad", "evidence_state": "complete"},
+                {"date": "2026-11-09", "model_version": "1.1.0", "total_score": 1, "evidence_state": []},
                 None,
             ]
 
-    previous, dimensions, rows = read_prev_risk(History(), as_of_date="2026-11-12")
+    previous, dimensions, rows = read_prev_risk(History(), model_version="1.1.0", as_of_date="2026-11-12")
     assert previous is None and dimensions is None
     assert [row["date"] for row in rows] == ["2026-11-10"]
 
@@ -224,7 +224,7 @@ def test_risk_model_produces_valid_result() -> None:
     assert 0 <= result.confidence <= 1
     assert len(result.dimensions) == 6
     assert result.top_drivers  # has top drivers
-    assert result.calibration_policy_version == "1.0.0"
+    assert result.calibration_policy_version == "1.1.0"
     assert result.calibration_status == "provisional"
     assert "definitive probability" not in result.disclaimer or "modeled estimate" in result.disclaimer
 
@@ -246,7 +246,7 @@ def test_risk_evidence_state_and_bounds_are_published() -> None:
     assert result.score_lower_bound <= result.total_score <= result.score_upper_bound
     macro = next(d for d in result.dimensions if d.key == "macro")
     assert macro.evidence_state == "partial"
-    assert macro.missing_indicators == ["dollar_index"]
+    assert macro.missing_indicators == ["dollar_index", "sahm_style_labor_stress"]
 
 
 def test_missing_evidence_is_insufficient_with_full_deterministic_bounds() -> None:
@@ -260,6 +260,8 @@ def test_missing_evidence_is_insufficient_with_full_deterministic_bounds() -> No
 
 
 def test_complete_evidence_collapses_bounds_to_point_estimate(monkeypatch) -> None:
+    from datetime import date
+
     from tests.pipeline.factories import make_envelope, make_macro_indicator, make_macro_payload
 
     # Treat the proxy inputs as fully trusted for this semantic test; their proxy disclosure
@@ -281,9 +283,26 @@ def test_complete_evidence_collapses_bounds_to_point_estimate(monkeypatch) -> No
             make_macro_indicator(key="rrpontsyd", label="RRP", value=100.0, source="FRED"),
         ],
         fx=[make_macro_indicator(key="dtwexbgs", label="Dollar", value=98.0, source="FRED")],
+        labor=[make_macro_indicator(
+            key="unrate", label="Unemployment Rate", value=3.5, unit="pct", source="BLS",
+            observation_period="2026-08",
+        )],
     )
     ctx = _synthetic_context()
     ctx["macro"] = MacroEnvelope.model_validate(make_envelope("macro", payload=payload)).payload
+    ctx["_as_of_date"] = "2026-08-04"
+    start_year, start_month = 2025, 6
+    ctx["series_history"] = {
+        "unrate": [
+            {
+                "date": date(start_year + year_offset, month_index + 1, 1).isoformat(),
+                "value": 3.5,
+                "source": "BLS",
+            }
+            for offset in range(15)
+            for year_offset, month_index in [divmod(start_month - 1 + offset, 12)]
+        ]
+    }
 
     result = RiskModel().score(ctx)
 
@@ -617,12 +636,12 @@ def test_ig_oas_is_scored_under_liquidity_credit() -> None:
             seen[ind.key] = dim.key
 
 
-def test_macro_dimension_has_exactly_four_indicators() -> None:
-    """After the hy_oas/ig_oas removals, macro is rates + curve + dollar + nominal yield."""
+def test_macro_dimension_has_exactly_five_indicators() -> None:
     result = _risk_result()
     macro = next(d for d in result.dimensions if d.key == "macro")
     assert {i.key for i in macro.indicators} == {
         "real_rate_dfii10", "yield_curve_10y2y", "dollar_index", "dgs10",
+        "sahm_style_labor_stress",
     }
 
 

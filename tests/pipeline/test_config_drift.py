@@ -100,7 +100,7 @@ def test_calibration_policy_covers_live_model_controls() -> None:
     policy = raw["calibration_policy"]
     decisions = policy["decisions"]
 
-    assert policy["version"] == "1.0.0"
+    assert policy["version"] == "1.1.0"
     assert policy["status"] == "provisional"
     assert set(decisions) == {
         "dimension_weights",
@@ -127,11 +127,10 @@ def test_calibration_policy_covers_live_model_controls() -> None:
     )
 
 
-def test_macro_registers_exactly_the_four_real_macro_indicators() -> None:
-    """#67 group 4: `_macro_indicators` is rates + curve + dollar + nominal yield."""
+def test_macro_registers_exactly_the_five_macro_indicators() -> None:
     model = RiskModel()
     keys = {i.key for i in model._macro_indicators({})}
-    assert keys == {"real_rate_dfii10", "yield_curve_10y2y", "dollar_index", "dgs10"}
+    assert keys == {"real_rate_dfii10", "yield_curve_10y2y", "dollar_index", "dgs10", "sahm_style_labor_stress"}
 
 
 def test_no_dxy_indicator_key_survives() -> None:

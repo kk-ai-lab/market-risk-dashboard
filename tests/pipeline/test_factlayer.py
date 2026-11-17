@@ -621,7 +621,7 @@ def test_full_path_rejections_return_fixed_reason_and_local_error(
             run_module,
             "RiskModel",
             lambda _settings: SimpleNamespace(
-                derived_history_enabled=False, score=lambda _ctx: score
+                model_version="1.1.0", derived_history_enabled=False, score=lambda _ctx: score
             ),
         )
     elif branch == "computation":
@@ -632,7 +632,9 @@ def test_full_path_rejections_return_fixed_reason_and_local_error(
         monkeypatch.setattr(
             run_module,
             "RiskModel",
-            lambda _settings: SimpleNamespace(derived_history_enabled=False, score=fail_score),
+            lambda _settings: SimpleNamespace(
+                model_version="1.1.0", derived_history_enabled=False, score=fail_score
+            ),
         )
     elif branch == "write":
         from pipeline.storage import macro_history

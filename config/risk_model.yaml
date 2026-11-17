@@ -3,7 +3,7 @@
 # When a dimension's coverage=0, its weight is redistributed proportionally across the remaining dimensions,
 # and confidence_factors.coverage is lowered accordingly.
 # ============================================================
-model_version: "1.0.1"
+model_version: "1.1.0"
 
 dimensions:
   macro: { weight: 20 }
@@ -20,6 +20,7 @@ indicators:
     - { key: yield_curve_10y2y, source: FRED, metric: DGS10-DGS2, label: "10Y-2Y Term Spread", weight: 5 }
     - { key: dollar_index, source: FRED, metric: DTWEXBGS, label: "Dollar Index", weight: 5 }
     - { key: dgs10, source: FRED, metric: DGS10, label: "10Y Yield", weight: 5 }
+    - { key: sahm_style_labor_stress, source: BLS, metric: UNRATE, label: "Sahm-style Labor Stress", weight: 2.5 }
   liquidity_credit:
     - { key: hy_oas, source: FRED, metric: BAMLH0A0HYM2, label: "High Yield OAS", weight: 10 }
     - { key: ig_oas, source: FRED, metric: BAMLC0A0CM, label: "Investment Grade OAS", weight: 5 }
@@ -85,7 +86,7 @@ evidence:
 # The live score remains provisional: no weights or thresholds are refit from latest-source
 # history because source vintages and regime-labelled out-of-sample evidence are unavailable.
 calibration_policy:
-  version: "1.0.0"
+  version: "1.1.0"
   status: provisional
   decisions:
     dimension_weights:
@@ -100,6 +101,7 @@ calibration_policy:
       yield_curve_10y2y: retain
       dollar_index: retain
       dgs10: retain
+      sahm_style_labor_stress: change
       hy_oas: retain
       ig_oas: retain
       fed_balance_sheet: retain
@@ -132,6 +134,7 @@ calibration_policy:
     - "Latest-source history is revised and is not point-in-time vintage data."
     - "The confidence field is a data-trust score, not statistical confidence or a calibrated probability."
     - "Cross-asset confirmation remains proxy-backed until its deferred signals have governed inputs."
+    - "The Sahm-style labor signal uses revised BLS unemployment data and a provisional heuristic and weight, without point-in-time multi-regime validation."
 
 # Risk level thresholds (total risk score 0-100)
 thresholds:
