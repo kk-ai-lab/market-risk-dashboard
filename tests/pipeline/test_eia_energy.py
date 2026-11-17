@@ -100,7 +100,7 @@ def test_eia_provider_returns_only_sanitized_observations_even_when_response_ech
     provider._client.get = fake_get
     rows = provider.get_weekly_inventory()
 
-    assert captured["url"] == "https://api.eia.gov/v2/seriesid/WCESTUS1"
+    assert captured["url"] == "https://api.eia.gov/v2/seriesid/PET.WCESTUS1.W"
     assert captured["params"]["api_key"] == api_key
     assert rows == [{"date": "2026-11-06", "value": 417000.0}]
     assert api_key not in repr(rows)

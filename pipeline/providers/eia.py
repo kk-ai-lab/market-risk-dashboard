@@ -15,8 +15,8 @@ from pipeline.providers.base import (
     guarded_client,
 )
 
-EIA_WEEKLY_INVENTORY_ENDPOINT = "https://api.eia.gov/v2/seriesid/WCESTUS1"
-EIA_SERIES_ID = "WCESTUS1"
+EIA_API_SERIES_ID = "PET.WCESTUS1.W"
+EIA_WEEKLY_INVENTORY_ENDPOINT = f"https://api.eia.gov/v2/seriesid/{EIA_API_SERIES_ID}"
 
 
 class EiaProvider(BaseProvider):
