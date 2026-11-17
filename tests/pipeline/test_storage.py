@@ -39,6 +39,51 @@ def test_write_dataset_and_slices(tmp_path: Path) -> None:
     assert len(json.loads((tmp_path / "data/history/risk/90d.json").read_text())) == 90
 
 
+def test_writer_exposes_immutable_latest_output_receipt(tmp_path: Path) -> None:
+    from pipeline.schemas import MacroEnvelope
+    from tests.pipeline.factories import make_envelope
+
+    writer = StorageWriter(tmp_path / "data")
+    assert writer.written_latest_outputs == frozenset()
+
+    writer.write_dataset("macro", MacroEnvelope.model_validate(make_envelope("macro")))
+    writer.write_standalone("facts", {"generated_at": "2026-11-17T12:00:00Z"})
+    writer.write_json(writer.metadata_dir / "receipt-test.json", {"ignored": True})
+
+    outputs = writer.written_latest_outputs
+    assert outputs == frozenset({"latest/macro.json", "latest/facts.json"})
+    assert isinstance(outputs, frozenset)
+
+
+def test_writer_does_not_receipt_failed_latest_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    writer = StorageWriter(tmp_path / "data")
+
+    def fail_replace(*_args, **_kwargs):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr("pipeline.storage.writer.os.replace", fail_replace)
+    with pytest.raises(OSError, match="replace failed"):
+        writer.write_standalone("facts", {"generated_at": "2026-11-17T12:00:00Z"})
+
+    assert writer.written_latest_outputs == frozenset()
+
+
+def test_writer_does_not_receipt_latest_output_rolled_back_with_atomic_group(
+    tmp_path: Path,
+) -> None:
+    writer = StorageWriter(tmp_path / "data")
+
+    with writer.atomic_group() as group:
+        writer.write_standalone("facts", {"generated_at": "2026-11-17T12:00:00Z"})
+        assert writer.written_latest_outputs == frozenset({"latest/facts.json"})
+        group.rollback()
+
+    assert not (writer.latest_dir / "facts.json").exists()
+    assert writer.written_latest_outputs == frozenset()
+
+
 def test_history_dedupe_by_date(tmp_path: Path) -> None:
     writer = StorageWriter(tmp_path / "data")
     writer.write_slices("risk", [{"date": "2026-08-03", "total_score": 50.0}])
@@ -1063,8 +1108,9 @@ class TestPerDatasetDegradation:
             MacroIndicator,
             NewsDataset,
         )
+        from pipeline.schemas.energy import EnergyDataset
 
-        now = "2026-08-04T12:00:00Z"
+        now = run_mod.now_utc()
 
         def _news_only_collection(command: str) -> dict:
             from pipeline.schemas import NewsItem
@@ -1082,6 +1128,20 @@ class TestPerDatasetDegradation:
             results["calendar"] = CalendarDataset(events=[])
             results["calendar_meta"] = {"data_quality": 1.0, "degraded": [], "provider_outcome": {"provider": "fmp", "used_fallback": False, "from_cache": False}}
             results["calendar_degraded"] = False
+            results["energy"] = EnergyDataset(
+                observations=[],
+                collection_status="not_configured",
+                observation_age="unknown",
+                last_attempt_at=now,
+                last_successful_fetch_at=None,
+            )
+            results["energy_meta"] = {
+                "data_quality": 0.0,
+                "degraded": True,
+                "provider": "unavailable",
+                "error_code": "provider_auth_failed",
+                "detail": "DATA_EIA_API_KEY is not configured; no request was sent",
+            }
             return results
 
         data_dir = tmp_path / "data"
@@ -1092,6 +1152,12 @@ class TestPerDatasetDegradation:
         )
         monkeypatch.setattr(run_mod, "_run_collection", _news_only_collection)
         assert run_mod.main(["--full"]) == 0
+
+        from pipeline.cloud_refresh import expected_latest_outputs
+
+        report_path = next((tmp_path / "artifacts" / "logs").glob("run-report-*.json"))
+        run_report = json.loads(report_path.read_text(encoding="utf-8"))
+        assert set(run_report["written_latest_outputs"]) >= expected_latest_outputs()
 
         freshness = json.loads((data_dir / "metadata" / "freshness.json").read_text(encoding="utf-8"))
         for key in ("equities", "sectors", "crypto", "commodities"):

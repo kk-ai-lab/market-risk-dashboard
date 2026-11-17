@@ -75,6 +75,12 @@ def deployed(tmp_path, files):
     return root, generation
 
 
+def collected_receipt(*, excluding=()):
+    return cloud.CollectionOutputReceipt(
+        frozenset(cloud.expected_latest_outputs() - set(excluding))
+    )
+
+
 def restorer(root, *, change=None):
     def handle(request):
         relative = request.url.path.removeprefix("/app/data/")
@@ -117,6 +123,7 @@ def test_empty_provisioned_state_bootstraps_only_from_approved_collection(
             target = isolated.data_dir / relative
             target.parent.mkdir(exist_ok=True)
             target.write_bytes(canonical_json(value))
+        return collected_receipt()
 
     monkeypatch.setattr(cloud, "_collect_approved", collect)
     import scripts.stage_publication as stage
@@ -146,14 +153,17 @@ def test_scheduled_refresh_rejects_registered_output_missing_from_new_collection
 ):
     root, generation = deployed(tmp_path, files)
     paths, settings = setup
+    collected_dirs = []
 
     def collect_without_energy(isolated):
+        collected_dirs.append(isolated.data_dir)
         for relative, value in files.items():
             if relative == "latest/energy.json":
                 continue
             target = isolated.data_dir / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(canonical_json(value))
+        return collected_receipt(excluding={"latest/energy.json"})
 
     monkeypatch.setattr(cloud, "_collect_approved", collect_without_energy)
     import scripts.stage_publication as stage
@@ -172,6 +182,61 @@ def test_scheduled_refresh_rejects_registered_output_missing_from_new_collection
         )
 
     assert state.writes == 0
+    assert (collected_dirs[0] / "latest/energy.json").is_file()
+
+
+def test_scheduled_refresh_accepts_current_degraded_energy_output(
+    tmp_path, setup, monkeypatch, files
+):
+    root, generation = deployed(tmp_path, files)
+    paths, settings = setup
+    from pipeline.schemas import EnergyEnvelope
+    from pipeline.schemas.energy import EnergyDataset
+    from pipeline.schemas.envelope import assemble_dataset
+
+    current_energy = assemble_dataset(
+        EnergyEnvelope,
+        EnergyDataset(
+            observations=[],
+            collection_status="not_configured",
+            observation_age="unknown",
+            last_attempt_at="2026-11-17T12:15:00Z",
+            last_successful_fetch_at=None,
+        ),
+        dataset="energy",
+        degraded=True,
+        provider="unavailable",
+        data_quality=0.0,
+        generated_at="2026-11-17T12:15:00Z",
+        row_count=0,
+        error_code="provider_auth_failed",
+        detail="DATA_EIA_API_KEY is not configured; no request was sent",
+    ).envelope.model_dump(mode="json")
+    assert current_energy["freshness_status"] == "missing"
+
+    def collect(isolated):
+        for relative, value in files.items():
+            target = isolated.data_dir / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(
+                canonical_json(current_energy if relative == "latest/energy.json" else value)
+            )
+        return collected_receipt()
+
+    monkeypatch.setattr(cloud, "_collect_approved", collect)
+    import scripts.stage_publication as stage
+
+    monkeypatch.setattr(stage, "validate_candidate", lambda _: True)
+    result = cloud.refresh_cloud(
+        mode="scheduled",
+        app_revision=REVISION,
+        checkpoint=Store(PublicationState(deployed=generation, last_attempt=1)),
+        paths=paths,
+        settings=settings,
+        restorer=restorer(root),
+    )
+
+    assert json.loads((result.generation_dir / "latest/energy.json").read_text()) == current_energy
 
 
 def test_scheduled_revision_rejection_happens_before_download_or_collection(
@@ -515,6 +580,7 @@ def test_confirmed_abandonment_tombstone_allows_a_new_candidate(setup, monkeypat
             target = isolated.data_dir / relative
             target.parent.mkdir(exist_ok=True)
             target.write_bytes(canonical_json(value))
+        return collected_receipt()
 
     monkeypatch.setattr(cloud, "_collect_approved", collect)
     import scripts.stage_publication as stage
@@ -547,15 +613,77 @@ def test_pipeline_adapter_forces_approved_mode_and_shared_cloud_branch(tmp_path,
     def run(args, **kwargs):
         observed.append(kwargs["env"])
         assert args[1:] == ["-m", "pipeline.run", "--full"]
+        logs_dir = Path(kwargs["env"]["DATA_ARTIFACTS_DIR"]) / "logs"
+        logs_dir.mkdir(parents=True)
+        (logs_dir / "run-report-20261117T120000Z.json").write_bytes(
+            canonical_json(
+                {
+                    "command": "full",
+                    "ok": True,
+                    "written_latest_outputs": sorted(cloud.expected_latest_outputs()),
+                }
+            )
+        )
         return type("Result", (), {"returncode": 0})()
 
     monkeypatch.setattr(cloud.subprocess, "run", run)
-    cloud._collect_approved(settings)
+    receipt = cloud._collect_approved(settings)
+    assert receipt.latest_paths == cloud.expected_latest_outputs()
     env = observed[0]
     assert env["DATA_APPROVED_SOURCES_ONLY"] == "true"
     assert env["DATA_BLS_CLOUD_ENABLED"] == env["DATA_TREASURY_CLOUD_ENABLED"] == "true"
     assert env["DATA_CLOUD_STATE_BRANCH"] == "cloud-state"
     assert "DATA_FRED_API_KEY" not in env
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"command": "market-only"},
+        {"ok": False},
+        {"written_latest_outputs": None},
+        {"written_latest_outputs": ["latest/../outside.json"]},
+    ],
+)
+def test_collection_receipt_rejects_incomplete_or_unsafe_reports(tmp_path, changes):
+    artifacts = tmp_path / "artifacts"
+    logs_dir = artifacts / "logs"
+    logs_dir.mkdir(parents=True)
+    report = {
+        "command": "full",
+        "ok": True,
+        "written_latest_outputs": sorted(cloud.expected_latest_outputs()),
+    }
+    report.update(changes)
+    (logs_dir / "run-report-20261117T120000Z.json").write_bytes(canonical_json(report))
+
+    with pytest.raises(cloud.CloudRefreshError, match="omitted registered latest outputs"):
+        cloud._read_collection_output_receipt(artifacts)
+
+
+def test_collection_receipt_rejects_multiple_run_reports(tmp_path):
+    artifacts = tmp_path / "artifacts"
+    logs_dir = artifacts / "logs"
+    logs_dir.mkdir(parents=True)
+    report = canonical_json(
+        {
+            "command": "full",
+            "ok": True,
+            "written_latest_outputs": sorted(cloud.expected_latest_outputs()),
+        }
+    )
+    for suffix in ("120000", "121500"):
+        (logs_dir / f"run-report-20261117T{suffix}Z.json").write_bytes(report)
+
+    with pytest.raises(cloud.CloudRefreshError, match="omitted registered latest outputs"):
+        cloud._read_collection_output_receipt(artifacts)
+
+
+def test_collection_receipt_requires_a_run_report(tmp_path):
+    artifacts = tmp_path / "artifacts"
+
+    with pytest.raises(cloud.CloudRefreshError, match="omitted registered latest outputs"):
+        cloud._read_collection_output_receipt(artifacts)
 
 
 @pytest.mark.parametrize(
@@ -713,7 +841,7 @@ def test_candidate_stage_error_adds_only_its_fixed_code(
     paths, settings = setup
 
     def collect(*_args, **_kwargs):
-        return None
+        return collected_receipt()
 
     monkeypatch.setattr(cloud, "_collect_approved", collect)
     import scripts.stage_publication as stage
@@ -762,6 +890,10 @@ def test_scheduled_collects_with_verified_parent_and_stages_validated_child(
         (isolated.data_dir / "latest/data.json").write_bytes(
             canonical_json({"value": 4.3, "generated_at": STAMP})
         )
+        for relative in cloud.expected_latest_outputs() - {"latest/data.json"}:
+            target = isolated.data_dir / relative
+            target.write_bytes(target.read_bytes())
+        return collected_receipt()
 
     monkeypatch.setattr(cloud, "_collect_approved", collect)
     import scripts.stage_publication as stage
@@ -818,6 +950,7 @@ def test_candidate_validation_failure_does_not_change_publication_state(setup, f
             target = isolated.data_dir / relative
             target.parent.mkdir(exist_ok=True)
             target.write_bytes(canonical_json(value))
+        return collected_receipt()
 
     monkeypatch.setattr(cloud, "_collect_approved", collect)
     import scripts.stage_publication as stage

@@ -22,6 +22,7 @@ import argparse
 import sys
 import time
 import traceback
+from collections.abc import Collection
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -1185,7 +1186,14 @@ def _write_failure_report(
     )
 
 
-def _finish_run(command: str, results: dict[str, Any], elapsed: float, health: dict[str, list[str]]) -> int:
+def _finish_run(
+    command: str,
+    results: dict[str, Any],
+    elapsed: float,
+    health: dict[str, list[str]],
+    *,
+    written_latest_outputs: Collection[str] | None = None,
+) -> int:
     """Write the run report for a successful command and print the summary.
 
     Shared by `--full` and the single-domain commands: the report is what makes a
@@ -1207,6 +1215,9 @@ def _finish_run(command: str, results: dict[str, Any], elapsed: float, health: d
         failure_code=RunFailureCode.DATASET_HEALTH_FAILED if health["failed"] else None,
         proxy_discounts=_risk_proxy_discounts(results),
         risk_evidence=_risk_evidence_summary(results),
+        written_latest_outputs=(
+            written_latest_outputs if command == "full" and not health["failed"] else None
+        ),
     )
     _print_summary(command, results, elapsed)
     # E-5: an exit code of 0 on a run where a dataset ended missing is a silent green —
@@ -1426,7 +1437,14 @@ def main(argv: list[str] | None = None) -> int:
         health = dataset_health(StorageWriter(settings.data_dir), command, run_started_at=run_started_at)
 
         if ok:
-            return _finish_run(command, results, results.get("durations", {}).get("total", 0.0), health)
+            written_latest_outputs = writer.written_latest_outputs if command == "full" else None
+            return _finish_run(
+                command,
+                results,
+                results.get("durations", {}).get("total", 0.0),
+                health,
+                written_latest_outputs=written_latest_outputs,
+            )
 
         print(f"[pipeline] failed: {error}", file=sys.stderr)
         _write_failure_report(
