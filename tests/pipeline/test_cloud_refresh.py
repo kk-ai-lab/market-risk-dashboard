@@ -141,6 +141,39 @@ def test_empty_provisioned_state_bootstraps_only_from_approved_collection(
     assert verify_generation(result.generation_dir)["producer_revision"] == REVISION
 
 
+def test_scheduled_refresh_rejects_registered_output_missing_from_new_collection(
+    tmp_path, setup, monkeypatch, files
+):
+    root, generation = deployed(tmp_path, files)
+    paths, settings = setup
+
+    def collect_without_energy(isolated):
+        for relative, value in files.items():
+            if relative == "latest/energy.json":
+                continue
+            target = isolated.data_dir / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(canonical_json(value))
+
+    monkeypatch.setattr(cloud, "_collect_approved", collect_without_energy)
+    import scripts.stage_publication as stage
+
+    monkeypatch.setattr(stage, "validate_candidate", lambda _: True)
+    state = Store(PublicationState(deployed=generation, last_attempt=1))
+
+    with pytest.raises(cloud.CloudRefreshError, match="omitted registered latest outputs"):
+        cloud.refresh_cloud(
+            mode="scheduled",
+            app_revision=REVISION,
+            checkpoint=state,
+            paths=paths,
+            settings=settings,
+            restorer=restorer(root),
+        )
+
+    assert state.writes == 0
+
+
 def test_scheduled_revision_rejection_happens_before_download_or_collection(
     tmp_path, files, setup, monkeypatch
 ):
