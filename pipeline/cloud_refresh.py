@@ -110,6 +110,7 @@ class RefreshStage(StrEnum):
 class RefreshFailureCode(StrEnum):
     REFRESH_FAILED = "refresh_failed"
     CHILD_EXIT_NONZERO = "child_exit_nonzero"
+    COMPATIBILITY_OUTPUTS_MISSING = "compatibility_outputs_missing"
 
 
 @dataclass(frozen=True)
@@ -213,6 +214,9 @@ class RefreshDiagnostics:
 
     def record_candidate_stage_failure(self, code: CandidateStageCode) -> None:
         self.candidate_stage_code = code
+
+    def record_missing_compatibility_outputs(self) -> None:
+        self.failure_code = RefreshFailureCode.COMPATIBILITY_OUTPUTS_MISSING
 
     def emit_failure(self) -> None:
         if not self.enabled:
@@ -634,6 +638,16 @@ def refresh_cloud(
 
         if diagnostics is not None:
             diagnostics.enter(RefreshStage.CANDIDATE_STAGING)
+        if (
+            isinstance(plan, CollectPlan)
+            and plan.reason == "missing_outputs"
+            and any(not (data / path).is_file() for path in plan.missing_paths)
+        ):
+            if diagnostics is not None:
+                diagnostics.record_missing_compatibility_outputs()
+            raise CloudRefreshError(
+                "Approved-source collection omitted compatibility outputs"
+            )
         try:
             pointer = stage_candidate(
                 data, store, parent_id=parent, revision=app_revision, created_at=now_utc()
