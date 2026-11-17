@@ -22,13 +22,15 @@ from urllib.parse import urlparse
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+
+from pipeline.coinmetrics_assets import COINMETRICS_ASSET_SYMBOLS
 from pipeline.degrade import DEFAULT_CACHE_MAX_AGE_HOURS, DEFAULT_DEGRADE_FACTOR
 
 PUBLIC_MACRO_TARGETS = {
     "bls": frozenset({"CPIAUCSL", "CPILFESL", "PAYEMS", "UNRATE"}),
     "treasury": frozenset({"DGS2", "DGS10"}),
 }
-PUBLIC_MARKET_TARGETS = {"coinmetrics": frozenset({"BTC", "ETH"})}
+PUBLIC_MARKET_TARGETS = {"coinmetrics": COINMETRICS_ASSET_SYMBOLS}
 PUBLIC_DATASETS = frozenset({"calendar", "commodities", "crypto", "equities", "macro", "news", "sectors"})
 
 

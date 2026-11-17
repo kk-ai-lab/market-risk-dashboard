@@ -97,7 +97,14 @@
     "cryptoNames": {
       "bitcoin": "比特币",
       "ethereum": "以太坊",
-      "solana": "索拉纳"
+      "solana": "索拉纳",
+      "cardano": "卡尔达诺",
+      "xrp": "瑞波币",
+      "dogecoin": "狗狗币",
+      "bnb": "币安币",
+      "chainlink": "Chainlink 代币",
+      "litecoin": "莱特币",
+      "avalanche": "雪崩"
     }
   },
   "data": {

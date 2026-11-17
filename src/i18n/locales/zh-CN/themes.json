@@ -20,7 +20,7 @@
     "marketCap": "总市值",
     "dominance": "比特币占比",
     "volume24h": "24小时成交额",
-    "referenceDisclosure": "比特币和以太坊为全市场参考价，并非交易所成交价；此来源不提供其他加密资产及 24 小时涨跌幅。",
+    "referenceDisclosure": "所展示的加密资产价格为全市场参考价，并非单一交易所的最新成交价。该来源不提供 24 小时涨跌幅。",
     "observedAt": "来源观测时间",
     "riskOn": "风险偏好",
     "riskOff": "风险规避",

@@ -1,9 +1,10 @@
 """Opt-in Coin Metrics Community USD reference rates.
 
-Community data is CC BY-NC 4.0: confirm noncommercial eligibility and provide
-Coin Metrics attribution before enabling publication. ReferenceRateUSD is a
+Community data is CC BY-NC 4.0. Approved public publication requires noncommercial
+eligibility and Coin Metrics attribution. ReferenceRateUSD is a market-wide
 reference price, not an exchange execution price. Coverage/licensing:
 https://docs.coinmetrics.io/service-and-support/coverage
+Reference-rate methodology: https://docs.coinmetrics.io/coin-metrics-prices/coin-metrics-prices/reference-rate-metrics
 """
 
 from __future__ import annotations
@@ -11,16 +12,21 @@ from __future__ import annotations
 import json
 import math
 import time
+from collections.abc import Iterable
 from datetime import UTC, datetime
-from typing import Any, Iterable
+from typing import Any
 
 import httpx
 
+from pipeline.coinmetrics_assets import (
+    COINMETRICS_ASSETS,
+    COINMETRICS_BY_ASSET_ID,
+    COINMETRICS_BY_SYMBOL,
+)
 from pipeline.providers.base import BaseProvider, ProviderError, ProviderHealth, guarded_client
 
 CM_URL = "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics"
 MAX_BYTES = 64 * 1024
-ASSETS = {"BTC": ("btc", "Bitcoin"), "ETH": ("eth", "Ethereum")}
 
 
 class CoinMetricsProvider(BaseProvider):
@@ -32,11 +38,18 @@ class CoinMetricsProvider(BaseProvider):
     def __init__(self, settings=None, *, symbols: Iterable[str] | None = None) -> None:
         super().__init__(settings)
         requested = [symbol.strip().upper() for symbol in symbols] if symbols is not None else ["BTC", "ETH"]
-        if not requested or len(requested) != len(set(requested)) or not set(requested).issubset(ASSETS):
+        requested_symbols = set(requested)
+        if (
+            not requested
+            or len(requested) != len(requested_symbols)
+            or not requested_symbols.issubset(COINMETRICS_BY_SYMBOL)
+        ):
             raise ValueError("Coin Metrics requires a nonempty supported symbol selection")
-        self.symbols = tuple(sorted(requested))
+        self.symbols = tuple(
+            asset.symbol for asset in COINMETRICS_ASSETS if asset.symbol in requested_symbols
+        )
         self._params = {
-            "assets": ",".join(ASSETS[symbol][0] for symbol in self.symbols),
+            "assets": ",".join(COINMETRICS_BY_SYMBOL[symbol].asset_id for symbol in self.symbols),
             "metrics": "ReferenceRateUSD", "frequency": "1m",
             "page_size": len(self.symbols), "limit_per_asset": 1,
         }
@@ -81,13 +94,15 @@ class CoinMetricsProvider(BaseProvider):
         rows = payload["data"]
         if not rows:
             raise ProviderError("Coin Metrics no data")
-        assets = {}
+        expected_ids = {COINMETRICS_BY_SYMBOL[symbol].asset_id for symbol in self.symbols}
+        assets_by_id = {}
         now = datetime.now(UTC)
         for row in rows:
-            if not isinstance(row, dict) or row.get("asset") not in {ASSETS[symbol][0] for symbol in self.symbols}:
+            asset_id = row.get("asset") if isinstance(row, dict) else None
+            asset = COINMETRICS_BY_ASSET_ID.get(asset_id) if isinstance(asset_id, str) else None
+            if asset is None or asset_id not in expected_ids:
                 raise ProviderError("Coin Metrics malformed or unexpected asset")
-            asset = row["asset"]
-            if asset in assets:
+            if asset_id in assets_by_id:
                 raise ProviderError("Coin Metrics duplicate asset")
             raw_price, raw_time = row.get("ReferenceRateUSD"), row.get("time")
             try:
@@ -103,17 +118,20 @@ class CoinMetricsProvider(BaseProvider):
                     raise ValueError("invalid or future time")
             except (ValueError, OverflowError) as exc:
                 raise ProviderError("Coin Metrics invalid price or source time") from exc
-            assets[asset] = {
-                "symbol": asset.upper(), "name": next(ASSETS[symbol][1] for symbol in self.symbols if ASSETS[symbol][0] == asset),
+            assets_by_id[asset_id] = {
+                "symbol": asset.symbol, "name": asset.name,
                 "price": price, "source": self.name,
                 "updated_at": observed.astimezone(UTC).isoformat().replace("+00:00", "Z"),
                 "change_1d": None, "change_1w": None, "change_1m": None,
                 "market_cap": None, "volume_24h": None,
             }
-        expected = {ASSETS[symbol][0] for symbol in self.symbols}
-        if set(assets) != expected:
+        if set(assets_by_id) != expected_ids:
             raise ProviderError("Coin Metrics partial approved-symbol data")
         return {
-            "assets": [assets[ASSETS[symbol][0]] for symbol in self.symbols], "btc_dominance": None,
+            "assets": [
+                assets_by_id[COINMETRICS_BY_SYMBOL[symbol].asset_id]
+                for symbol in self.symbols
+            ],
+            "btc_dominance": None,
             "stablecoin_mcap": None, "market_cap_total": None, "sentiment": None,
         }

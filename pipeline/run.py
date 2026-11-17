@@ -399,6 +399,9 @@ def _publish_metadata(
 # Homepage aggregation (P1-5)
 # ============================================================
 
+OVERVIEW_CRYPTO_SYMBOLS = ("BTC", "ETH", "SOL")
+
+
 def _build_dashboard(
     risk_env: RiskEnvelope,
     equities: Any,
@@ -418,8 +421,18 @@ def _build_dashboard(
     cross_asset: list[DashboardAsset] = []
     for a in equities.payload.assets[:6]:
         cross_asset.append(DashboardAsset(asset=a.symbol, category="equity", change_1d=a.change_1d, source=a.source))
-    for a in crypto.payload.assets[:3]:
-        cross_asset.append(DashboardAsset(asset=a.symbol, category="crypto", change_1d=a.change_1d, source=a.source))
+    crypto_by_symbol = {asset.symbol.upper(): asset for asset in crypto.payload.assets}
+    for symbol in OVERVIEW_CRYPTO_SYMBOLS:
+        asset = crypto_by_symbol.get(symbol)
+        if asset is not None:
+            cross_asset.append(
+                DashboardAsset(
+                    asset=asset.symbol,
+                    category="crypto",
+                    change_1d=asset.change_1d,
+                    source=asset.source,
+                )
+            )
 
     catalysts = [e.model_dump() for e in calendar.payload.events[:5]]
 

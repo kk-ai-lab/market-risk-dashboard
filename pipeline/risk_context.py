@@ -46,7 +46,11 @@ def build_risk_context(
     real_rate = _macro_value(macro, "rates", "dfii10")
     spy_change = _latest_change(histories.get("SPY"))
     iwm_relative = breadth.get("small_cap_relative")
-    btc_change = crypto.payload.assets[0].change_1d if crypto.payload.assets else None
+    bitcoin = next(
+        (asset for asset in crypto.payload.assets if asset.symbol.upper() == "BTC"),
+        None,
+    )
+    btc_change = bitcoin.change_1d if bitcoin is not None else None
     copper_change = _commodity_change(commodities, "HG=F")
     gold_change = _commodity_change(commodities, "GC=F")
 

@@ -8,17 +8,14 @@ import pytest
 
 from pipeline.risk import confidence as conf_mod
 from pipeline.risk import regime as regime_mod
-from pipeline.risk_context import read_prev_risk
-from pipeline.storage import StorageWriter
-from pipeline.settings import Settings
-from pipeline.risk.model import RiskModel
-from pipeline.risk.model import _parse_thresholds
+from pipeline.risk.model import RiskModel, _parse_thresholds
 from pipeline.risk.scoring import (
     compute_indicator_score,
     heuristic_risk_score,
     percentile_rank,
     z_score,
 )
+from pipeline.risk_context import read_prev_risk
 from pipeline.schemas import (
     CommoditiesEnvelope,
     CryptoEnvelope,
@@ -29,6 +26,8 @@ from pipeline.schemas import (
     RiskIndicator,
     RiskModelResult,
 )
+from pipeline.settings import Settings
+from pipeline.storage import StorageWriter
 
 
 def test_heuristic_risk_score_bounds() -> None:
@@ -486,6 +485,79 @@ def test_cross_asset_missing_inputs_do_not_count_as_benign() -> None:
     cross_asset = next(dimension for dimension in result.dimensions if dimension.key == "cross_asset")
     assert next(indicator for indicator in cross_asset.indicators if indicator.key == "cross_asset_confirmation").value is None
     assert cross_asset.coverage == 0.0
+
+
+def test_bitcoin_signal_uses_symbol_even_when_crypto_assets_are_shuffled() -> None:
+    from pipeline.run import _build_risk_context
+
+    empty = SimpleNamespace(payload=SimpleNamespace(assets=[]))
+    crypto = SimpleNamespace(
+        payload=SimpleNamespace(
+            assets=[
+                SimpleNamespace(symbol="ADA", change_1d=8.0),
+                SimpleNamespace(symbol="ETH", change_1d=3.0),
+                SimpleNamespace(symbol="BTC", change_1d=-0.8),
+            ]
+        )
+    )
+    context = _build_risk_context(
+        macro=SimpleNamespace(
+            payload=MacroDataset(
+                rates=[], credit=[], volatility=[], inflation=[], labor=[], liquidity=[], fx=[], fedwatch=None,
+            )
+        ),
+        equities=empty,
+        crypto=crypto,
+        commodities=empty,
+        histories={},
+        qualities=[1.0],
+        prev_total_score=None,
+        prev_dim_scores=None,
+        risk_history=[],
+        series_history={},
+    )
+
+    bitcoin_down = next(
+        signal for signal in context["cross_asset"]["signals"] if signal["key"] == "bitcoin_down"
+    )
+    assert bitcoin_down["value"] == -0.8
+    assert bitcoin_down["triggered"] is True
+
+
+def test_bitcoin_signal_stays_unknown_when_btc_is_missing() -> None:
+    from pipeline.run import _build_risk_context
+
+    empty = SimpleNamespace(payload=SimpleNamespace(assets=[]))
+    crypto = SimpleNamespace(
+        payload=SimpleNamespace(
+            assets=[
+                SimpleNamespace(symbol="ETH", change_1d=-0.8),
+                SimpleNamespace(symbol="SOL", change_1d=-1.2),
+            ]
+        )
+    )
+    context = _build_risk_context(
+        macro=SimpleNamespace(
+            payload=MacroDataset(
+                rates=[], credit=[], volatility=[], inflation=[], labor=[], liquidity=[], fx=[], fedwatch=None,
+            )
+        ),
+        equities=empty,
+        crypto=crypto,
+        commodities=empty,
+        histories={},
+        qualities=[1.0],
+        prev_total_score=None,
+        prev_dim_scores=None,
+        risk_history=[],
+        series_history={},
+    )
+
+    bitcoin_down = next(
+        signal for signal in context["cross_asset"]["signals"] if signal["key"] == "bitcoin_down"
+    )
+    assert bitcoin_down["value"] is None
+    assert bitcoin_down["triggered"] is None
 
 
 def test_dimension_trend_requires_observations_on_both_days() -> None:

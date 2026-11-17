@@ -97,7 +97,14 @@
     "cryptoNames": {
       "bitcoin": "Bitcoin",
       "ethereum": "Ethereum",
-      "solana": "Solana"
+      "solana": "Solana",
+      "cardano": "Cardano",
+      "xrp": "XRP",
+      "dogecoin": "Dogecoin",
+      "bnb": "BNB",
+      "chainlink": "Chainlink",
+      "litecoin": "Litecoin",
+      "avalanche": "Avalanche"
     }
   },
   "data": {

@@ -13,18 +13,63 @@ vi.mock("@/hooks/useDataset", () => ({
 }));
 afterEach(cleanup);
 
-it.each([["en", "Source observation", "reference rates"], ["zh-CN", "来源观测时间", "参考价"]])(
-  "shows source timing, limitations and the license in %s",
-  async (locale, observed, disclosure) => {
+const CRYPTO_NAMES = [
+  ["BTC", "Bitcoin", "比特币"],
+  ["ETH", "Ethereum", "以太坊"],
+  ["SOL", "Solana", "索拉纳"],
+  ["ADA", "Cardano", "卡尔达诺"],
+  ["XRP", "XRP", "瑞波币"],
+  ["DOGE", "Dogecoin", "狗狗币"],
+  ["BNB", "BNB", "币安币"],
+  ["LINK", "Chainlink", "Chainlink 代币"],
+  ["LTC", "Litecoin", "莱特币"],
+  ["AVAX", "Avalanche", "雪崩"],
+] as const;
+
+it.each([
+  [
+    "en",
+    "Source observation",
+    "BTC, ETH, SOL, ADA, XRP, DOGE, BNB, LINK, LTC, and AVAX are Coin Metrics market-wide reference rates, not exchange last trades",
+    "This source does not provide 24-hour changes",
+  ],
+  [
+    "zh-CN",
+    "来源观测时间",
+    "所展示的加密资产价格为全市场参考价，并非单一交易所的最新成交价",
+    "该来源不提供 24 小时涨跌幅",
+  ],
+])(
+  "shows ten reference assets, source timing, limits and the license in %s",
+  async (locale, observed, rateDescription, changeDescription) => {
     await i18n.changeLanguage(locale);
     const crypto = CryptoEnvelope.parse(FIXTURE_MAP["/latest/crypto.json"]);
     crypto.freshness_status = "stale";
-    crypto.payload.assets = [{ ...crypto.payload.assets[0], source: "coinmetrics", updated_at: "2026-11-14T22:31:00Z", change_1d: null, volume_24h: null }];
+    crypto.payload.assets = CRYPTO_NAMES.map(([symbol, name]) => ({
+      ...crypto.payload.assets[0],
+      symbol,
+      name,
+      price: 100,
+      source: "coinmetrics",
+      updated_at: "2026-11-14T22:31:00Z",
+      change_1d: null,
+      volume_24h: null,
+    }));
     state.datasets = { crypto };
     render(<><ThemesPage /><Footer /></>);
-    expect(screen.getByTestId("coinmetrics-disclosure")).toHaveTextContent(disclosure);
-    expect(screen.getByText(new RegExp(observed))).toBeInTheDocument();
-    expect(within(screen.getByTestId("section-crypto")).getByTestId("asset-card")).toHaveTextContent("—");
+    const section = within(screen.getByTestId("section-crypto"));
+    const disclosure = screen.getByTestId("coinmetrics-disclosure");
+    expect(disclosure).toHaveTextContent(rateDescription);
+    expect(disclosure).toHaveTextContent(changeDescription);
+    expect(screen.getAllByText(new RegExp(observed))).toHaveLength(10);
+    expect(section.getAllByTestId("asset-card")).toHaveLength(10);
+    for (const card of section.getAllByTestId("asset-card")) {
+      expect(card).toHaveTextContent("—");
+    }
+    for (const [symbol, english, chinese] of CRYPTO_NAMES) {
+      expect(section.getByText(locale === "en" ? english : chinese, { selector: "p" })).toBeInTheDocument();
+      expect(section.getByText(symbol, { selector: "span" })).toBeInTheDocument();
+    }
     expect(within(screen.getByTestId("section-crypto")).getByText(locale === "en" ? "Stale" : "已过期")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "CC BY-NC 4.0" })).toHaveAttribute("href", "https://creativecommons.org/licenses/by-nc/4.0/");
   },

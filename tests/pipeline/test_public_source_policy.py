@@ -86,6 +86,12 @@ def test_policy_loads_licensed_sources_and_builds_only_approved_providers(tmp_pa
         ("coinmetrics", "crypto"), ("bea_calendar", "bea_calendar"),
     ]
     assert isinstance(providers[0], CoinMetricsProvider)
+    assert providers[0].symbols == (
+        "BTC", "ETH", "SOL", "ADA", "XRP", "DOGE", "BNB", "LINK", "LTC", "AVAX",
+    )
+    assert policy.sources["coinmetrics"].market_symbols == [
+        "BTC", "ETH", "SOL", "ADA", "XRP", "DOGE", "BNB", "LINK", "LTC", "AVAX",
+    ]
 
 
 def test_policy_plan_and_provider_factory_keep_the_selected_market_targets(tmp_path):
@@ -104,7 +110,7 @@ def test_policy_plan_and_provider_factory_keep_the_selected_market_targets(tmp_p
     "source,field,value",
     [
         ("bls", "macro_series", ["DGS10"]),
-        ("coinmetrics", "market_symbols", ["BTC", "SOL"]),
+        ("coinmetrics", "market_symbols", ["BTC", "NOPE"]),
     ],
 )
 def test_policy_rejects_targets_the_provider_cannot_fetch(tmp_path, source, field, value):
@@ -113,6 +119,52 @@ def test_policy_rejects_targets_the_provider_cannot_fetch(tmp_path, source, fiel
 
     with pytest.raises(ValueError, match="unsupported"):
         type(public_settings(tmp_path).load_public_source_policy()).model_validate(raw)
+
+
+def test_expanded_grant_does_not_replay_the_old_two_asset_cache(tmp_path, monkeypatch):
+    settings = public_settings(tmp_path)
+    registry = build_registry(settings)
+    registry.cache_dir = tmp_path / "cache"
+    registry.cache_dir.mkdir(parents=True)
+    registry.max_retries = 0
+    provider = registry.providers_for("crypto")[0]
+    monkeypatch.setattr(
+        provider,
+        "get_crypto_market",
+        lambda: (_ for _ in ()).throw(ProviderError("offline")),
+    )
+    legacy_rows = [
+        {
+            "symbol": symbol,
+            "name": name,
+            "price": price,
+            "change_1d": None,
+            "change_1w": None,
+            "change_1m": None,
+            "market_cap": None,
+            "volume_24h": None,
+            "source": "coinmetrics",
+            "updated_at": "2026-11-15T12:00:00Z",
+        }
+        for symbol, name, price in (("BTC", "Bitcoin", 100.0), ("ETH", "Ethereum", 10.0))
+    ]
+    from pipeline.schemas.envelope import SCHEMA_VERSION
+
+    cache = {
+        "method": "get_crypto_market",
+        "data": {"assets": legacy_rows},
+        "fetched_at": now_utc(),
+        "provider": "coinmetrics",
+        "schema_version": SCHEMA_VERSION,
+        "observation_time_basis": "provider",
+    }
+    (registry.cache_dir / "crypto__coinmetrics__crypto_market.json").write_text(
+        json.dumps(cache),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ProviderError, match="offline"):
+        registry.call("crypto", "get_crypto_market", "crypto_market")
 
 
 def test_policy_rejects_unapproved_provider_and_legacy_cache_fallback(tmp_path, monkeypatch):
@@ -182,8 +234,19 @@ def test_market_policy_collects_crypto_without_other_market_requests(tmp_path, m
     provider = registry.providers_for("crypto")[0]
     monkeypatch.setattr(provider, "get_crypto_market", lambda: {
         "assets": [
-            {"symbol": "BTC", "name": "Bitcoin", "price": 100.0, "source": "coinmetrics", "updated_at": "2026-11-15T12:00:00Z"},
-            {"symbol": "ETH", "name": "Ethereum", "price": 10.0, "source": "coinmetrics", "updated_at": "2026-11-15T12:01:00Z"},
+            {
+                "symbol": symbol,
+                "name": name,
+                "price": 100.0,
+                "source": "coinmetrics",
+                "updated_at": "2026-11-15T12:00:00Z",
+            }
+            for symbol, name in [
+                ("BTC", "Bitcoin"), ("ETH", "Ethereum"), ("SOL", "Solana"),
+                ("ADA", "Cardano"), ("XRP", "XRP"), ("DOGE", "Dogecoin"),
+                ("BNB", "BNB"), ("LINK", "Chainlink"), ("LTC", "Litecoin"),
+                ("AVAX", "Avalanche"),
+            ]
         ],
         "btc_dominance": None,
         "stablecoin_mcap": None,
@@ -194,7 +257,9 @@ def test_market_policy_collects_crypto_without_other_market_requests(tmp_path, m
 
     market = MarketCollector(registry, AssetUniverse.load(settings), settings).collect()
 
-    assert [asset.symbol for asset in market["crypto"].assets] == ["BTC", "ETH"]
+    assert [asset.symbol for asset in market["crypto"].assets] == [
+        "BTC", "ETH", "SOL", "ADA", "XRP", "DOGE", "BNB", "LINK", "LTC", "AVAX",
+    ]
     assert market["equities"].assets == []
     assert market["commodities"].assets == []
     assert market["sectors"].sectors == []
