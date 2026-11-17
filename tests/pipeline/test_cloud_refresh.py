@@ -44,6 +44,10 @@ def files():
         "latest/data.json": {"generated_at": STAMP, "fetched_at": STAMP, "value": 4.2},
         "history/data.json": [{"date": "2026-11-14", "value": 1}],
         "metadata/data.json": {"updated_at": STAMP},
+        **{
+            path: {"generated_at": STAMP, "fetched_at": STAMP, "value": 4.2}
+            for path in cloud.expected_latest_outputs()
+        },
     }
 
 
@@ -200,11 +204,7 @@ def test_main_serializes_optional_collection_log_root(
 def test_code_only_preserves_data_timestamps_and_calls_no_provider(
     tmp_path, files, setup, monkeypatch
 ):
-    compatible_files = dict(files)
-    compatible_files.update(
-        {path: {"generated_at": STAMP, "value": 1} for path in cloud.expected_latest_outputs()}
-    )
-    root, generation = deployed(tmp_path, compatible_files)
+    root, generation = deployed(tmp_path, files)
     paths, settings = setup
     monkeypatch.setattr(cloud, "_collect_approved", lambda *_: pytest.fail("provider called"))
     import scripts.stage_publication as stage
@@ -224,7 +224,7 @@ def test_code_only_preserves_data_timestamps_and_calls_no_provider(
     manifest = verify_generation(result.generation_dir)
     assert manifest["producer_revision"] == EVENT_REVISION
     assert manifest["parent_id"] == generation.generation_id
-    for relative in compatible_files:
+    for relative in files:
         assert (result.generation_dir / relative).read_bytes() == (
             root / "generations" / generation.generation_id / relative
         ).read_bytes()
