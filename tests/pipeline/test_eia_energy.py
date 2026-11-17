@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -228,11 +229,24 @@ def test_cloud_refresh_forwards_eia_secret_only_to_collection_child(tmp_path, mo
 
     def fake_run(*args, **kwargs):
         captured.update(args=args, kwargs=kwargs)
+        logs_dir = settings.artifacts_dir / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        (logs_dir / "run-report-collection.json").write_text(
+            json.dumps(
+                {
+                    "command": "full",
+                    "ok": True,
+                    "written_latest_outputs": sorted(cloud_refresh.expected_latest_outputs()),
+                }
+            ),
+            encoding="utf-8",
+        )
         return type("Result", (), {"returncode": 0, "stdout": "", "stderr": ""})()
 
     monkeypatch.setattr(cloud_refresh.subprocess, "run", fake_run)
-    cloud_refresh._collect_approved(settings)
+    receipt = cloud_refresh._collect_approved(settings)
     child_env = captured["kwargs"]["env"]
+    assert receipt.latest_paths >= cloud_refresh.expected_latest_outputs()
     assert ("DATA_EIA_API_KEY" in child_env) is bool(api_key)
     if api_key:
         assert child_env["DATA_EIA_API_KEY"] == api_key
