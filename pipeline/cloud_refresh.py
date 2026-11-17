@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import sys
+from collections.abc import Collection, Sequence
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -35,6 +36,7 @@ from pipeline.report import (
     RunRejectionCode,
     parse_risk_input_diagnostics,
 )
+from pipeline.schemas.registry import DATASETS, DatasetSpec
 from pipeline.settings import Settings
 from pipeline.storage.bls_snapshot import SnapshotError as BlsSnapshotError
 from pipeline.storage.cloud_bls import _decode as decode_bls
@@ -50,6 +52,42 @@ if TYPE_CHECKING:
 
 CloudMode = Literal["scheduled", "code-only"]
 _PAGES_POINTER_RETRY_DELAYS = (0.25, 0.5)
+
+
+@dataclass(frozen=True)
+class ReusePlan:
+    reason: Literal["code_only_compatible"] = "code_only_compatible"
+
+
+@dataclass(frozen=True)
+class CollectPlan:
+    reason: Literal["initial_bootstrap", "scheduled", "missing_outputs"]
+    missing_paths: tuple[str, ...] = ()
+
+
+RefreshPlan = ReusePlan | CollectPlan
+
+
+def expected_latest_outputs(specs: Sequence[DatasetSpec] = DATASETS) -> frozenset[str]:
+    return frozenset(
+        f"latest/{filename}"
+        for spec in specs
+        if spec.required or spec.full_run
+        for filename in spec.filenames
+    )
+
+
+def choose_refresh_plan(*, mode: CloudMode, available_paths: Collection[str] | None) -> RefreshPlan:
+    if mode == "scheduled":
+        return CollectPlan("scheduled")
+    if mode != "code-only":
+        raise ValueError("Unsupported cloud refresh mode")
+    if available_paths is None:
+        return CollectPlan("initial_bootstrap")
+    missing_paths = tuple(sorted(expected_latest_outputs() - set(available_paths)))
+    if missing_paths:
+        return CollectPlan("missing_outputs", missing_paths)
+    return ReusePlan()
 
 
 class CloudRefreshError(ValueError):
@@ -135,6 +173,23 @@ class RefreshDiagnostics:
     exit_code: int | None = None
     collection: CollectionSummary | None = None
     candidate_stage_code: CandidateStageCode | None = None
+
+    def record_plan(self, mode: CloudMode, plan: RefreshPlan) -> None:
+        if not self.enabled:
+            return
+        payload: dict[str, object] = {
+            "event": "cloud_refresh.plan",
+            "mode": mode,
+            "action": "reuse" if isinstance(plan, ReusePlan) else "collect",
+            "reason": plan.reason,
+        }
+        if isinstance(plan, CollectPlan):
+            payload["missing_output_count"] = len(plan.missing_paths)
+        print(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")),
+            file=sys.stderr,
+            flush=True,
+        )
 
     def enter(self, stage: RefreshStage) -> None:
         self.stage = stage
@@ -524,6 +579,7 @@ def refresh_cloud(
     workspace.mkdir(parents=True, exist_ok=False)
     store = workspace / "store"
     restored = None
+    manifest = None
     if state.deployed:
         if diagnostics is not None:
             diagnostics.enter(RefreshStage.GENERATION_RESTORE)
@@ -535,7 +591,13 @@ def refresh_cloud(
             raise CloudRefreshError("Restored generation does not match checkpoint")
     parent = state.deployed.generation_id if state.deployed else None
     collection_logs_dir = None
-    if restored is not None and mode == "code-only":
+    plan = choose_refresh_plan(
+        mode=mode,
+        available_paths=set(manifest["files"]) if manifest is not None else None,
+    )
+    if diagnostics is not None:
+        diagnostics.record_plan(mode, plan)
+    if restored is not None and isinstance(plan, ReusePlan):
         pointer = publish_reused_generation(
             store,
             GenerationSource(restored, state.deployed.manifest_sha256),
