@@ -22,9 +22,11 @@ from pipeline.cloud_refresh import CloudRefreshError
 from pipeline.publication import publish_snapshot
 from pipeline.storage.github_checkpoint import CheckpointSnapshot
 from pipeline.storage.publication_checkpoint import (
+    DeploymentSubmission,
     Generation,
     PublicationCheckpoint,
     PublicationState,
+    SubmissionOutcome,
 )
 
 REPO = "owner/repo"
@@ -41,15 +43,17 @@ class MemoryCheckpoint:
         state = state or PublicationState()
         self.content = state.encode()
         self.writes = 0
+        self.head = 1
 
     def read(self, path):
-        return CheckpointSnapshot("1" * 40, "2" * 40, path, self.content)
+        return CheckpointSnapshot(f"{self.head:040x}", "2" * 40, path, self.content)
 
     def write(self, snapshot, content, message):
         assert snapshot.content == self.content
         self.content = content
         self.writes += 1
-        return "3" * 40
+        self.head += 1
+        return f"{self.head:040x}"
 
 
 class Actions:
@@ -152,6 +156,7 @@ def _generation(*, artifact_id=41, run_id=40, revision=REVISION, parent_id=None,
         artifact_id,
         run_id,
         ARTIFACT_DIGEST,
+        "f" * 40,
     )
 
 
@@ -311,7 +316,7 @@ def test_preflight_abandons_a_failed_candidate_when_pages_still_serves_parent():
     assert pages.restored == [deployed.generation_id]
 
 
-@pytest.mark.parametrize("status", ["deploying", "succeed", "deployment_lost", None])
+@pytest.mark.parametrize("status", ["deploying", "succeed", "deployment_lost"])
 def test_preflight_keeps_candidate_when_pages_does_not_confirm_failed_terminal_status(status):
     deployed = _generation(artifact_id=39, run_id=38, revision=NEW_REVISION)
     candidate = _generation(
@@ -354,12 +359,48 @@ def test_preflight_can_abandon_when_deploy_action_was_skipped_and_no_deployment_
         parent_id=deployed.generation_id,
         attempt_number=2,
     )
+    candidate = Generation(
+        **{**candidate.__dict__, "pages_build_version": None}
+    )
     pointer = {
         "version": 1,
         "generation_id": deployed.generation_id,
         "manifest_sha256": deployed.manifest_sha256,
     }
     actions = Actions(conclusion="failure", deploy_step_skipped=True)
+    actions.artifacts[candidate.artifact_id] = _artifact(
+        candidate.artifact_id, candidate.workflow_run_id
+    )
+    publisher, checkpoint, _, _ = _publisher(
+        PublicationState(deployed=deployed, candidate=candidate, last_attempt=2),
+        pointer=pointer,
+        actions=actions,
+        deployment_status=None,
+    )
+
+    publisher.preflight(
+        mode="code-only", event_ref="refs/heads/dev", event_sha=REVISION, run_id=50
+    )
+
+    state = PublicationCheckpoint(checkpoint).read()
+    assert state.candidate is None and state.abandoned == candidate
+
+
+def test_preflight_can_abandon_unsubmitted_candidate_when_pages_has_no_deployment():
+    deployed = _generation(artifact_id=39, run_id=38, revision=NEW_REVISION)
+    candidate = _generation(
+        artifact_id=41,
+        run_id=40,
+        revision=NEW_REVISION,
+        parent_id=deployed.generation_id,
+        attempt_number=2,
+    )
+    pointer = {
+        "version": 1,
+        "generation_id": deployed.generation_id,
+        "manifest_sha256": deployed.manifest_sha256,
+    }
+    actions = Actions(conclusion="failure")
     actions.artifacts[candidate.artifact_id] = _artifact(
         candidate.artifact_id, candidate.workflow_run_id
     )
@@ -386,6 +427,14 @@ def test_preflight_keeps_candidate_when_an_earlier_workflow_attempt_started_depl
         revision=NEW_REVISION,
         parent_id=deployed.generation_id,
         attempt_number=2,
+    )
+    candidate = Generation(
+        **{
+            **candidate.__dict__,
+            "submission": DeploymentSubmission(
+                str(uuid4()), SubmissionOutcome.MAY_HAVE_BEEN_SENT
+            ),
+        }
     )
     pointer = {
         "version": 1,
@@ -680,7 +729,7 @@ def test_runtime_rejects_invalid_runner_identity_before_client_construction(
     )
     monkeypatch.setattr(
         cloud_publication,
-        "GitHubPagesDeploymentStatusApi",
+        "GitHubPagesDeploymentApi",
         lambda *_: pytest.fail("Pages deployment client constructed before identity validation"),
     )
 
@@ -705,7 +754,7 @@ def test_runtime_returns_validated_repository_id_to_publisher(monkeypatch):
     monkeypatch.setattr(cloud_publication, "GitHubCheckpoint", lambda *_: checkpoint)
     monkeypatch.setattr(cloud_publication, "GitHubActionsApi", lambda *_: actions)
     monkeypatch.setattr(
-        cloud_publication, "GitHubPagesDeploymentStatusApi", lambda *_: deployments
+        cloud_publication, "GitHubPagesDeploymentApi", lambda *_: deployments
     )
 
     assert cloud_publication._runtime() == (
@@ -884,14 +933,14 @@ def test_actions_api_does_not_confirm_skipped_deploy_from_truncated_job_pages():
     actions.close()
 
 
-def test_pages_deployment_status_api_reads_status_by_workflow_revision():
+def test_pages_deployment_status_api_reads_status_by_reserved_build_version():
     requests = []
 
     def handle(request):
         requests.append(request)
         return httpx.Response(200, json={"status": "deployment_failed"})
 
-    api = cloud_publication.GitHubPagesDeploymentStatusApi(
+    api = cloud_publication.GitHubPagesDeploymentApi(
         REPO, "token", transport=httpx.MockTransport(handle)
     )
     assert api.status(REVISION) == "deployment_failed"
@@ -901,7 +950,7 @@ def test_pages_deployment_status_api_reads_status_by_workflow_revision():
 
 
 def test_pages_deployment_status_api_keeps_unknown_create_outcome_distinct():
-    api = cloud_publication.GitHubPagesDeploymentStatusApi(
+    api = cloud_publication.GitHubPagesDeploymentApi(
         REPO, "token", transport=httpx.MockTransport(
             lambda request: httpx.Response(404, json={"message": "Not Found"})
         )
@@ -1138,6 +1187,7 @@ def test_cloud_publication_cli_success_outputs_cover_each_command(
                     f"producer_revision={candidate.producer_revision}",
                     f"parent_id={candidate.parent_id}",
                     f"artifact_id={candidate.artifact_id}",
+                    f"pages_build_version={candidate.pages_build_version}",
                 )
             )
             + "\n",
@@ -1159,6 +1209,7 @@ def test_cloud_publication_cli_success_outputs_cover_each_command(
                     f"generation_id={candidate.generation_id}",
                     f"attempt_id={candidate.attempt_id}",
                     f"artifact_id={candidate.artifact_id}",
+                    f"pages_build_version={candidate.pages_build_version}",
                 )
             )
             + "\n",

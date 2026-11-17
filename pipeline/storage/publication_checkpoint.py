@@ -21,14 +21,36 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import asdict, dataclass
-from uuid import UUID
+from dataclasses import asdict, dataclass, replace
+from enum import StrEnum
+from uuid import UUID, uuid4
 
 from pipeline.storage.github_checkpoint import (
     CheckpointError,
     CheckpointSnapshot,
     GitHubCheckpoint,
 )
+
+
+class SubmissionOutcome(StrEnum):
+    MAY_HAVE_BEEN_SENT = "may_have_been_sent"
+    REJECTED = "rejected"
+
+
+@dataclass(frozen=True)
+class DeploymentSubmission:
+    submission_id: str
+    outcome: SubmissionOutcome = SubmissionOutcome.MAY_HAVE_BEEN_SENT
+
+    def __post_init__(self) -> None:
+        try:
+            identifier = UUID(self.submission_id)
+            if identifier.version != 4 or str(identifier) != self.submission_id:
+                raise ValueError
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise CheckpointError("Submission ID must be a canonical random UUID4") from exc
+        if not isinstance(self.outcome, SubmissionOutcome):
+            raise CheckpointError("Invalid deployment submission outcome")
 
 
 @dataclass(frozen=True)
@@ -44,6 +66,8 @@ class Generation:
     artifact_id: int
     workflow_run_id: int
     artifact_digest: str
+    pages_build_version: str | None = None
+    submission: DeploymentSubmission | None = None
 
     def __post_init__(self) -> None:
         for identifier in (self.artifact_id, self.workflow_run_id):
@@ -70,8 +94,22 @@ class Generation:
                 and (not isinstance(self.parent_id, str)
                      or re.fullmatch(r"[0-9a-f]{64}", self.parent_id) is None)):
             raise CheckpointError("Invalid generation parent")
+        if (self.pages_build_version is not None
+                and (not isinstance(self.pages_build_version, str)
+                     or re.fullmatch(r"[0-9a-f]{40}", self.pages_build_version) is None)):
+            raise CheckpointError("Pages build version must be a full Git commit SHA")
+        if (self.submission is not None
+                and (not isinstance(self.submission, DeploymentSubmission)
+                     or self.pages_build_version is None)):
+            raise CheckpointError("Invalid deployment submission")
         if self.parent_id == self.generation_id:
             raise CheckpointError("Generation cannot parent itself")
+
+
+@dataclass(frozen=True)
+class SubmissionClaim:
+    candidate: Generation
+    acquired: bool
 
 
 @dataclass(frozen=True)
@@ -123,7 +161,7 @@ class PublicationState:
                 raise CheckpointError("Candidate repeats deployed generation")
 
     def encode(self) -> bytes:
-        return json.dumps({"version": 1, **asdict(self)}, sort_keys=True,
+        return json.dumps({"version": 2, **asdict(self)}, sort_keys=True,
                           separators=(",", ":"), allow_nan=False).encode()
 
 
@@ -145,14 +183,30 @@ def _decode(content: bytes) -> PublicationState:
     try:
         value = json.loads(content, object_pairs_hook=_object)
         if (not isinstance(value, dict) or set(value) != {"version", "candidate", "deployed", "abandoned", "last_attempt"}
-                or type(value["version"]) is not int or value["version"] != 1):
+                or type(value["version"]) is not int or value["version"] not in {1, 2}):
             raise CheckpointError("Unsupported publication state")
+        version = value["version"]
+        legacy_fields = set(Generation.__dataclass_fields__) - {"pages_build_version", "submission"}
+        current_fields = set(Generation.__dataclass_fields__)
         generations = {}
         for key in ("candidate", "deployed", "abandoned"):
             item = value[key]
             if item is not None:
-                if not isinstance(item, dict) or set(item) != set(Generation.__dataclass_fields__):
+                expected_fields = legacy_fields if version == 1 else current_fields
+                if not isinstance(item, dict) or set(item) != expected_fields:
                     raise CheckpointError("Invalid publication generation fields")
+                item = dict(item)
+                if version == 1:
+                    item["pages_build_version"] = None
+                    item["submission"] = None
+                elif item["submission"] is not None:
+                    submission = item["submission"]
+                    if not isinstance(submission, dict) or set(submission) != {"submission_id", "outcome"}:
+                        raise CheckpointError("Invalid deployment submission fields")
+                    item["submission"] = DeploymentSubmission(
+                        submission_id=submission["submission_id"],
+                        outcome=SubmissionOutcome(submission["outcome"]),
+                    )
                 item = Generation(**item)
             generations[key] = item
         return PublicationState(**generations, last_attempt=value["last_attempt"])
@@ -184,12 +238,14 @@ class PublicationCheckpoint:
         if not isinstance(generation, Generation):
             raise CheckpointError("Expected a generation identity")
         snapshot, state = self._read()
-        if generation == state.candidate:
+        if self._matches_reservation(state.candidate, generation):
             return state
         if state.candidate is not None:
             raise CheckpointError("Another candidate is pending")
-        if generation == state.deployed:
+        if self._matches_reservation(state.deployed, generation):
             return state
+        if generation.pages_build_version is not None or generation.submission is not None:
+            raise CheckpointError("New reservations cannot choose their Pages build version")
         if generation.parent_id != (state.deployed.generation_id if state.deployed else None):
             raise CheckpointError("Stale publication parent")
         if state.deployed and generation.generation_id == state.deployed.generation_id:
@@ -199,9 +255,88 @@ class PublicationCheckpoint:
                 raise CheckpointError("Artifact ID is already bound to another reservation")
         if generation.attempt_number != state.last_attempt + 1:
             raise CheckpointError("Attempt must advance the checkpoint sequence")
-        updated = PublicationState(deployed=state.deployed, candidate=generation,
-                                   last_attempt=generation.attempt_number)
-        self._checkpoint.write(snapshot, updated.encode(), "Prepare publication candidate")
+        candidate = Generation(
+            **{
+                **asdict(generation),
+                "pages_build_version": snapshot.head_sha,
+                "submission": None,
+            }
+        )
+        updated = PublicationState(deployed=state.deployed, candidate=candidate,
+                                   last_attempt=candidate.attempt_number)
+        try:
+            self._checkpoint.write(snapshot, updated.encode(), "Prepare publication candidate")
+        except CheckpointError:
+            observed = self.read()
+            if self._matches_reservation(observed.candidate, generation):
+                return observed
+            raise
+        return updated
+
+    @staticmethod
+    def _matches_reservation(actual: Generation | None, requested: Generation) -> bool:
+        if actual is None:
+            return False
+        return replace(
+            requested,
+            pages_build_version=actual.pages_build_version,
+            submission=actual.submission,
+        ) == actual
+
+    def claim_submission(self, generation: Generation) -> SubmissionClaim:
+        """Persist a one-use claim before a Pages create request can be sent."""
+        if not isinstance(generation, Generation) or generation.pages_build_version is None:
+            raise CheckpointError("A candidate Pages build version is required")
+        snapshot, state = self._read()
+        candidate = state.candidate
+        if not self._matches_reservation(candidate, generation):
+            raise CheckpointError("Submission claim does not match the pending candidate")
+        if candidate.submission is not None:
+            return SubmissionClaim(candidate, acquired=False)
+        submission = DeploymentSubmission(str(uuid4()))
+        claimed = Generation(
+            **{**asdict(candidate), "submission": submission}
+        )
+        updated = PublicationState(
+            deployed=state.deployed,
+            candidate=claimed,
+            last_attempt=state.last_attempt,
+        )
+        try:
+            self._checkpoint.write(snapshot, updated.encode(), "Claim Pages deployment submission")
+        except CheckpointError:
+            observed = self.read()
+            if observed.candidate == claimed:
+                return SubmissionClaim(claimed, acquired=True)
+            if self._matches_reservation(observed.candidate, generation):
+                return SubmissionClaim(observed.candidate, acquired=False)
+            raise
+        return SubmissionClaim(claimed, acquired=True)
+
+    def mark_submission_rejected(self, generation: Generation, submission_id: str) -> PublicationState:
+        if (not isinstance(generation, Generation)
+                or generation.submission is None
+                or generation.submission.submission_id != submission_id):
+            raise CheckpointError("Submission rejection does not match its claim")
+        snapshot, state = self._read()
+        if state.candidate != generation:
+            raise CheckpointError("Submission claim is not the pending candidate")
+        if generation.submission.outcome is SubmissionOutcome.REJECTED:
+            return state
+        rejected = Generation(
+            **{
+                **asdict(generation),
+                "submission": DeploymentSubmission(
+                    submission_id, SubmissionOutcome.REJECTED
+                ),
+            }
+        )
+        updated = PublicationState(
+            deployed=state.deployed,
+            candidate=rejected,
+            last_attempt=state.last_attempt,
+        )
+        self._checkpoint.write(snapshot, updated.encode(), "Record rejected Pages submission")
         return updated
 
     def mark_deployed(self, generation: Generation, *, observed: DeploymentObservation) -> PublicationState:
