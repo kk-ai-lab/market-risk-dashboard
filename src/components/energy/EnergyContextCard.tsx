@@ -30,7 +30,6 @@ export interface EnergyContextCardProps {
   contextOnly?: boolean;
 }
 
-/** Weekly EIA inventory context. The displayed age advances from the reported period end. */
 export function EnergyContextCard({
   dataset,
   isLoading = false,
