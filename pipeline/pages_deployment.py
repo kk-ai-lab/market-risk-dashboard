@@ -168,7 +168,9 @@ class GitHubPagesDeploymentApi:
         except ValueError as exc:
             raise PagesStatusError("GitHub Pages deployment status is invalid") from exc
         status = value.get("status") if isinstance(value, dict) else None
-        if not isinstance(status, str) or not status or len(status) > 64:
+        if status == "":
+            return None
+        if not isinstance(status, str) or len(status) > 64:
             raise PagesStatusError("GitHub Pages deployment status is invalid")
         return status
 

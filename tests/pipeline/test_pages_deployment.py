@@ -84,13 +84,16 @@ def _api(handler, *, oidc_handler=None, **kwargs):
 
 def test_status_distinguishes_not_found_from_read_failures():
     not_found = _api(lambda _: httpx.Response(404))
+    empty_status = _api(lambda _: httpx.Response(200, json={"status": ""}))
     denied = _api(lambda _: httpx.Response(403))
     try:
         assert not_found.status(BUILD_VERSION) is None
+        assert empty_status.status(BUILD_VERSION) is None
         with pytest.raises(PagesStatusError):
             denied.status(BUILD_VERSION)
     finally:
         not_found.close()
+        empty_status.close()
         denied.close()
 
 
@@ -165,7 +168,7 @@ def test_deploy_reserved_claims_once_and_waits_for_exact_deployment():
             return httpx.Response(200, json={"id": 789})
         if request.url.path.endswith("/789"):
             return httpx.Response(200, json={"status": "succeed"})
-        return httpx.Response(404)
+        return httpx.Response(200, json={"status": ""})
 
     def oidc_handler(request):
         assert request.headers["Authorization"] == "Bearer runner-token"
