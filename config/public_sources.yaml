@@ -34,3 +34,14 @@ sources:
     attribution: "U.S. Department of the Treasury, Daily Treasury Yield Curve Rates"
     permitted_use: public-domain
     cadence_minutes: 1440
+  bea_calendar:
+    provider: bea_calendar
+    registry_domain: bea_calendar
+    datasets: [calendar]
+    macro_series: []
+    market_symbols: []
+    license_id: public-domain
+    license_url: https://www.bea.gov/help/faq/147
+    attribution: "Source: U.S. Bureau of Economic Analysis. This product uses the Bureau of Economic Analysis (BEA) Data API but is not endorsed or certified by BEA."
+    permitted_use: public-domain
+    cadence_minutes: 15

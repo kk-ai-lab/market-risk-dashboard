@@ -70,7 +70,7 @@ def snapshots():
     return bls, treasury_snapshot()
 
 
-def test_policy_loads_licensed_sources_and_builds_only_coinmetrics(tmp_path):
+def test_policy_loads_licensed_sources_and_builds_only_approved_providers(tmp_path):
     settings = public_settings(tmp_path)
     policy = settings.load_public_source_policy()
 
@@ -82,7 +82,9 @@ def test_policy_loads_licensed_sources_and_builds_only_coinmetrics(tmp_path):
     assert policy.sources["coinmetrics"].permitted_use == "noncommercial"
 
     providers = build_default_providers(settings)
-    assert [(provider.name, provider.domain) for provider in providers] == [("coinmetrics", "crypto")]
+    assert [(provider.name, provider.domain) for provider in providers] == [
+        ("coinmetrics", "crypto"), ("bea_calendar", "bea_calendar"),
+    ]
     assert isinstance(providers[0], CoinMetricsProvider)
 
 
@@ -233,7 +235,11 @@ def test_news_and_calendar_mark_unlicensed_data_missing_without_registry_calls(t
     settings = public_settings(tmp_path)
 
     news, news_meta = NewsCollector(registry, settings).collect()
-    calendar, calendar_meta = CalendarCollector(registry, settings).collect()
+    policy = settings.load_public_source_policy()
+    policy.sources.pop("bea_calendar")
+    calendar, calendar_meta = CalendarCollector(
+        registry, settings, collection_plan=policy.collection_plan(),
+    ).collect()
 
     assert news.items == [] and news.total == 0
     assert calendar.events == []

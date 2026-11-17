@@ -222,6 +222,7 @@ DATASET_DOMAIN: dict[str, str] = {
 #: run (the E-1 class of misleading metadata this repo has been closing).
 EXTRA_DOMAIN_DATASETS: dict[str, tuple[str, ...]] = {
     "economic": ("calendar",),
+    "bea_calendar": ("calendar",),
 }
 
 #: provider domain → the dataset keys it serves. The inverse of :data:`DATASET_DOMAIN` (+
