@@ -262,35 +262,60 @@ class GitHubActionsApi:
                 "Invalid publication workflow run ID",
                 code=PublicationFailureCode.WORKFLOW_RUN_INVALID,
             )
-        value = self._get(
-            f"/actions/runs/{run_id}/jobs",
-            params={"per_page": 100},
-            read_failure_code=PublicationFailureCode.WORKFLOW_JOB_LIST_READ_FAILED,
-            invalid_response_code=PublicationFailureCode.WORKFLOW_JOB_LIST_INVALID,
-        )
-        jobs = value.get("jobs")
-        if not isinstance(jobs, list) or any(not isinstance(job, dict) for job in jobs):
+        jobs: list[dict] = []
+        total_count: int | None = None
+        page = 1
+        while total_count is None or len(jobs) < total_count:
+            value = self._get(
+                f"/actions/runs/{run_id}/jobs",
+                params={"filter": "all", "per_page": 100, "page": page},
+                read_failure_code=PublicationFailureCode.WORKFLOW_JOB_LIST_READ_FAILED,
+                invalid_response_code=PublicationFailureCode.WORKFLOW_JOB_LIST_INVALID,
+            )
+            page_jobs = value.get("jobs")
+            reported_total = value.get("total_count")
+            if (
+                type(reported_total) is not int
+                or reported_total < 0
+                or not isinstance(page_jobs, list)
+                or any(not isinstance(job, dict) for job in page_jobs)
+                or total_count is not None and reported_total != total_count
+                or not page_jobs and len(jobs) < reported_total
+                or len(jobs) + len(page_jobs) > reported_total
+            ):
+                raise CloudPublicationFailure(
+                    "Publication workflow jobs could not be enumerated",
+                    code=PublicationFailureCode.WORKFLOW_JOB_LIST_INVALID,
+                )
+            total_count = reported_total
+            jobs.extend(page_jobs)
+            page += 1
+        if total_count != len(jobs):
             raise CloudPublicationFailure(
                 "Publication workflow jobs could not be enumerated",
                 code=PublicationFailureCode.WORKFLOW_JOB_LIST_INVALID,
             )
         deploy_jobs = [job for job in jobs if job.get("name") == "deploy"]
-        if len(deploy_jobs) != 1:
+        if not deploy_jobs:
             return False
-        deploy_job = deploy_jobs[0]
-        if deploy_job.get("conclusion") == "skipped":
-            return True
-        steps = deploy_job.get("steps")
-        if not isinstance(steps, list) or any(not isinstance(step, dict) for step in steps):
-            raise CloudPublicationFailure(
-                "Publication deployment steps could not be enumerated",
-                code=PublicationFailureCode.WORKFLOW_JOB_LIST_INVALID,
-            )
-        deploy_steps = [step for step in steps if step.get("name") == "Deploy the reserved artifact"]
-        if len(deploy_steps) != 1:
-            return False
-        deploy_step = deploy_steps[0]
-        return deploy_step.get("status") == "completed" and deploy_step.get("conclusion") == "skipped"
+        for deploy_job in deploy_jobs:
+            if deploy_job.get("conclusion") == "skipped":
+                continue
+            steps = deploy_job.get("steps")
+            if not isinstance(steps, list) or any(not isinstance(step, dict) for step in steps):
+                raise CloudPublicationFailure(
+                    "Publication deployment steps could not be enumerated",
+                    code=PublicationFailureCode.WORKFLOW_JOB_LIST_INVALID,
+                )
+            deploy_steps = [
+                step for step in steps if step.get("name") == "Deploy the reserved artifact"
+            ]
+            if len(deploy_steps) != 1:
+                return False
+            deploy_step = deploy_steps[0]
+            if deploy_step.get("status") != "completed" or deploy_step.get("conclusion") != "skipped":
+                return False
+        return True
 
 
 class GitHubPagesDeploymentStatusApi:
