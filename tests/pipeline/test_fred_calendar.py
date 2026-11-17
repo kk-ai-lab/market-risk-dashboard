@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 import pytest
 
-from pipeline.providers.base import ProviderError
+from pipeline.providers.base import RATE_LIMITED, TRANSIENT, ProviderError
 from pipeline.providers.fred_calendar import RELEASES, FredCalendarProvider
 from pipeline.settings import Settings
 
@@ -98,7 +98,6 @@ FOMC_HTML = """
 
 
 def test_fred_release_dates_with_server_side_window(tmp_path: Path) -> None:
-    """#83 §3A: realtime_start/end bound the window; rows carry the stable id + ET time."""
     client = _Client(
         fred_by_release={
             10: ["2026-08-12", "2026-09-11"],  # out-of-window date must be filtered by the API's own window
@@ -115,8 +114,8 @@ def test_fred_release_dates_with_server_side_window(tmp_path: Path) -> None:
     assert params["realtime_start"] == "2026-08-07" and params["realtime_end"] == "2026-08-30"
     assert params["release_id"] == 10 and params["api_key"] == "test-fred-key"
     assert rows == [
-        {"id": "econ-fred-10-2026-08-12", "title": "Consumer Price Index", "date": "2026-08-12",
-         "time_et": "08:30", "importance": "high", "country": "US", "source": "fred"}
+        {"id": "econ-fred-10-2026-08-12", "title": "Consumer Price Index", "datetime": "2026-08-12T12:30:00Z",
+         "importance": "high", "country": "US", "source": "fred"}
     ]
 
 
@@ -130,7 +129,7 @@ def test_fomc_meeting_parse(tmp_path: Path) -> None:
 
     by_id = {r["id"]: r for r in rows}
     # January 27-28 has a press-conf link → decision day 28.
-    assert by_id["econ-fomc-2026-01-28"]["time_et"] == "14:00"
+    assert by_id["econ-fomc-2026-01-28"]["datetime"] == "2026-01-28T19:00:00Z"
     assert by_id["econ-fomc-2026-01-28"]["title"] == "FOMC Meeting (press conference)"
     assert by_id["econ-fomc-2026-01-28"]["source"] == "fomc"
     # March 17-18 has no press-conf link.
@@ -138,7 +137,7 @@ def test_fomc_meeting_parse(tmp_path: Path) -> None:
     # September 15-16 → decision day 16.
     assert "econ-fomc-2026-09-16" in by_id
     # 2027 rows exist but fall outside the window → filtered.
-    assert not any(r["date"].startswith("2027") for r in rows)
+    assert not any(r["datetime"].startswith("2027") for r in rows)
 
 
 def test_get_economic_calendar_merges_and_sorts(tmp_path: Path) -> None:
@@ -154,12 +153,12 @@ def test_get_economic_calendar_merges_and_sorts(tmp_path: Path) -> None:
 
     rows = provider.get_economic_calendar("2026-08-07", "2026-09-30")
 
-    dates = [r["date"] for r in rows]
+    dates = [r["datetime"][:10] for r in rows]
     assert dates == sorted(dates)
     by_id = {r["id"]: r for r in rows}
     assert by_id["econ-fred-10-2026-08-12"]["importance"] == "high"
     assert by_id["econ-fred-192-2026-09-01"]["importance"] == "medium"
-    assert by_id["econ-fred-192-2026-09-01"]["time_et"] == "10:00"
+    assert by_id["econ-fred-192-2026-09-01"]["datetime"] == "2026-09-01T14:00:00Z"
     assert by_id["econ-fomc-2026-09-16"]["source"] == "fomc"
     # 2027 FOMC and the out-of-window CPI date are excluded.
     assert all("2026-08-07" <= d <= "2026-09-30" for d in dates)
@@ -189,20 +188,129 @@ def test_one_failing_release_does_not_discard_the_rest(tmp_path: Path) -> None:
     provider = _provider(tmp_path)
     provider._client = client
 
-    rows = provider.get_economic_calendar("2026-08-07", "2026-09-30")
+    outcome = provider.get_economic_calendar("2026-08-07", "2026-09-30")
 
-    by_id = {r["id"]: r for r in rows}
+    assert not isinstance(outcome, list)
+    assert outcome.errors
+    by_id = {r["id"]: r for r in outcome.result}
     assert "econ-fred-10-2026-08-12" not in by_id  # the failing release contributes nothing
     assert by_id["econ-fred-192-2026-09-01"]["source"] == "fred"
     assert by_id["econ-fomc-2026-09-16"]["source"] == "fomc"
+
+
+def test_fomc_valid_schedule_with_no_meeting_in_window_is_empty(tmp_path: Path) -> None:
+    provider = _provider(tmp_path)
+    provider._client = _Client(fred_by_release={}, fomc_html=FOMC_HTML)
+
+    assert provider._fomc_meetings("2026-01-01", "2026-01-01") == []
+
+
+def test_successful_empty_children_still_make_a_partial_outcome(tmp_path: Path) -> None:
+    provider = _provider(tmp_path)
+    provider._client = _Client(
+        fred_by_release={},
+        failing_releases={10},
+        fomc_html=FOMC_HTML,
+    )
+
+    outcome = provider.get_economic_calendar("2026-01-01", "2026-01-01")
+
+    assert not isinstance(outcome, list)
+    assert outcome.result == []
+    assert outcome.errors
+
+
+def test_fomc_date_does_not_borrow_from_the_next_month(tmp_path: Path) -> None:
+    provider = _provider(tmp_path)
+    provider._client = _Client(
+        fred_by_release={},
+        fomc_html='''<h4><a id="2026">2026 FOMC Meetings</a></h4>
+          <div class="fomc-meeting__month"><strong>January</strong></div>
+          <div class="fomc-meeting__month"><strong>March</strong></div>
+          <div class="fomc-meeting__date">17-18</div>''',
+    )
+
+    rows = provider._fomc_meetings("2026-01-01", "2026-12-31")
+
+    assert [row["id"] for row in rows] == ["econ-fomc-2026-03-18"]
+
+
+def test_fomc_missing_requested_year_is_not_a_valid_empty_window(tmp_path: Path) -> None:
+    provider = _provider(tmp_path)
+    provider._client = _Client(fred_by_release={}, fomc_html=FOMC_HTML)
+
+    with pytest.raises(ProviderError, match="requested year coverage"):
+        provider._fomc_meetings("2028-01-01", "2028-01-14")
+
+
+def test_transport_error_in_one_child_preserves_other_calendar_rows(tmp_path: Path) -> None:
+    class TransportErrorClient(_Client):
+        def get(self, url: str, params: dict | None = None) -> Any:
+            params = params or {}
+            if "fomccalendars" not in url and int(params.get("release_id", 0)) == 10:
+                request = httpx.Request("GET", "https://api.stlouisfed.org/fred/release/dates")
+                raise httpx.ConnectError("simulated connection failure", request=request)
+            return super().get(url, params)
+
+    provider = _provider(tmp_path)
+    provider._client = TransportErrorClient(
+        fred_by_release={192: ["2026-09-01"]},
+        fomc_html=FOMC_HTML,
+    )
+
+    outcome = provider.get_economic_calendar("2026-08-07", "2026-09-30")
+
+    assert not isinstance(outcome, list)
+    assert "econ-fred-192-2026-09-01" in {row["id"] for row in outcome.result}
+    assert all("simulated connection failure" not in error for error in outcome.errors)
+
+
+def test_invalid_json_is_normalized_to_provider_error(tmp_path: Path) -> None:
+    class InvalidJsonResponse(_Resp):
+        def json(self) -> Any:
+            raise ValueError("invalid JSON")
+
+    class InvalidJsonClient(_Client):
+        def get(self, url: str, params: dict | None = None) -> Any:
+            params = params or {}
+            if int(params.get("release_id", 0)) == 10:
+                return InvalidJsonResponse(200)
+            return super().get(url, params)
+
+    provider = _provider(tmp_path)
+    provider._client = InvalidJsonClient(fred_by_release={})
+
+    with pytest.raises(ProviderError, match="invalid response"):
+        provider._fred_release_dates(10, "2026-08-07", "2026-08-30")
 
 
 def test_all_sources_failed_raises(tmp_path: Path) -> None:
     client = _Client(fred_by_release={}, failing_releases=set(RELEASES), fomc_fails=True)
     provider = _provider(tmp_path)
     provider._client = client
-    with pytest.raises(ProviderError, match="all sources failed"):
+    with pytest.raises(ProviderError, match="all sources failed") as exc:
         provider.get_economic_calendar("2026-08-07", "2026-08-30")
+    assert exc.value.cls == TRANSIENT
+
+
+def test_all_rate_limited_children_preserve_retry_after(tmp_path: Path) -> None:
+    class RateLimitedResponse(_Resp):
+        def __init__(self) -> None:
+            super().__init__(429)
+            self.headers = {"Retry-After": "3"}
+
+    class RateLimitedClient:
+        def get(self, url: str, params: dict | None = None) -> RateLimitedResponse:
+            return RateLimitedResponse()
+
+    provider = _provider(tmp_path)
+    provider._client = RateLimitedClient()
+
+    with pytest.raises(ProviderError) as exc:
+        provider.get_economic_calendar("2026-08-07", "2026-08-30")
+
+    assert exc.value.cls == RATE_LIMITED
+    assert exc.value.retry_after == 3.0
 
 
 def test_fomc_markup_without_year_sections_is_not_silent_empty(tmp_path: Path) -> None:

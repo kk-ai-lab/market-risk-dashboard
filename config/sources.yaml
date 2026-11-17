@@ -22,7 +22,7 @@ expectations:
   energy: { interval_minutes: 15, note: "Cloud checks every 15 minutes; EIA WCESTUS1 observations are weekly" }
   macro:
     { interval_minutes: 240, note: "Macro 2-4h (FRED is actually T+1; judged by release schedule)" }
-  calendar: { interval_minutes: 1440, note: "Economic and earnings calendar once per day" }
+  calendar: { interval_minutes: 15, note: "Cloud release-schedule check every 15 minutes; publication dates follow each source" }
   news: { interval_minutes: 480, note: "2-3 times/day" }
   risk: { interval_minutes: 480, note: "Risk model recalculated with pipeline 2-3 times/day" }
   dashboard:
@@ -66,6 +66,8 @@ providers:
     # #94: economic events are first-class alongside earnings — FRED release dates +
     # official FOMC calendar (~8 lightweight calls/run, #83 §3A).
     - { name: fred_calendar, priority: 1, max_concurrency: 2, min_interval_ms: 600 }
+  bea_calendar:
+    - { name: bea_calendar, priority: 1, max_concurrency: 1, min_interval_ms: 1000 }
   a_share:
     # #97/#85: yfinance via the CN symbol mapper is the primary (US-hosted, 20/20 from
     # this host; the Eastmoney history tier akshare used is geo-blocked). akshare now

@@ -23,6 +23,7 @@ from pipeline.macro_history import treasury_window_rows
 from pipeline.metadata import oldest_source_timestamp
 from pipeline.risk import confidence as conf_mod
 from pipeline.risk import regime as regime_mod
+from pipeline.risk.labor_signal import MonthlyUnemploymentRate, derive_sahm_style_labor_stress
 from pipeline.risk.scoring import compute_indicator_score
 from pipeline.schemas import (
     BreadthSnapshot,
@@ -59,6 +60,7 @@ MACRO_OBSERVATIONS = {
     "yield_curve_10y2y": (("rates", "dgs10"), ("rates", "dgs2")),
     "dollar_index": (("fx", "dtwexbgs"),),
     "dgs10": (("rates", "dgs10"),),
+    "sahm_style_labor_stress": (("labor", "unrate"),),
     "fed_balance_sheet": (("liquidity", "walcl"),),
     "reverse_repo": (("liquidity", "rrpontsyd"),),
     "hy_oas": (("credit", "bamlh0a0hym2"),),
@@ -78,6 +80,7 @@ def _attach_macro_observations(dimensions: list[RiskDimension], macro: Any) -> N
                 continue
             indicator.source = inputs[0].source if len({item.source for item in inputs}) == 1 else "unavailable"
             indicator.observation_date = inputs[0].observation_date if all(item.observation_date == inputs[0].observation_date for item in inputs) else None
+            indicator.observation_period = inputs[0].observation_period if all(item.observation_period == inputs[0].observation_period for item in inputs) else None
             indicator.fetched_at = oldest_source_timestamp(item.fetched_at for item in inputs)
             indicator.updated_at = oldest_source_timestamp(item.updated_at for item in inputs)
             indicator.status = aggregate_freshness(item.status for item in inputs)
@@ -143,6 +146,10 @@ def _ind(
         updated_at=None, status="fresh" if value is not None else "missing",
         is_proxy=is_proxy,
     )
+
+
+def counts_as_risk_evidence(indicator: RiskIndicator) -> bool:
+    return indicator.value is not None and indicator.score_included
 
 
 class RiskModel:
@@ -270,7 +277,56 @@ class RiskModel:
                  history=self._indicator_history(ctx, "dollar_index")),
             _ind("dgs10", "10Y Yield", dgs10.value if dgs10 else None, "neutral", dgs10.source if dgs10 else "unavailable", self._indicator_weight("macro", "dgs10"),
                  history=self._indicator_history(ctx, "dgs10")),
+            self._labor_stress_indicator(ctx),
         ]
+
+    def _labor_stress_indicator(self, ctx: dict[str, Any]) -> RiskIndicator:
+        unemployment = next((item for item in getattr(ctx.get("macro"), "labor", []) if item.key == "unrate"), None)
+        approved = unemployment is not None and unemployment.source == "BLS"
+        as_of = date.fromisoformat(ctx.get("_as_of_date") or now_utc()[:10])
+        observations: list[MonthlyUnemploymentRate] = []
+        if approved:
+            for row in (ctx.get("series_history") or {}).get("unrate", []):
+                if not isinstance(row, dict) or row.get("source") not in (None, "BLS"):
+                    continue
+                raw_value = row.get("value")
+                if isinstance(raw_value, bool) or not isinstance(raw_value, (int, float)):
+                    continue
+                raw_date = row.get("date")
+                if not isinstance(raw_date, str):
+                    continue
+                try:
+                    period = date.fromisoformat(raw_date)
+                    if period.isoformat() != raw_date:
+                        continue
+                    observations.append(MonthlyUnemploymentRate(period, float(raw_value)))
+                except (OverflowError, ValueError):
+                    continue
+        points = derive_sahm_style_labor_stress(observations, as_of=as_of)
+        latest = points[-1] if points else None
+        value = (
+            latest.value_pp
+            if latest is not None and approved and unemployment.value is not None
+            and latest.period.strftime("%Y-%m") == unemployment.observation_period
+            else None
+        )
+        try:
+            cutoff = as_of.replace(year=as_of.year - self.percentile_window_years)
+        except ValueError:
+            cutoff = as_of.replace(year=as_of.year - self.percentile_window_years, day=28)
+        indicator = _ind(
+            "sahm_style_labor_stress", "Sahm-style Labor Stress", value,
+            "higher_is_riskier", "BLS" if approved else "unavailable",
+            self._indicator_weight("macro", "sahm_style_labor_stress"),
+            history=[point.value_pp for point in points if point.period >= cutoff],
+        )
+        if approved:
+            indicator.observation_period = unemployment.observation_period
+            indicator.fetched_at = unemployment.fetched_at
+            indicator.updated_at = unemployment.updated_at
+            indicator.status = unemployment.status
+        indicator.score_included = value is not None and indicator.status in {"fresh", "delayed"}
+        return indicator
 
     def _liquidity_indicators(self, ctx: dict[str, Any]) -> list[RiskIndicator]:
         macro = ctx.get("macro")
@@ -461,8 +517,8 @@ class RiskModel:
         available_count = 0
         for dim_key, builder in builders.items():
             indicators = builder(ctx)
-            available = [indicator for indicator in indicators if indicator.value is not None]
-            missing = [indicator.key for indicator in indicators if indicator.value is None]
+            available = [indicator for indicator in indicators if counts_as_risk_evidence(indicator)]
+            missing = [indicator.key for indicator in indicators if not counts_as_risk_evidence(indicator)]
             available_count += len(available)
             total_indicator_weight = sum(indicator.weight for indicator in indicators) or 1.0
             available_weight = sum(indicator.weight for indicator in available)
@@ -477,7 +533,7 @@ class RiskModel:
                 if available else 0.0
             )
             observed_weight = sum(indicator.risk_score * indicator.weight for indicator in available)
-            missing_weight = sum(indicator.weight for indicator in indicators if indicator.value is None)
+            missing_weight = sum(indicator.weight for indicator in indicators if not counts_as_risk_evidence(indicator))
             bounds[dim_key] = (
                 round(max(0.0, min(100.0, observed_weight / total_indicator_weight)), 2),
                 round(max(0.0, min(100.0, (observed_weight + 100.0 * missing_weight) / total_indicator_weight)), 2),
@@ -528,7 +584,7 @@ class RiskModel:
         degrade_discount = degrade_factor() if data_quality < 1.0 else 1.0
         drivers: list[DriverContribution] = []
         for dimension in dimensions:
-            available = [indicator for indicator in dimension.indicators if indicator.value is not None]
+            available = [indicator for indicator in dimension.indicators if counts_as_risk_evidence(indicator)]
             weight_sum = sum(indicator.weight for indicator in available) or 1.0
             for indicator in available:
                 drivers.append(

@@ -1,10 +1,10 @@
 {
-  "latest/calendar.json": "3992c7e277d712ed628f638d8419e5a5f1760671df4a0f4f18315b347e820a09",
+  "latest/calendar.json": "fdf6b36247694c9f1bbbe7a1851a7f33c9e1d31132136572477c05a7700448bb",
   "latest/crypto.json": "3eb0327be9caf46eaeb0ae2d6a889f1aa7f3275572b3161638dfffc554d26286",
-  "latest/dashboard.json": "6355176296e8114a4b6274611fa4fb41fa0c6cb91bd1ec80f774be9719a9adb6",
+  "latest/dashboard.json": "c967ba599867bbbdd12de6b9c83a1d8ae8a8af752d0d6225efee1cf21e043228",
   "latest/energy.json": "ecf0db01311a6d18c5c2584924bf795646c6aedc03de062fe2774a43908f0640",
   "latest/equities.json": "db0912576226e86ae6edde4cb7bf644a4262370bd6ddb5ca8209fa26e999b0f6",
-  "latest/risk.json": "582471cceeeda6d648321091fc7251a223c33aa28a4af08332580cb0d4282862",
+  "latest/risk.json": "fe3f6b7191bdfa13efc442ce4a999e3c5cc25960311ada1a322ce4a9a7456ca7",
   "latest/sectors.json": "892dca0365678a4dad8a4663c92b1327eecb12da01bc4fa460f15fd80b2a6731",
   "metadata/freshness.json": "d9833697094324c1902dd75da77cb23f9b889c076ffe31df21fc7b2b4b97b60f"
 }

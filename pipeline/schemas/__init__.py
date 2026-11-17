@@ -8,7 +8,7 @@ Complete set of Pydantic v2 models, isomorphic to the frontend Zod / JSON Schema
 """
 
 from .analysis import AnalysisDataset, AnalysisLineage, CaseStatement, SignalClaim
-from .calendar import CalendarDataset, CalendarEnvelope, CalendarEvent
+from .calendar import CalendarDataset, CalendarEnvelope, CalendarEvent, CalendarSourceStatus
 from .commodities import CommoditiesDataset, CommoditiesEnvelope, CommodityAsset
 from .crypto import CryptoAsset, CryptoDataset, CryptoEnvelope
 from .dashboard import DashboardAsset, DashboardEnvelope, DashboardPayload, DashboardSector
@@ -59,6 +59,7 @@ __all__ = [
     "CalendarDataset",
     "CalendarEnvelope",
     "CalendarEvent",
+    "CalendarSourceStatus",
     "CaseStatement",
     "CommoditiesDataset",
     "CommoditiesEnvelope",

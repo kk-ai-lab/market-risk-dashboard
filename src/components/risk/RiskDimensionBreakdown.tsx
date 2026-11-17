@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { StatusBadge } from "@/components/layout/StatusBadge";
 import { RISK_DIMENSION_KEYS, RISK_EVIDENCE_KEYS, RISK_INDICATOR_KEYS, RISK_TREND_KEYS } from "@/lib/riskLabels";
 import { riskLevelForScore, riskLevelTone, toneClasses } from "@/lib/riskColors";
-import { formatNumber, formatPercentile, formatRatio } from "@/lib/format";
+import { formatDateTime, formatNumber, formatPercentile, formatRatio } from "@/lib/format";
 import type { RiskDimension, RiskModelResult } from "@/schemas";
 import { displayProvider } from "@/lib/displayLanguage";
 import { hasRiskEvidence } from "@/lib/riskEvidence";
@@ -105,7 +105,7 @@ export function RiskDimensionBreakdown({ result }: RiskDimensionBreakdownProps) 
       {/* 6 dimension cards */}
       <div className="grid min-w-0 gap-4 lg:grid-cols-2 [&>*]:min-w-0">
         {result.dimensions.map((dim) => {
-          const available = dim.indicators.some((indicator) => indicator.value !== null);
+          const available = dim.indicators.some((indicator) => indicator.value !== null && indicator.score_included !== false);
           const tone = available ? riskLevelTone(riskLevelForScore(dim.score)) : "na";
           const classes = toneClasses(tone);
           const trendTone = dim.trend === "rising" ? "high" : dim.trend === "falling" ? "low" : "na";
@@ -170,36 +170,56 @@ export function RiskDimensionBreakdown({ result }: RiskDimensionBreakdownProps) 
                       </tr>
                     </thead>
                     <tbody>
-                      {dim.indicators.map((ind) => (
-                        <tr key={ind.key} className="border-b border-border/50 last:border-0 hover:bg-[rgba(107,163,201,0.07)]" data-testid="risk-indicator">
-                          <td className="py-1.5 pr-2">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-foreground">{t(RISK_INDICATOR_KEYS[ind.key] ?? "indicatorNames.unknown")}</span>
-                              {ind.is_proxy ? (
-                                <Badge variant="outline" className="px-1 py-0 text-xs">
-                                  {t("indicator.proxy")}
-                                </Badge>
+                      {dim.indicators.map((ind) => {
+                        const included = ind.value !== null && ind.score_included !== false;
+                        const laborSignal = ind.key === "sahm_style_labor_stress";
+                        return (
+                          <tr key={ind.key} className="border-b border-border/50 last:border-0 hover:bg-[rgba(107,163,201,0.07)]" data-testid="risk-indicator">
+                            <td className="py-1.5 pr-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-foreground">{t(RISK_INDICATOR_KEYS[ind.key] ?? "indicatorNames.unknown")}</span>
+                                {ind.is_proxy ? (
+                                  <Badge variant="outline" className="px-1 py-0 text-xs">
+                                    {t("indicator.proxy")}
+                                  </Badge>
+                                ) : null}
+                              </div>
+                              {laborSignal ? (
+                                <div className="mt-1 max-w-sm space-y-1 text-muted-foreground">
+                                  <p>{t("indicator.source")}: {displayProvider(ind.source, locale)}</p>
+                                  <p className="tabular-nums">{t("indicator.observationPeriod")}: {ind.observation_period ?? t("common:data.na")}</p>
+                                  <p className="tabular-nums">{t("indicator.fetchedAt")}: {formatDateTime(ind.fetched_at, locale)}</p>
+                                  <p>{t("laborSignal.formula")}</p>
+                                  <p>{t("laborSignal.caveat")}</p>
+                                  {!included ? <p>{
+                                    ind.source !== "BLS" || (ind.status !== "fresh" && ind.status !== "delayed")
+                                      ? t("laborSignal.sourceExcluded")
+                                      : t("laborSignal.historyUnavailable")
+                                  }</p> : null}
+                                </div>
                               ) : null}
-                            </div>
-                          </td>
-                          <td className="py-1.5 pr-2 text-right tabular-nums">
-                            {ind.value === null ? t("common:data.na") : formatNumber(ind.value, locale)}
-                          </td>
-                          <td className="py-1.5 pr-2 text-right tabular-nums">
-                            {ind.percentile === null ? t("common:data.na") : formatPercentile(ind.percentile, locale)}
-                          </td>
-                          <td className="py-1.5 pr-2 text-right tabular-nums">
-                            <span className={toneClasses(ind.value === null ? "na" : riskLevelTone(riskLevelForScore(ind.risk_score))).text}>
-                              {ind.value === null ? t("common:data.na") : formatNumber(ind.risk_score, locale)}
-                            </span>
-                          </td>
-                          <td className="py-1.5 text-right">
-                            {ind.status === "fresh" && !ind.updated_at ? (
-                              <span className="text-muted-foreground">{t("indicator.freshnessUnknown")}</span>
-                            ) : <StatusBadge status={ind.status} />}
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="py-1.5 pr-2 text-right tabular-nums">
+                              {ind.value === null ? t("common:data.na") : formatNumber(ind.value, locale)}
+                              {laborSignal && ind.value !== null ? <span className="ml-1 text-muted-foreground">{t("laborSignal.unit")}</span> : null}
+                            </td>
+                            <td className="py-1.5 pr-2 text-right tabular-nums">
+                              {ind.percentile === null ? t("common:data.na") : formatPercentile(ind.percentile, locale)}
+                            </td>
+                            <td className="py-1.5 pr-2 text-right tabular-nums">
+                              <span className={toneClasses(included ? riskLevelTone(riskLevelForScore(ind.risk_score)) : "na").text}>
+                                {included ? formatNumber(ind.risk_score, locale) : t("common:data.na")}
+                              </span>
+                              {ind.score_included === false ? <p className="mt-1 text-muted-foreground">{t("indicator.scoreExcluded")}</p> : null}
+                            </td>
+                            <td className="py-1.5 text-right">
+                              {ind.status === "fresh" && !ind.updated_at && !ind.observation_period && !ind.observation_date ? (
+                                <span className="text-muted-foreground">{t("indicator.freshnessUnknown")}</span>
+                              ) : <StatusBadge status={ind.status} />}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

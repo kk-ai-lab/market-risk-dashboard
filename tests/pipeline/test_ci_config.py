@@ -405,10 +405,13 @@ def test_pages_release_boundary_is_dev_and_main_and_fully_gated() -> None:
     assert "pages: write" not in prepare_job
     assert "id-token: write" not in prepare_job
     assert "pages: write" in deploy_job and "id-token: write" in deploy_job
-    assert "contents: write" not in deploy_job
+    assert "contents: write" in deploy_job
     assert "needs: prepare" in deploy_job
     assert "needs: [prepare, deploy]" in verify_job
     assert "pipeline.cloud_publication finish" in verify_job
+    assert "DATA_CLOUD_STATE_TOKEN: ${{ github.token }}" in deploy_job
+    assert "python -m pipeline.pages_deployment" in deploy_job
+    assert "actions/deploy-pages@" not in deploy_job
 
     for command in (
         "python -m pipeline.validation.ci_checks --data-dir \"$GENERATION_DIR\"",

@@ -56,6 +56,7 @@ export const RISK_INDICATOR_KEYS: Record<string, string> = {
   yield_curve_10y2y: "indicatorNames.yieldCurve",
   dollar_index: "indicatorNames.dollarIndex",
   dgs10: "indicatorNames.tenYearYield",
+  sahm_style_labor_stress: "indicatorNames.sahmStyleLaborStress",
   fed_balance_sheet: "indicatorNames.fedBalanceSheet",
   reverse_repo: "indicatorNames.reverseRepo",
   hy_oas: "indicatorNames.hyOas",

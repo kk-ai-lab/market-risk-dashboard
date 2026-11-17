@@ -196,11 +196,10 @@ def _cross_asset_signal(
     }
 
 
-def read_prev_risk(writer: StorageWriter, *, as_of_date: str | None = None) -> tuple[float | None, dict[str, float] | None, list[dict[str, Any]]]:
-    """Read risk history: previous day total score / previous day dimension scores / all prior rows (P2-9 public read_history)."""
+def read_prev_risk(writer: StorageWriter, *, model_version: str, as_of_date: str | None = None) -> tuple[float | None, dict[str, float] | None, list[dict[str, Any]]]:
     cutoff = as_of_date or now_utc()[:10]
     def valid_row(row: Any) -> bool:
-        if not isinstance(row, dict) or row.get("evidence_state") not in ("partial", "complete"):
+        if not isinstance(row, dict) or row.get("model_version") != model_version or row.get("evidence_state") not in ("partial", "complete"):
             return False
         value, observed = row.get("total_score"), row.get("date")
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value) or not 0 <= value <= 100:

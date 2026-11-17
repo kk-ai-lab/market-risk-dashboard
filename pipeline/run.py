@@ -925,7 +925,9 @@ def _run_risk_and_write(
         if settings.approved_sources_only:
             prev_score, prev_dims, risk_history = None, None, []
         else:
-            prev_score, prev_dims, risk_history = read_prev_risk(writer, as_of_date=today)
+            prev_score, prev_dims, risk_history = read_prev_risk(
+                writer, model_version=risk_model.model_version, as_of_date=today
+            )
         # #99 (verified end to end): _assemble returns AssembledDataset (the #101 single
         # assembly path); the risk context and the fact layer operate on ENVELOPES.
         ctx = build_risk_context(
@@ -1102,6 +1104,7 @@ def _run_risk_and_write(
         # History slices
         risk_row = {
             "date": today,
+            "model_version": risk_result.model_version,
             "total_score": risk_result.total_score,
             "risk_level": risk_result.risk_level,
             "regime": risk_result.regime,

@@ -21,6 +21,12 @@ export const isoDate = z.iso.date();
 export const AnalysisLanguage = z.enum(["zh-CN", "en"]);
 export type AnalysisLanguage = z.infer<typeof AnalysisLanguage>;
 
+export const CalendarSource = z.enum(["earnings", "economic", "bea_calendar"]);
+export type CalendarSource = z.infer<typeof CalendarSource>;
+
+export const CalendarSourceState = z.enum(["fresh", "empty", "degraded", "not_configured"]);
+export type CalendarSourceState = z.infer<typeof CalendarSourceState>;
+
 export const CryptoSentiment = z.enum(["risk_on", "risk_off", "neutral"]);
 export type CryptoSentiment = z.infer<typeof CryptoSentiment>;
 
@@ -201,10 +207,23 @@ export const CalendarEvent = z
   .passthrough();
 export type CalendarEvent = z.infer<typeof CalendarEvent>;
 
+export const CalendarSourceStatus = z
+  .object({
+    source: CalendarSource,
+    state: CalendarSourceState,
+    provider: z.string().min(1),
+    checked_at: utcDateTime.nullable().default(null),
+    used_fallback: z.boolean().default(false),
+    from_cache: z.boolean().default(false),
+  })
+  .passthrough();
+export type CalendarSourceStatus = z.infer<typeof CalendarSourceStatus>;
+
 /** calendar.json payload. */
 export const CalendarDataset = z
   .object({
     events: z.array(CalendarEvent).default([]),
+    source_status: z.array(CalendarSourceStatus).default([]),
     updated_at: utcDateTime.nullable().default(null),
   })
   .passthrough();
@@ -366,11 +385,13 @@ export const RiskIndicator = z
     percentile: z.number().finite().min(0).max(100).nullable().default(null),
     z_score: z.number().finite().nullable().default(null),
     risk_score: z.number().finite().min(0).max(100),
+    score_included: z.boolean().default(true),
     direction: RiskDirection.default("neutral"),
     weight: z.number().finite().min(0).default(0.0),
     source: z.string().min(1),
     updated_at: utcDateTime.nullable().default(null),
     observation_date: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])$")).nullable().default(null),
+    observation_period: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])$")).nullable().default(null),
     fetched_at: utcDateTime.nullable().default(null),
     status: FreshnessStatus.default("fresh"),
     is_proxy: z.boolean(),

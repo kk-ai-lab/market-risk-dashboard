@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useDataset } from "@/hooks/useDataset";
 import type { CalendarEnvelope, CalendarEvent } from "@/schemas";
 import { CalendarList } from "@/components/calendar/CalendarList";
+import { CalendarSourceStatusList } from "@/components/calendar/CalendarSourceStatusList";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -22,6 +23,9 @@ export default function CalendarPage() {
   const events = useMemo(() => calendarQ.data?.payload.events ?? [], [calendarQ.data]);
   const types = useMemo(() => Array.from(new Set(events.map((e) => e.type))), [events]);
   const filtered = filter === "all" ? events : events.filter((e) => e.type === filter);
+  const sourceStatus = calendarQ.data?.payload.source_status ?? [];
+  const usesBea = sourceStatus.some((source) => source.source === "bea_calendar" && source.state !== "not_configured")
+    || events.some((event) => event.source === "bea");
 
   return (
     <div className="flex flex-col gap-4">
@@ -39,6 +43,13 @@ export default function CalendarPage() {
         <ErrorState onRetry={calendarQ.refetch} />
       ) : calendarQ.data ? (
         <div className="flex flex-col gap-4">
+          <CalendarSourceStatusList sources={sourceStatus} />
+          {usesBea ? (
+            <p className="text-xs text-muted-foreground" data-testid="bea-attribution">
+              {t("bea.notice")} {" "}
+              <a className="underline underline-offset-2 hover:text-foreground" href="https://www.bea.gov/news/schedule/icalendar" target="_blank" rel="noopener noreferrer">{t("bea.calendarLink")}</a>
+            </p>
+          ) : null}
           <div
             className="flex flex-wrap items-center gap-1.5"
             role="group"

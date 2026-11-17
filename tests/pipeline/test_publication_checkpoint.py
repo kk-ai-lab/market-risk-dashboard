@@ -13,7 +13,6 @@ from pipeline.storage.publication_checkpoint import (
     DeploymentObservation,
     Generation,
     PublicationCheckpoint,
-    PublicationState,
     empty_state,
 )
 
@@ -60,6 +59,21 @@ def observation(value=None):
     return DeploymentObservation(value)
 
 
+def same_reservation(left, right):
+    if left is None or right is None:
+        return left is right
+    return replace(left, pages_build_version=None, submission=None) == replace(
+        right, pages_build_version=None, submission=None
+    )
+
+
+def reserve_candidate(checkpoint, candidate):
+    state = checkpoint.prepare(candidate)
+    if same_reservation(state.candidate, candidate):
+        return state.candidate
+    return candidate
+
+
 @pytest.fixture
 def control():
     cas = FakeCAS()
@@ -69,18 +83,20 @@ def control():
 def test_prepare_and_observed_deployment_replay(control):
     cas, checkpoint = control
     first = generation()
-    checkpoint.prepare(first)
-    assert checkpoint.read().candidate == first
+    reserved = reserve_candidate(checkpoint, first)
+    assert reserved is not None
+    assert reserved.pages_build_version == f"{0:040x}"
+    assert replace(reserved, pages_build_version=None, submission=None) == first
     assert checkpoint.read().deployed is None
-    checkpoint.prepare(first)
+    assert reserve_candidate(checkpoint, first) == reserved
     assert cas.writes == 1
-    for unknown in (None, first, observation(), observation(generation(nonce=2))):
+    for unknown in (None, reserved, observation(), observation(generation(nonce=2))):
         with pytest.raises(CheckpointError):
-            checkpoint.mark_deployed(first, observed=unknown)
-    checkpoint.mark_deployed(first, observed=observation(first))
-    checkpoint.mark_deployed(first, observed=observation(first))
-    checkpoint.prepare(first)
-    assert checkpoint.read().deployed == first
+            checkpoint.mark_deployed(reserved, observed=unknown)
+    checkpoint.mark_deployed(reserved, observed=observation(reserved))
+    checkpoint.mark_deployed(reserved, observed=observation(reserved))
+    assert checkpoint.prepare(first).deployed == reserved
+    assert checkpoint.read().deployed == reserved
     assert checkpoint.read().candidate is None
     assert cas.writes == 2
 
@@ -91,7 +107,7 @@ def test_failures_propagate_and_exact_replay_reconciles(control, operation, fail
     cas, checkpoint = control
     first = generation()
     if operation != "prepare":
-        checkpoint.prepare(first)
+        first = reserve_candidate(checkpoint, first)
     actions = {
         "prepare": lambda: checkpoint.prepare(first),
         "deployed": lambda: checkpoint.mark_deployed(first, observed=observation(first)),
@@ -99,16 +115,23 @@ def test_failures_propagate_and_exact_replay_reconciles(control, operation, fail
                                                deployment_terminated=True),
     }
     cas.failure = failure
-    with pytest.raises(CheckpointError):
+    if operation == "prepare" and failure == "after":
         actions[operation]()
+    else:
+        with pytest.raises(CheckpointError):
+            actions[operation]()
     actual = PublicationCheckpoint(cas).read()
     if failure != "after":
         assert actual.deployed is None
-        assert actual.candidate == (first if operation != "prepare" else None)
+        if operation == "prepare":
+            assert actual.candidate is None
+        else:
+            assert same_reservation(actual.candidate, first)
     actions[operation]()
     state = checkpoint.read()
-    assert getattr(state, {"prepare": "candidate", "deployed": "deployed",
-                           "abandon": "abandoned"}[operation]) == first
+    actual_result = getattr(state, {"prepare": "candidate", "deployed": "deployed",
+                                    "abandon": "abandoned"}[operation])
+    assert same_reservation(actual_result, first)
     assert cas.writes == (1 if operation == "prepare" else 2)
 
 
@@ -122,7 +145,7 @@ def test_competing_same_generation_attempts_never_mistake_winner(control):
         checkpoint.prepare(loser)
     with pytest.raises(CheckpointError):
         checkpoint.mark_deployed(loser, observed=observation(loser))
-    assert checkpoint.read().candidate == winner
+    assert same_reservation(checkpoint.read().candidate, winner)
     assert cas.writes == 1
 
 
@@ -130,12 +153,14 @@ def test_abandon_aba_old_calls_cannot_affect_new_attempt(control):
     cas, checkpoint = control
     old = generation()
     new = replace(generation(attempt=2, nonce=2), artifact_id=1002)
-    checkpoint.prepare(old)
+    old = checkpoint.prepare(old).candidate
+    assert old is not None
     checkpoint.abandon(old, observed_deployed=observation(), deployment_terminated=True)
     checkpoint.abandon(old, observed_deployed=observation(), deployment_terminated=True)
     with pytest.raises(CheckpointError):
         checkpoint.prepare(old)
-    checkpoint.prepare(new)
+    new = checkpoint.prepare(new).candidate
+    assert new is not None
     for action in (
         lambda: checkpoint.prepare(old),
         lambda: checkpoint.mark_deployed(old, observed=observation(old)),
@@ -147,11 +172,118 @@ def test_abandon_aba_old_calls_cannot_affect_new_attempt(control):
     assert checkpoint.read().candidate == new
 
 
+def test_same_generation_gets_a_new_pages_version_for_a_new_reservation(control):
+    _, checkpoint = control
+    first = checkpoint.prepare(generation()).candidate
+    assert first is not None
+    checkpoint.abandon(first, observed_deployed=observation(), deployment_terminated=True)
+
+    second_draft = replace(
+        generation(attempt=2, nonce=2),
+        generation_id=first.generation_id,
+        artifact_id=1002,
+    )
+    second = checkpoint.prepare(second_draft).candidate
+
+    assert second is not None
+    assert second.generation_id == first.generation_id
+    assert second.pages_build_version != first.pages_build_version
+
+
+def test_only_the_caller_that_writes_the_submission_claim_can_post(control):
+    cas, checkpoint = control
+    candidate = checkpoint.prepare(generation()).candidate
+    assert candidate is not None
+
+    claim = checkpoint.claim_submission(candidate)
+    replay = checkpoint.claim_submission(candidate)
+
+    assert claim.acquired is True
+    assert claim.candidate.submission is not None
+    assert claim.candidate.submission.submission_id
+    assert replay.acquired is False
+    assert replay.candidate == claim.candidate
+    assert PublicationCheckpoint(cas).read().candidate == claim.candidate
+    assert cas.writes == 2
+
+
+def test_uncertain_submission_claim_is_owned_only_after_exact_readback(control):
+    cas, checkpoint = control
+    candidate = checkpoint.prepare(generation()).candidate
+    assert candidate is not None
+    cas.failure = "after"
+
+    claim = checkpoint.claim_submission(candidate)
+
+    assert claim.acquired is True
+    assert PublicationCheckpoint(cas).read().candidate == claim.candidate
+
+
+def test_competing_submission_claim_does_not_authorize_the_loser(control):
+    cas, checkpoint = control
+    candidate = checkpoint.prepare(generation()).candidate
+    assert candidate is not None
+    winner_claim = None
+
+    def competing_claim():
+        nonlocal winner_claim
+        winner_claim = PublicationCheckpoint(cas).claim_submission(candidate)
+
+    cas.before_write = competing_claim
+    loser_claim = checkpoint.claim_submission(candidate)
+
+    assert winner_claim is not None and winner_claim.acquired is True
+    assert loser_claim.acquired is False
+    assert loser_claim.candidate == winner_claim.candidate
+
+
+def test_definitive_pages_rejection_is_persisted_before_candidate_release(control):
+    cas, checkpoint = control
+    candidate = checkpoint.prepare(generation()).candidate
+    assert candidate is not None
+    claim = checkpoint.claim_submission(candidate)
+    assert claim.acquired is True
+    submission_id = claim.candidate.submission.submission_id
+
+    rejected = checkpoint.mark_submission_rejected(claim.candidate, submission_id)
+
+    assert rejected.candidate.submission.outcome.value == "rejected"
+    checkpoint.abandon(
+        rejected.candidate,
+        observed_deployed=observation(),
+        deployment_terminated=True,
+    )
+    assert checkpoint.read().abandoned == rejected.candidate
+
+
+def test_v1_checkpoint_decodes_as_legacy_without_inventing_pages_identity(control):
+    cas, checkpoint = control
+    value = generation()
+    legacy = {
+        "version": 1,
+        "candidate": {
+            key: getattr(value, key)
+            for key in Generation.__dataclass_fields__
+            if key not in {"pages_build_version", "submission"}
+        },
+        "deployed": None,
+        "abandoned": None,
+        "last_attempt": 1,
+    }
+    cas.content = json.dumps(legacy).encode()
+
+    candidate = checkpoint.read().candidate
+
+    assert candidate is not None
+    assert candidate.pages_build_version is None
+    assert candidate.submission is None
+
+
 @pytest.mark.parametrize("operation", ["abandon", "deployed"])
 def test_delayed_old_cas_loses_after_same_generation_is_reserved_again(control, operation):
     cas, checkpoint = control
     old, new = generation(), replace(generation(attempt=2, nonce=2), artifact_id=1002)
-    checkpoint.prepare(old)
+    old = reserve_candidate(checkpoint, old)
 
     def advance():
         other = PublicationCheckpoint(cas)
@@ -164,7 +296,7 @@ def test_delayed_old_cas_loses_after_same_generation_is_reserved_again(control, 
             checkpoint.abandon(old, observed_deployed=observation(), deployment_terminated=True)
         else:
             checkpoint.mark_deployed(old, observed=observation(old))
-    assert checkpoint.read().candidate == new
+    assert same_reservation(checkpoint.read().candidate, new)
 
 
 def test_abandon_requires_explicit_observation_termination_and_tombstone(control):
@@ -172,7 +304,7 @@ def test_abandon_requires_explicit_observation_termination_and_tombstone(control
     first = generation()
     with pytest.raises(CheckpointError):
         checkpoint.abandon(first, observed_deployed=observation(), deployment_terminated=True)
-    checkpoint.prepare(first)
+    first = reserve_candidate(checkpoint, first)
     for terminated in (None, False, 1):
         with pytest.raises(CheckpointError):
             checkpoint.abandon(first, observed_deployed=observation(),
@@ -187,9 +319,9 @@ def test_old_and_new_generations_cannot_regress_state(control):
     cas, checkpoint = control
     first = generation()
     second = generation(2, first.generation_id, attempt=2, nonce=2)
-    checkpoint.prepare(first)
+    first = reserve_candidate(checkpoint, first)
     checkpoint.mark_deployed(first, observed=observation(first))
-    checkpoint.prepare(second)
+    second = reserve_candidate(checkpoint, second)
     with pytest.raises(CheckpointError):
         checkpoint.prepare(first)
     assert checkpoint.mark_deployed(first, observed=observation(first)).candidate == second
@@ -207,10 +339,10 @@ def test_old_and_new_generations_cannot_regress_state(control):
 def test_abandon_after_prior_deployment_requires_same_observed_attempt(control):
     cas, checkpoint = control
     first = generation()
-    checkpoint.prepare(first)
+    first = reserve_candidate(checkpoint, first)
     checkpoint.mark_deployed(first, observed=observation(first))
     second = generation(2, first.generation_id, attempt=2, nonce=2)
-    checkpoint.prepare(second)
+    second = reserve_candidate(checkpoint, second)
     for wrong in (observation(), observation(replace(first, attempt_id=second.attempt_id))):
         with pytest.raises(CheckpointError):
             checkpoint.abandon(second, observed_deployed=wrong, deployment_terminated=True)
@@ -223,7 +355,7 @@ def test_abandon_after_prior_deployment_requires_same_observed_attempt(control):
     None, b"", b"null", b"[]", b"{", b'\xff',
     b'{"version":1,"version":1}',
     b'{"version":true,"candidate":null,"deployed":null}',
-    b'{"version":2,"candidate":null,"deployed":null}',
+    b'{"version":3,"candidate":null,"deployed":null,"abandoned":null,"last_attempt":0}',
     b'{"version":1,"candidate":null}',
 ])
 def test_missing_or_corrupt_state_never_writes(control, content):
@@ -239,7 +371,7 @@ def test_missing_or_corrupt_state_never_writes(control, content):
 
 
 @pytest.mark.parametrize("field,value", [
-    ("version", True), ("version", 2), ("last_attempt", True),
+    ("version", True), ("version", 3), ("last_attempt", True),
     ("last_attempt", -1), ("last_attempt", 1), ("extra", {}),
     ("candidate", {}), ("abandoned", {}), ("deployed", {}),
 ])
@@ -273,9 +405,9 @@ def test_uncertain_competitor_response_does_not_authorize_loser(control):
         PublicationCheckpoint(cas).prepare(winner)
 
     cas.before_write = competing_write
-    with pytest.raises(CheckpointUncertain):
+    with pytest.raises(CheckpointConflict):
         checkpoint.prepare(loser)
-    assert PublicationCheckpoint(cas).read().candidate == winner
+    assert same_reservation(PublicationCheckpoint(cas).read().candidate, winner)
     with pytest.raises(CheckpointError):
         checkpoint.prepare(loser)
     assert cas.writes == 1
@@ -302,7 +434,7 @@ def test_artifact_identity_requires_strict_github_types(field, value):
 @pytest.mark.parametrize("field", ["artifact_id", "workflow_run_id", "artifact_digest"])
 def test_missing_artifact_identity_fails_closed_on_state_read(control, field):
     cas, checkpoint = control
-    checkpoint.prepare(generation())
+    reserve_candidate(checkpoint, generation())
     state = json.loads(cas.content)
     del state["candidate"][field]
     cas.content = json.dumps(state).encode()
@@ -321,7 +453,7 @@ def test_same_generation_with_different_artifact_is_not_a_replay(control, change
     cas, checkpoint = control
     original = generation()
     different = replace(original, **change)
-    checkpoint.prepare(original)
+    original = reserve_candidate(checkpoint, original)
     checkpoint.prepare(original)
     assert checkpoint.read().candidate == original
     for action in (
@@ -354,6 +486,8 @@ def test_artifact_competition_and_uncertain_replay_bind_exact_reference(control)
     with pytest.raises(CheckpointError):
         checkpoint.prepare(loser)
     cas.failure = "after"
+    winner = checkpoint.read().candidate
+    assert winner is not None
     with pytest.raises(CheckpointUncertain):
         checkpoint.mark_deployed(winner, observed=observation(winner))
     recovered = PublicationCheckpoint(cas)
@@ -368,16 +502,16 @@ def test_abandon_tombstone_and_observation_bind_artifact_reference(control):
     cas, checkpoint = control
     original = generation()
     other = replace(original, workflow_run_id=9999)
-    checkpoint.prepare(original)
+    original = reserve_candidate(checkpoint, original)
     checkpoint.abandon(original, observed_deployed=observation(), deployment_terminated=True)
     assert checkpoint.read().abandoned == original
     with pytest.raises(CheckpointError):
         checkpoint.abandon(other, observed_deployed=observation(), deployment_terminated=True)
     new = replace(generation(attempt=2, nonce=2), artifact_id=1002)
-    checkpoint.prepare(new)
+    new = reserve_candidate(checkpoint, new)
     checkpoint.mark_deployed(new, observed=observation(new))
     pending = replace(generation(2, new.generation_id, attempt=3, nonce=3), artifact_id=1003)
-    checkpoint.prepare(pending)
+    pending = reserve_candidate(checkpoint, pending)
     with pytest.raises(CheckpointError):
         checkpoint.abandon(pending, observed_deployed=observation(replace(new, artifact_id=9999)),
                            deployment_terminated=True)
@@ -387,8 +521,7 @@ def test_abandon_tombstone_and_observation_bind_artifact_reference(control):
 @pytest.mark.parametrize("retained_state", ["deployed", "abandoned"])
 def test_reusing_retained_artifact_for_new_generation_is_rejected(control, retained_state):
     cas, checkpoint = control
-    first = generation()
-    checkpoint.prepare(first)
+    first = reserve_candidate(checkpoint, generation())
     if retained_state == "deployed":
         checkpoint.mark_deployed(first, observed=observation(first))
         parent = first.generation_id
@@ -405,11 +538,10 @@ def test_reusing_retained_artifact_for_new_generation_is_rejected(control, retai
 
 def test_corrupt_candidate_reusing_deployed_artifact_fails_closed(control):
     cas, checkpoint = control
-    first = generation()
-    checkpoint.prepare(first)
+    first = reserve_candidate(checkpoint, generation())
     checkpoint.mark_deployed(first, observed=observation(first))
     second = generation(2, first.generation_id, attempt=2, nonce=2)
-    checkpoint.prepare(second)
+    reserve_candidate(checkpoint, second)
     state = json.loads(cas.content)
     state["candidate"]["artifact_id"] = first.artifact_id
     cas.content = json.dumps(state).encode()

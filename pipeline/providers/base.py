@@ -37,6 +37,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from ipaddress import ip_address
 from pathlib import Path
@@ -46,10 +47,11 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, Field, RootModel, field_validator
 
-from pipeline.degrade import degrade_factor as resolve_degrade_factor
-from pipeline.schemas.envelope import SCHEMA_VERSION
-from pipeline.schemas.news import _validate_news_url
 from pipeline.config.models import ApprovedCollectionPlan
+from pipeline.degrade import degrade_factor as resolve_degrade_factor
+from pipeline.schemas.calendar import EventImportance
+from pipeline.schemas.envelope import SCHEMA_VERSION, UTCDateTime
+from pipeline.schemas.news import _validate_news_url
 from pipeline.settings import Settings
 from pipeline.utils import now_utc
 
@@ -115,6 +117,20 @@ def redact(text: str, max_len: int = 200) -> str:
     s = re.sub(r"\bCG-[A-Za-z0-9]{8,}\b", "CG-***", s, flags=re.I)
     s = re.sub(r"\b[a-zA-Z0-9]{36,64}\b", "***", s)
     return s[:max_len]
+
+
+@dataclass(frozen=True)
+class PartialProviderResult[T]:
+    """Usable provider data accompanied by failures from part of one aggregate request."""
+
+    result: T
+    errors: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        errors = tuple(redact(error) for error in self.errors if error.strip())[:8]
+        if not errors:
+            raise ValueError("partial provider results require at least one error")
+        object.__setattr__(self, "errors", errors)
 
 
 def _retry_after_seconds(response: httpx.Response | None) -> float | None:
@@ -390,9 +406,8 @@ class EarningsRow(BaseModel):
 class EconomicRow(BaseModel):
     id: str = Field(min_length=1)
     title: str = Field(min_length=1)
-    date: str = Field(min_length=1)
-    time_et: str = Field(min_length=1)
-    importance: str = "medium"
+    datetime: UTCDateTime
+    importance: EventImportance = "medium"
     country: str = "US"
     source: str = Field(min_length=1)
 
@@ -867,18 +882,24 @@ class ProviderRegistry:
                 continue
             try:
                 result = self._attempt(provider, method, args, kwargs, host)
+                partial_errors: list[str] = []
+                is_partial = isinstance(result, PartialProviderResult)
+                if is_partial:
+                    partial_errors = list(result.errors)
+                    result = result.result
                 meta = {
                     "provider": provider.name,
                     "used_fallback": index > 0,
                     "from_cache": False,
-                    "degraded": index > 0,
-                    "errors": [],
+                    "degraded": index > 0 or is_partial,
+                    "errors": partial_errors,
                 }
                 self.breaker.record_success(provider, host)
-                if index > 0:
+                if index > 0 or is_partial:
                     self.degraded_domains.add(domain)
                 self._last_outcome[domain] = meta
-                self._save_last_good(domain, key, method, result, provider.name)
+                if not is_partial:
+                    self._save_last_good(domain, key, method, result, provider.name)
                 return {"result": result, "meta": meta}
             except ProviderError as exc:
                 self.breaker.record_failure(provider, host, exc)
