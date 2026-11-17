@@ -1153,11 +1153,17 @@ class TestPerDatasetDegradation:
         monkeypatch.setattr(run_mod, "_run_collection", _news_only_collection)
         assert run_mod.main(["--full"]) == 0
 
-        from pipeline.cloud_refresh import expected_latest_outputs
+        from pipeline.cloud_refresh import (
+            _read_collection_output_receipt,
+            expected_latest_outputs,
+        )
 
-        report_path = next((tmp_path / "artifacts" / "logs").glob("run-report-*.json"))
+        artifacts_dir = tmp_path / "artifacts"
+        report_path = next((artifacts_dir / "logs").glob("run-report-*.json"))
         run_report = json.loads(report_path.read_text(encoding="utf-8"))
         assert set(run_report["written_latest_outputs"]) >= expected_latest_outputs()
+        receipt = _read_collection_output_receipt(artifacts_dir)
+        assert receipt.latest_paths >= expected_latest_outputs()
 
         freshness = json.loads((data_dir / "metadata" / "freshness.json").read_text(encoding="utf-8"))
         for key in ("equities", "sectors", "crypto", "commodities"):
