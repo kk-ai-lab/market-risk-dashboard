@@ -22,9 +22,11 @@ from pipeline.cloud_refresh import CloudRefreshError
 from pipeline.publication import publish_snapshot
 from pipeline.storage.github_checkpoint import CheckpointSnapshot
 from pipeline.storage.publication_checkpoint import (
+    DeploymentSubmission,
     Generation,
     PublicationCheckpoint,
     PublicationState,
+    SubmissionOutcome,
 )
 
 REPO = "owner/repo"
@@ -41,22 +43,28 @@ class MemoryCheckpoint:
         state = state or PublicationState()
         self.content = state.encode()
         self.writes = 0
+        self.head = 1
 
     def read(self, path):
-        return CheckpointSnapshot("1" * 40, "2" * 40, path, self.content)
+        return CheckpointSnapshot(f"{self.head:040x}", "2" * 40, path, self.content)
 
     def write(self, snapshot, content, message):
         assert snapshot.content == self.content
         self.content = content
         self.writes += 1
-        return "3" * 40
+        self.head += 1
+        return f"{self.head:040x}"
 
 
 class Actions:
-    def __init__(self, *, current_run=50, conclusion="failure", other_runs=None, heads=None):
+    def __init__(
+        self, *, current_run=50, conclusion="failure", other_runs=None, heads=None,
+        deploy_step_skipped=False,
+    ):
         self.current_run = current_run
         self.conclusion = conclusion
         self.other_runs = other_runs or []
+        self.deploy_step_skipped = deploy_step_skipped
         self.artifacts = {}
         self.heads = {"main": REVISION, "dev": REVISION, **(heads or {})}
 
@@ -78,6 +86,23 @@ class Actions:
 
     def branch_head(self, branch):
         return self.heads[branch]
+
+    def deployment_action_was_skipped(self, run_id):
+        assert run_id > 0
+        return self.deploy_step_skipped
+
+
+class PagesDeployments:
+    def __init__(self, status="deployment_failed"):
+        self.value = status
+        self.revisions = []
+
+    def status(self, revision):
+        self.revisions.append(revision)
+        return self.value
+
+    def close(self):
+        pass
 
 
 class Pages:
@@ -131,6 +156,7 @@ def _generation(*, artifact_id=41, run_id=40, revision=REVISION, parent_id=None,
         artifact_id,
         run_id,
         ARTIFACT_DIGEST,
+        "f" * 40,
     )
 
 
@@ -156,12 +182,18 @@ def _run_python_with_invalid_settings(*arguments):
     )
 
 
-def _publisher(state=None, *, pointer=None, actions=None, legacy_data=False):
+def _publisher(
+    state=None, *, pointer=None, actions=None, legacy_data=False,
+    deployment_status="deployment_failed",
+):
     checkpoint = MemoryCheckpoint(state or PublicationState())
     api = actions or Actions()
     pages = Pages(pointer, legacy_data=legacy_data)
+    deployments = PagesDeployments(deployment_status)
     return (
-        CloudPublisher(PublicationCheckpoint(checkpoint), api, pages, REPO, REPOSITORY_ID),
+        CloudPublisher(
+            PublicationCheckpoint(checkpoint), api, pages, deployments, REPO, REPOSITORY_ID
+        ),
         checkpoint,
         api,
         pages,
@@ -174,7 +206,13 @@ def _stub_cli_runtime(monkeypatch, checkpoint, actions, pages):
     monkeypatch.setattr(
         cloud_publication,
         "_runtime",
-        lambda: (checkpoint, actions, SimpleNamespace(cloud_state_repo=REPO), REPOSITORY_ID),
+        lambda: (
+            checkpoint,
+            actions,
+            PagesDeployments(),
+            SimpleNamespace(cloud_state_repo=REPO),
+            REPOSITORY_ID,
+        ),
     )
     monkeypatch.setattr(cloud_publication, "PagesGenerationRestorer", lambda _: pages)
 
@@ -276,6 +314,150 @@ def test_preflight_abandons_a_failed_candidate_when_pages_still_serves_parent():
     assert state.deployed == deployed and state.candidate is None and state.abandoned == candidate
     assert plan.application_revision == REVISION
     assert pages.restored == [deployed.generation_id]
+
+
+@pytest.mark.parametrize("status", ["deploying", "succeed", "deployment_lost"])
+def test_preflight_keeps_candidate_when_pages_does_not_confirm_failed_terminal_status(status):
+    deployed = _generation(artifact_id=39, run_id=38, revision=NEW_REVISION)
+    candidate = _generation(
+        artifact_id=41,
+        run_id=40,
+        revision=NEW_REVISION,
+        parent_id=deployed.generation_id,
+        attempt_number=2,
+    )
+    pointer = {
+        "version": 1,
+        "generation_id": deployed.generation_id,
+        "manifest_sha256": deployed.manifest_sha256,
+    }
+    actions = Actions(conclusion="failure")
+    actions.artifacts[candidate.artifact_id] = _artifact(
+        candidate.artifact_id, candidate.workflow_run_id
+    )
+    publisher, checkpoint, _, _ = _publisher(
+        PublicationState(deployed=deployed, candidate=candidate, last_attempt=2),
+        pointer=pointer,
+        actions=actions,
+        deployment_status=status,
+    )
+
+    with pytest.raises(CloudPublicationError, match="Pages deployment has not confirmed termination"):
+        publisher.preflight(
+            mode="code-only", event_ref="refs/heads/dev", event_sha=REVISION, run_id=50
+        )
+
+    assert PublicationCheckpoint(checkpoint).read().candidate == candidate
+
+
+def test_preflight_can_abandon_when_deploy_action_was_skipped_and_no_deployment_exists():
+    deployed = _generation(artifact_id=39, run_id=38, revision=NEW_REVISION)
+    candidate = _generation(
+        artifact_id=41,
+        run_id=40,
+        revision=NEW_REVISION,
+        parent_id=deployed.generation_id,
+        attempt_number=2,
+    )
+    candidate = Generation(
+        **{**candidate.__dict__, "pages_build_version": None}
+    )
+    pointer = {
+        "version": 1,
+        "generation_id": deployed.generation_id,
+        "manifest_sha256": deployed.manifest_sha256,
+    }
+    actions = Actions(conclusion="failure", deploy_step_skipped=True)
+    actions.artifacts[candidate.artifact_id] = _artifact(
+        candidate.artifact_id, candidate.workflow_run_id
+    )
+    publisher, checkpoint, _, _ = _publisher(
+        PublicationState(deployed=deployed, candidate=candidate, last_attempt=2),
+        pointer=pointer,
+        actions=actions,
+        deployment_status=None,
+    )
+
+    publisher.preflight(
+        mode="code-only", event_ref="refs/heads/dev", event_sha=REVISION, run_id=50
+    )
+
+    state = PublicationCheckpoint(checkpoint).read()
+    assert state.candidate is None and state.abandoned == candidate
+
+
+def test_preflight_can_abandon_unsubmitted_candidate_when_pages_has_no_deployment():
+    deployed = _generation(artifact_id=39, run_id=38, revision=NEW_REVISION)
+    candidate = _generation(
+        artifact_id=41,
+        run_id=40,
+        revision=NEW_REVISION,
+        parent_id=deployed.generation_id,
+        attempt_number=2,
+    )
+    pointer = {
+        "version": 1,
+        "generation_id": deployed.generation_id,
+        "manifest_sha256": deployed.manifest_sha256,
+    }
+    actions = Actions(conclusion="failure")
+    actions.artifacts[candidate.artifact_id] = _artifact(
+        candidate.artifact_id, candidate.workflow_run_id
+    )
+    publisher, checkpoint, _, _ = _publisher(
+        PublicationState(deployed=deployed, candidate=candidate, last_attempt=2),
+        pointer=pointer,
+        actions=actions,
+        deployment_status=None,
+    )
+
+    publisher.preflight(
+        mode="code-only", event_ref="refs/heads/dev", event_sha=REVISION, run_id=50
+    )
+
+    state = PublicationCheckpoint(checkpoint).read()
+    assert state.candidate is None and state.abandoned == candidate
+
+
+def test_preflight_keeps_candidate_when_an_earlier_workflow_attempt_started_deploy():
+    deployed = _generation(artifact_id=39, run_id=38, revision=NEW_REVISION)
+    candidate = _generation(
+        artifact_id=41,
+        run_id=40,
+        revision=NEW_REVISION,
+        parent_id=deployed.generation_id,
+        attempt_number=2,
+    )
+    candidate = Generation(
+        **{
+            **candidate.__dict__,
+            "submission": DeploymentSubmission(
+                str(uuid4()), SubmissionOutcome.MAY_HAVE_BEEN_SENT
+            ),
+        }
+    )
+    pointer = {
+        "version": 1,
+        "generation_id": deployed.generation_id,
+        "manifest_sha256": deployed.manifest_sha256,
+    }
+    actions = Actions(conclusion="failure", deploy_step_skipped=False)
+    actions.artifacts[candidate.artifact_id] = _artifact(
+        candidate.artifact_id, candidate.workflow_run_id
+    )
+    publisher, checkpoint, _, _ = _publisher(
+        PublicationState(deployed=deployed, candidate=candidate, last_attempt=2),
+        pointer=pointer,
+        actions=actions,
+        deployment_status=None,
+    )
+
+    with pytest.raises(CloudPublicationError, match="Pages deployment has not confirmed termination"):
+        publisher.preflight(
+            mode="code-only", event_ref="refs/heads/dev", event_sha=REVISION, run_id=50
+        )
+
+    assert PublicationCheckpoint(checkpoint).read().candidate == candidate
 
 
 def test_preflight_does_not_abandon_a_successful_run_with_stale_pages():
@@ -545,6 +727,11 @@ def test_runtime_rejects_invalid_runner_identity_before_client_construction(
         "GitHubActionsApi",
         lambda *_: pytest.fail("Actions client constructed before identity validation"),
     )
+    monkeypatch.setattr(
+        cloud_publication,
+        "GitHubPagesDeploymentApi",
+        lambda *_: pytest.fail("Pages deployment client constructed before identity validation"),
+    )
 
     with pytest.raises(CloudPublicationError, match="runner repository identity") as error:
         cloud_publication._runtime()
@@ -560,13 +747,19 @@ def test_runtime_returns_validated_repository_id_to_publisher(monkeypatch):
     )
     checkpoint = object()
     actions = object()
+    deployments = object()
     monkeypatch.setattr(cloud_publication, "Settings", lambda: settings)
     monkeypatch.setenv("GITHUB_REPOSITORY", REPO.upper())
     monkeypatch.setenv("GITHUB_REPOSITORY_ID", str(REPOSITORY_ID))
     monkeypatch.setattr(cloud_publication, "GitHubCheckpoint", lambda *_: checkpoint)
     monkeypatch.setattr(cloud_publication, "GitHubActionsApi", lambda *_: actions)
+    monkeypatch.setattr(
+        cloud_publication, "GitHubPagesDeploymentApi", lambda *_: deployments
+    )
 
-    assert cloud_publication._runtime() == (checkpoint, actions, settings, REPOSITORY_ID)
+    assert cloud_publication._runtime() == (
+        checkpoint, actions, deployments, settings, REPOSITORY_ID
+    )
 
 
 def test_actions_api_lists_only_current_workflow_runs_with_authentication():
@@ -605,6 +798,165 @@ def test_actions_api_reads_only_supported_pages_branch_heads():
         actions.branch_head("features/test")
     assert len(requests) == 1
     actions.close()
+
+
+def test_actions_api_confirms_deploy_step_was_skipped():
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "total_count": 1,
+                "jobs": [
+                    {
+                        "name": "deploy",
+                        "conclusion": "failure",
+                        "steps": [
+                            {
+                                "name": "Confirm publication revision is still the branch head",
+                                "status": "completed",
+                                "conclusion": "failure",
+                            },
+                            {
+                                "name": "Deploy the reserved artifact",
+                                "status": "completed",
+                                "conclusion": "skipped",
+                            },
+                        ],
+                    }
+                ]
+            },
+        )
+
+    actions = GitHubActionsApi(REPO, "token", transport=httpx.MockTransport(handle))
+    assert actions.deployment_action_was_skipped(40)
+    assert requests[0].url.path.endswith("/actions/runs/40/jobs")
+    assert requests[0].headers["Authorization"] == "Bearer token"
+    actions.close()
+
+
+def test_actions_api_does_not_treat_an_attempted_deploy_step_as_skipped():
+    actions = GitHubActionsApi(
+        REPO,
+        "token",
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                json={
+                    "total_count": 1,
+                    "jobs": [
+                        {
+                            "name": "deploy",
+                            "conclusion": "failure",
+                            "steps": [
+                                {
+                                    "name": "Deploy the reserved artifact",
+                                    "status": "completed",
+                                    "conclusion": "failure",
+                                }
+                            ],
+                        }
+                    ]
+                },
+            )
+        ),
+    )
+    assert not actions.deployment_action_was_skipped(40)
+    actions.close()
+
+
+def test_actions_api_checks_skipped_evidence_across_all_workflow_attempts():
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        page = request.url.params["page"]
+        if page == "1":
+            return httpx.Response(
+                200,
+                json={
+                    "total_count": 2,
+                    "jobs": [{"name": "deploy", "conclusion": "skipped"}],
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "total_count": 2,
+                "jobs": [
+                    {
+                        "name": "deploy",
+                        "conclusion": "failure",
+                        "steps": [
+                            {
+                                "name": "Deploy the reserved artifact",
+                                "status": "completed",
+                                "conclusion": "failure",
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
+
+    actions = GitHubActionsApi(REPO, "token", transport=httpx.MockTransport(handle))
+    assert not actions.deployment_action_was_skipped(40)
+    assert [request.url.params["filter"] for request in requests] == ["all", "all"]
+    assert [request.url.params["page"] for request in requests] == ["1", "2"]
+    actions.close()
+
+
+def test_actions_api_does_not_confirm_skipped_deploy_from_truncated_job_pages():
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "total_count": 101,
+                "jobs": (
+                    [{"name": "deploy", "conclusion": "skipped"}]
+                    + [{"name": f"build-{index}"} for index in range(99)]
+                    if len(requests) == 1
+                    else []
+                ),
+            },
+        )
+
+    actions = GitHubActionsApi(REPO, "token", transport=httpx.MockTransport(handle))
+    with pytest.raises(CloudPublicationError, match="workflow jobs could not be enumerated"):
+        actions.deployment_action_was_skipped(40)
+    assert len(requests) == 2
+    actions.close()
+
+
+def test_pages_deployment_status_api_reads_status_by_reserved_build_version():
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(200, json={"status": "deployment_failed"})
+
+    api = cloud_publication.GitHubPagesDeploymentApi(
+        REPO, "token", transport=httpx.MockTransport(handle)
+    )
+    assert api.status(REVISION) == "deployment_failed"
+    assert requests[0].url.path.endswith(f"/pages/deployments/{REVISION}")
+    assert requests[0].headers["Authorization"] == "Bearer token"
+    api.close()
+
+
+def test_pages_deployment_status_api_keeps_unknown_create_outcome_distinct():
+    api = cloud_publication.GitHubPagesDeploymentApi(
+        REPO, "token", transport=httpx.MockTransport(
+            lambda request: httpx.Response(404, json={"message": "Not Found"})
+        )
+    )
+    assert api.status(REVISION) is None
+    api.close()
 
 
 def test_preflight_rejects_queued_or_rerun_event_after_branch_advances():
@@ -835,6 +1187,7 @@ def test_cloud_publication_cli_success_outputs_cover_each_command(
                     f"producer_revision={candidate.producer_revision}",
                     f"parent_id={candidate.parent_id}",
                     f"artifact_id={candidate.artifact_id}",
+                    f"pages_build_version={candidate.pages_build_version}",
                 )
             )
             + "\n",
@@ -856,6 +1209,7 @@ def test_cloud_publication_cli_success_outputs_cover_each_command(
                     f"generation_id={candidate.generation_id}",
                     f"attempt_id={candidate.attempt_id}",
                     f"artifact_id={candidate.artifact_id}",
+                    f"pages_build_version={candidate.pages_build_version}",
                 )
             )
             + "\n",
@@ -973,7 +1327,12 @@ def test_artifact_api_provenance_flows_through_reserve_resume_and_finish(tmp_pat
     checkpoint = MemoryCheckpoint()
     pages = Pages(None)
     publisher = CloudPublisher(
-        PublicationCheckpoint(checkpoint), actions, pages, REPO, REPOSITORY_ID
+        PublicationCheckpoint(checkpoint),
+        actions,
+        pages,
+        PagesDeployments("succeed"),
+        REPO,
+        REPOSITORY_ID,
     )
     try:
         generation = publisher.reserve(
