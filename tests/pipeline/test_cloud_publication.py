@@ -378,6 +378,39 @@ def test_preflight_can_abandon_when_deploy_action_was_skipped_and_no_deployment_
     assert state.candidate is None and state.abandoned == candidate
 
 
+def test_preflight_keeps_candidate_when_an_earlier_workflow_attempt_started_deploy():
+    deployed = _generation(artifact_id=39, run_id=38, revision=NEW_REVISION)
+    candidate = _generation(
+        artifact_id=41,
+        run_id=40,
+        revision=NEW_REVISION,
+        parent_id=deployed.generation_id,
+        attempt_number=2,
+    )
+    pointer = {
+        "version": 1,
+        "generation_id": deployed.generation_id,
+        "manifest_sha256": deployed.manifest_sha256,
+    }
+    actions = Actions(conclusion="failure", deploy_step_skipped=False)
+    actions.artifacts[candidate.artifact_id] = _artifact(
+        candidate.artifact_id, candidate.workflow_run_id
+    )
+    publisher, checkpoint, _, _ = _publisher(
+        PublicationState(deployed=deployed, candidate=candidate, last_attempt=2),
+        pointer=pointer,
+        actions=actions,
+        deployment_status=None,
+    )
+
+    with pytest.raises(CloudPublicationError, match="Pages deployment has not confirmed termination"):
+        publisher.preflight(
+            mode="code-only", event_ref="refs/heads/dev", event_sha=REVISION, run_id=50
+        )
+
+    assert PublicationCheckpoint(checkpoint).read().candidate == candidate
+
+
 def test_preflight_does_not_abandon_a_successful_run_with_stale_pages():
     deployed = _generation(artifact_id=39, run_id=38, revision=NEW_REVISION)
     candidate = _generation(
@@ -726,6 +759,7 @@ def test_actions_api_confirms_deploy_step_was_skipped():
         return httpx.Response(
             200,
             json={
+                "total_count": 1,
                 "jobs": [
                     {
                         "name": "deploy",
@@ -762,6 +796,7 @@ def test_actions_api_does_not_treat_an_attempted_deploy_step_as_skipped():
             lambda request: httpx.Response(
                 200,
                 json={
+                    "total_count": 1,
                     "jobs": [
                         {
                             "name": "deploy",
@@ -780,6 +815,72 @@ def test_actions_api_does_not_treat_an_attempted_deploy_step_as_skipped():
         ),
     )
     assert not actions.deployment_action_was_skipped(40)
+    actions.close()
+
+
+def test_actions_api_checks_skipped_evidence_across_all_workflow_attempts():
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        page = request.url.params["page"]
+        if page == "1":
+            return httpx.Response(
+                200,
+                json={
+                    "total_count": 2,
+                    "jobs": [{"name": "deploy", "conclusion": "skipped"}],
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "total_count": 2,
+                "jobs": [
+                    {
+                        "name": "deploy",
+                        "conclusion": "failure",
+                        "steps": [
+                            {
+                                "name": "Deploy the reserved artifact",
+                                "status": "completed",
+                                "conclusion": "failure",
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
+
+    actions = GitHubActionsApi(REPO, "token", transport=httpx.MockTransport(handle))
+    assert not actions.deployment_action_was_skipped(40)
+    assert [request.url.params["filter"] for request in requests] == ["all", "all"]
+    assert [request.url.params["page"] for request in requests] == ["1", "2"]
+    actions.close()
+
+
+def test_actions_api_does_not_confirm_skipped_deploy_from_truncated_job_pages():
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "total_count": 101,
+                "jobs": (
+                    [{"name": "deploy", "conclusion": "skipped"}]
+                    + [{"name": f"build-{index}"} for index in range(99)]
+                    if len(requests) == 1
+                    else []
+                ),
+            },
+        )
+
+    actions = GitHubActionsApi(REPO, "token", transport=httpx.MockTransport(handle))
+    with pytest.raises(CloudPublicationError, match="workflow jobs could not be enumerated"):
+        actions.deployment_action_was_skipped(40)
+    assert len(requests) == 2
     actions.close()
 
 
