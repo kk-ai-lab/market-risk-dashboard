@@ -40,13 +40,15 @@ SUPPORTED_TARGETS: dict[str, dict[str, frozenset[str]]] = {
     "coinmetrics": {"market_symbols": COINMETRICS_ASSET_SYMBOLS},
     "eia": {"energy_series": frozenset({"WCESTUS1"})},
 }
-TARGET_FIELDS: dict[str, str] = {
-    "macro": "macro_series",
-    "news": "news_feeds",
-    "equities": "instrument_symbols",
-    "sectors": "instrument_symbols",
-    "crypto": "market_symbols",
-    "energy": "energy_series",
+TARGET_FIELDS: dict[str, tuple[str, ...]] = {
+    "macro": ("macro_series",),
+    "news": ("news_feeds",),
+    # FRED equities are index closes (index_series); the equity providers use
+    # instrument symbols. Either identifies the target a grant authorizes.
+    "equities": ("instrument_symbols", "index_series"),
+    "sectors": ("instrument_symbols",),
+    "crypto": ("market_symbols",),
+    "energy": ("energy_series",),
 }
 PUBLIC_DATASETS = frozenset({"calendar", "commodities", "crypto", "energy", "equities", "macro", "news", "sectors"})
 PermittedUse = Literal["public-domain", "noncommercial", "personal-use"]
@@ -325,12 +327,14 @@ class PublicSourcePolicy(BaseModel):
                 if len(values) != len(set(values)):
                     raise ValueError(f"{source_id} repeats a value in {field}")
             for dataset in source.datasets:
-                field = TARGET_FIELDS.get(dataset)
-                if field is None:
+                fields = TARGET_FIELDS.get(dataset)
+                if fields is None:
                     continue
-                targets = getattr(source, field)
+                targets = [target for field in fields for target in getattr(source, field)]
                 if not targets:
-                    raise ValueError(f"{source_id} authorizes {dataset} without {field}")
+                    raise ValueError(
+                        f"{source_id} authorizes {dataset} without {' or '.join(fields)}"
+                    )
                 overlap = provider_targets.setdefault((source.provider, dataset), set()) & set(targets)
                 if overlap:
                     raise ValueError(
@@ -347,6 +351,15 @@ class PublicSourcePolicy(BaseModel):
                 raise ValueError(f"{source_id} configures news_feeds outside the news dataset")
             if source.instrument_symbols and not ({"equities", "sectors"} & set(source.datasets)):
                 raise ValueError(f"{source_id} configures instrument_symbols outside the equities or sectors dataset")
+            if source.index_series and "equities" not in source.datasets:
+                raise ValueError(f"{source_id} configures index_series outside the equities dataset")
+            unknown_attribution = set(source.series_attribution) - set(source.macro_series)
+            if unknown_attribution:
+                raise ValueError(
+                    f"{source_id} attributes series it does not grant: {sorted(unknown_attribution)}"
+                )
+            if any(not value.strip() for value in source.series_attribution.values()):
+                raise ValueError(f"{source_id} has an empty series attribution")
             supported = SUPPORTED_TARGETS.get(source.provider, {})
             for field in ("macro_series", "market_symbols", "energy_series"):
                 allowed = supported.get(field, frozenset())

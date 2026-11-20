@@ -29,6 +29,7 @@ def public_settings(tmp_path, **values):
     return Settings(
         _env_file=None,
         approved_sources_only=True,
+        fred_api_key=None,
         project_root=tmp_path,
         config_dir=Settings(_env_file=None).config_dir,
         data_dir=tmp_path / "data",
@@ -79,7 +80,7 @@ def test_policy_loads_licensed_sources_and_builds_only_approved_providers(tmp_pa
     assert not policy.allows_provider("crypto", "coingecko")
     assert policy.source_for_macro_series("DGS10")[0] == "treasury"
     assert policy.source_for_macro_series("CPIAUCSL")[0] == "bls"
-    assert policy.source_for_macro_series("VIXCLS") is None
+    assert policy.source_for_macro_series("VIXCLS")[0] == "fred"
     assert policy.sources["coinmetrics"].permitted_use == "noncommercial"
 
     providers = build_default_providers(settings)
@@ -199,7 +200,7 @@ def test_policy_rejects_unapproved_provider_and_legacy_cache_fallback(tmp_path, 
     assert not (registry.cache_dir / "crypto__coinmetrics__crypto_market.json").exists()
 
 
-def test_macro_keeps_full_roster_and_never_falls_back_to_fred(tmp_path):
+def test_macro_without_fred_key_publishes_missing_without_requests(tmp_path):
     registry = NoNetworkRegistry()
     bls, treasury = snapshots()
     settings = public_settings(tmp_path)
@@ -215,12 +216,14 @@ def test_macro_keeps_full_roster_and_never_falls_back_to_fred(tmp_path):
     assert [indicator.key.upper() for indicator in indicators] == DEFAULT_SERIES
     assert by_key["CPIAUCSL"].source == "BLS"
     assert by_key["DGS10"].source == "Treasury"
-    assert by_key["VIXCLS"].source == "unavailable"
+    assert by_key["VIXCLS"].source == "FRED"
     assert by_key["VIXCLS"].value is None
     assert by_key["VIXCLS"].status == "missing"
     assert macro.fedwatch is None
     assert registry.calls == []
-    assert "VIXCLS" in meta["detail"]
+    assert meta["error_code"] == "provider_auth_failed"
+    assert "DATA_FRED_API_KEY is not configured; no request was sent" in meta["detail"]
+    assert meta["provider_status"]["fred"]["error"] == "not_configured"
     assert meta["degraded"]
 
 
@@ -321,10 +324,14 @@ def test_news_and_calendar_mark_unlicensed_data_missing_without_registry_calls(t
 def test_macro_policy_exclusions_have_an_explicit_reason_code(tmp_path):
     registry = NoNetworkRegistry()
     bls, treasury = snapshots()
+    settings = public_settings(tmp_path)
+    policy = settings.load_public_source_policy()
+    policy.sources.pop("fred")
 
     _, meta = MacroCollector(
         registry,
-        public_settings(tmp_path),
+        settings,
+        collection_plan=policy.collection_plan(),
         bls_snapshot=bls,
         treasury_snapshot=treasury,
     ).collect()
@@ -403,8 +410,15 @@ def test_news_only_persists_policy_reason(monkeypatch, tmp_path):
 
 def test_macro_only_persists_policy_reason_and_full_history_roster(monkeypatch, tmp_path):
     bls, treasury = snapshots()
+    settings = public_settings(tmp_path)
+    policy = settings.load_public_source_policy()
+    policy.sources.pop("fred")
     macro, meta = MacroCollector(
-        NoNetworkRegistry(), public_settings(tmp_path), bls_snapshot=bls, treasury_snapshot=treasury,
+        NoNetworkRegistry(),
+        settings,
+        collection_plan=policy.collection_plan(),
+        bls_snapshot=bls,
+        treasury_snapshot=treasury,
     ).collect()
     results = {
         "macro": macro,
@@ -537,4 +551,33 @@ def test_same_provider_disjoint_macro_grants(tmp_path):
 
     raw["sources"]["fred_ice"]["macro_series"] = ["BAA10Y"]
     with pytest.raises(ValueError, match="overlapping grants"):
+        PublicSourcePolicy.model_validate(raw)
+
+
+def test_index_series_grants_equities_without_instrument_symbols(tmp_path):
+    raw = _raw_policy(tmp_path)
+    base = {
+        "provider": "fred",
+        "registry_domain": "macro",
+        "datasets": ["equities"],
+        "macro_series": [],
+        "market_symbols": [],
+        "energy_series": [],
+        "instrument_symbols": [],
+        "index_series": ["SP500"],
+        "license_id": "FRED-citation-required",
+        "license_url": "https://fred.stlouisfed.org/legal/",
+        "attribution": "Federal Reserve Bank of St. Louis (FRED)",
+        "permitted_use": "personal-use",
+        "accepted_by": "Kai",
+        "accepted_on": "2026-11-20",
+        "cadence_minutes": 60,
+    }
+    raw["sources"]["fred_index"] = base
+
+    policy = PublicSourcePolicy.model_validate(raw)
+    assert policy.collection_plan().grant_for_rung("fred", "SP500").source_id == "fred_index"
+
+    raw["sources"]["fred_index"].update(datasets=["macro"], macro_series=["BAMLH0A0HYM2"])
+    with pytest.raises(ValueError, match="index_series outside the equities dataset"):
         PublicSourcePolicy.model_validate(raw)
