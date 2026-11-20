@@ -36,7 +36,9 @@ def registry(tmp_path, monkeypatch):
 
 
 def test_opt_in_replaces_chain_and_default_is_unchanged(tmp_path):
-    assert [p.name for p in build_default_providers(settings(tmp_path)) if p.domain == "crypto"] == ["coinmetrics"]
+    enabled = [p for p in build_default_providers(settings(tmp_path)) if p.domain == "crypto"]
+    assert [p.name for p in enabled] == ["coinmetrics"]
+    assert enabled[0].symbols == ("BTC", "ETH")
     assert [p.name for p in build_default_providers(settings(tmp_path, False)) if p.domain == "crypto"] == ["coingecko"]
 
 

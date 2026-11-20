@@ -52,6 +52,13 @@ const CRYPTO_NAME_KEYS: Record<string, string> = {
   BTC: "bitcoin",
   ETH: "ethereum",
   SOL: "solana",
+  ADA: "cardano",
+  XRP: "xrp",
+  DOGE: "dogecoin",
+  BNB: "bnb",
+  LINK: "chainlink",
+  LTC: "litecoin",
+  AVAX: "avalanche",
 };
 
 function isChinese(locale: DisplayLocale): boolean {

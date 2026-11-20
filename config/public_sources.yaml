@@ -6,7 +6,7 @@ sources:
     registry_domain: crypto
     datasets: [crypto]
     macro_series: []
-    market_symbols: [BTC, ETH]
+    market_symbols: [BTC, ETH, SOL, ADA, XRP, DOGE, BNB, LINK, LTC, AVAX]
     license_id: CC-BY-NC-4.0
     license_url: https://creativecommons.org/licenses/by-nc/4.0/
     attribution: "Data provided by Coin Metrics Community Network Data. Modified from source."

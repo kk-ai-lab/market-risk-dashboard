@@ -54,7 +54,10 @@ def test_dashboard_cross_asset_keeps_the_selected_quote_source() -> None:
         SimpleNamespace(symbol="SPY", change_1d=0.2, source="yahoo"),
     ]))
     crypto = SimpleNamespace(payload=SimpleNamespace(assets=[
-        SimpleNamespace(symbol="BTC", change_1d=-0.4, source="coinmetrics"),
+        SimpleNamespace(symbol=symbol, change_1d=-0.4, source="coinmetrics")
+        for symbol in (
+            "AVAX", "DOGE", "SOL", "XRP", "BTC", "LTC", "ETH", "ADA", "LINK", "BNB",
+        )
     ]))
     calendar = SimpleNamespace(payload=SimpleNamespace(events=[]))
     payload = _build_dashboard(
@@ -64,6 +67,9 @@ def test_dashboard_cross_asset_keeps_the_selected_quote_source() -> None:
 
     assert payload.cross_asset[0].source == "yahoo"
     assert payload.cross_asset[1].source == "coinmetrics"
+    assert [asset.asset for asset in payload.cross_asset if asset.category == "crypto"] == [
+        "BTC", "ETH", "SOL",
+    ]
 
 
 def test_run_summary_withholds_score_when_evidence_is_insufficient(capsys) -> None:
