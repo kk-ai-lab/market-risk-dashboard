@@ -30,6 +30,7 @@ from pipeline.schemas.commodities import CommoditiesEnvelope
 from pipeline.schemas.crypto import CryptoEnvelope
 from pipeline.schemas.dashboard import DashboardEnvelope
 from pipeline.schemas.equities import EquitiesEnvelope
+from pipeline.schemas.energy import EnergyEnvelope
 from pipeline.schemas.factlayer import FactLayer
 from pipeline.schemas.macro import MacroEnvelope
 from pipeline.schemas.news import NewsEnvelope, NewsTranslationsDataset
@@ -69,6 +70,7 @@ class DatasetSpec:
     required: bool
     row_counted: bool
     row_key: str | None = None
+    full_run: bool = False
 
 
 #: The canonical dataset vocabulary. Adding a dataset means adding it here and nowhere else.
@@ -115,6 +117,17 @@ DATASETS: tuple[DatasetSpec, ...] = (
         required=True,
         row_counted=True,
         row_key="assets",
+    ),
+    DatasetSpec(
+        key="energy",
+        filenames=("energy.json",),
+        model=EnergyEnvelope,
+        enveloped=True,
+        domain="energy",
+        required=False,
+        row_counted=True,
+        row_key="observations",
+        full_run=True,
     ),
     DatasetSpec(
         key="macro",

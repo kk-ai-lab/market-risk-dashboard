@@ -155,6 +155,7 @@ def test_build_default_providers_reads_config_order_and_enabled() -> None:
     # domain (FRED releases + FOMC) with economic events first-class alongside earnings.
     assert by_domain["calendar"] == [("fmp", 1), ("nasdaq", 2)]
     assert by_domain["economic"] == [("fred_calendar", 1)]
+    assert by_domain["energy"] == [("eia", 1)]
     # binance_public is enabled: false in config — never constructed.
     assert all(name != "binance_public" for name, _ in by_domain.get("crypto", []))
     assert by_domain["crypto"] == [("coingecko", 1)]

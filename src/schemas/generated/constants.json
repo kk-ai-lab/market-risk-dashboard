@@ -30,6 +30,7 @@
     "news_translation_incomplete"
   ],
   "coinmetrics_expected_interval_minutes": 15,
+  "energy_observation_window_days": 14,
   "risk_level_thresholds": {
     "risk_on": {
       "lt": 20
@@ -59,6 +60,7 @@
     "sectors",
     "crypto",
     "commodities",
+    "energy",
     "macro",
     "calendar",
     "news",
@@ -73,6 +75,7 @@
     "sectors": 480,
     "crypto": 480,
     "commodities": 480,
+    "energy": 15,
     "macro": 240,
     "calendar": 15,
     "news": 480,
@@ -120,6 +123,16 @@
       "enveloped": true,
       "domain": "market",
       "required": true,
+      "row_counted": true,
+      "has_schema_version": true
+    },
+    "energy": {
+      "filenames": [
+        "energy.json"
+      ],
+      "enveloped": true,
+      "domain": "energy",
+      "required": false,
       "row_counted": true,
       "has_schema_version": true
     },
@@ -221,6 +234,9 @@
     ],
     "economic": [
       "calendar"
+    ],
+    "energy": [
+      "energy"
     ],
     "macro": [
       "macro"

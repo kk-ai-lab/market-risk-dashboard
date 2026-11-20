@@ -232,13 +232,8 @@ def read_prev_risk(writer: StorageWriter, *, model_version: str, as_of_date: str
 # Dataset health for the run report (#63)
 # ============================================================
 
-#: Every dataset a `--full` run is expected to publish, in canonical registry keys.
-#:
-#: Derived from the registry rather than listed by hand: a dataset added to the registry and
-#: forgotten here would be collected, written, and then quietly excluded from the health
-#: report. Retired AI artifacts remain optional historical contracts.
 FULL_RUN_DATASETS: tuple[str, ...] = tuple(
-    spec.key for spec in dataset_registry.DATASETS if spec.required
+    spec.key for spec in dataset_registry.DATASETS if spec.required or spec.full_run
 )
 
 #: Datasets each command attempts. Anything in FULL_RUN_DATASETS and not listed here was

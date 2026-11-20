@@ -26,6 +26,35 @@
     "riskOff": "风险规避",
     "neutral": "中性"
   },
+  "energy": {
+    "title": "美国原油周度库存",
+    "riskContextTitle": "能源供给背景",
+    "description": "EIA 公布的美国原油周度期末库存，不含战略石油储备。",
+    "riskContextNote": "仅作背景信息，不纳入风险分或其覆盖度。",
+    "statusLabel": "能源数据状态",
+    "collection": {
+      "not_configured": "尚未配置",
+      "available": "可用",
+      "empty": "暂无观测",
+      "degraded": "降级"
+    },
+    "age": {
+      "unknown": "时效未知",
+      "within_window": "14 天内",
+      "overdue": "已超期"
+    },
+    "level": "库存水平",
+    "unit": "千桶",
+    "weeklyChange": "较上周变化",
+    "weekEnding": "统计截至",
+    "lastRetrieved": "最近成功拉取",
+    "lastCheck": "最近检查：{{time}}",
+    "checkTime": "最近检查：{{time}}",
+    "ageRule": "14 天时效阈值是本站规则，不代表 EIA 的发布时间承诺。",
+    "attribution": "来源：美国能源信息署（EIA）· WCESTUS1",
+    "noObservations": "EIA 尚未返回周度观测值。",
+    "waitingForData": "尚未配置 EIA 数据抓取，或暂时没有可用数据。"
+  },
   "ai_infrastructure": "人工智能基础设施",
   "ai_software": "人工智能软件",
   "cloud_computing": "云计算",

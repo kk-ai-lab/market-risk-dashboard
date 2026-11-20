@@ -82,6 +82,9 @@
 | Catalysts | 催化剂 / 关键事件 | 即将发生的可能影响市场的宏观/财报事件。 |
 | Earnings Calendar | 财报日历 | 上市公司财报发布日期。 |
 | Economic Calendar | 经济日历 | 宏观数据发布日程。 |
+| Weekly U.S. Crude Inventory | 美国原油周度库存 | EIA WCESTUS1 的美国原油周末库存，不含战略石油储备；记录的是库存量，不是原油期货价格。 |
+| Week Ending | 统计截至 | 数据所对应的周末日期，与抓取时间和最近成功拉取时间分开显示。 |
+| Thousand Barrels | 千桶 | WCESTUS1 的计量单位。 |
 | BEA Release Schedule | 美国经济分析局发布日程 | BEA 官方计划发布时间；仅包含发布时间，不含实际值或预测值。 |
 
 BEA release titles are kept verbatim in English and use these Chinese UI translations:
@@ -131,6 +134,10 @@ BEA release titles are kept verbatim in English and use these Chinese UI transla
 | Stale | 过期 | 数据长时间未更新（>3× 间隔），前端显示"已过期"角标。 |
 | Missing | 缺失 | 从未有数据 / 文件缺失，前端显示空状态。 |
 | Degraded | 降级 | 部分数据源失败回退（与时间无关），降低模型置信度。 |
+| Not Configured | 尚未配置 | 数据源需要的密钥或设置尚未提供，因此本次没有发送请求。 |
+| Observation Age | 观测时效 | 从最新来源观测日期到当前日期的天数；14 天阈值是本站规则，不是来源承诺。 |
+| Last Check | 最近检查 | 最近一次采集尝试时间，与观测日期和最近成功拉取时间分开显示。 |
+| Last Successful Retrieval | 最近成功拉取 | 最近一次成功取得并验证来源数据的时间。 |
 | Proxy Indicator | 代理指标 | 无直接数据时用间接指标（标 Estimated/Proxy）。 |
 | Evidence Ref | 证据引用 | AI 结论引用的证据索引（dataset+path+metric+value）。 |
 

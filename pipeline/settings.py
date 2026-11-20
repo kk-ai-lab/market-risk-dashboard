@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     )
 
     fred_api_key: str | None = Field(default=None, description="FRED API key (local .env)")
+    eia_api_key: SecretStr | None = Field(default=None, description="EIA API key (local .env or cloud secret)")
     coingecko_api_key: str | None = Field(default=None, description="CoinGecko Demo key")
     fmp_api_key: str | None = Field(default=None, description="FMP free-tier key")
     coinmetrics_enabled: bool = Field(default=False, description="Opt in to Coin Metrics Community BTC/ETH reference rates for noncommercial publication (CC BY-NC 4.0)")

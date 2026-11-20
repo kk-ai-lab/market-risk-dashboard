@@ -83,7 +83,9 @@ def test_policy_loads_licensed_sources_and_builds_only_approved_providers(tmp_pa
 
     providers = build_default_providers(settings)
     assert [(provider.name, provider.domain) for provider in providers] == [
-        ("coinmetrics", "crypto"), ("bea_calendar", "bea_calendar"),
+        ("coinmetrics", "crypto"),
+        ("eia", "energy"),
+        ("bea_calendar", "bea_calendar"),
     ]
     assert isinstance(providers[0], CoinMetricsProvider)
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Collection
 from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
@@ -95,6 +96,7 @@ def write_run_report(
     proxy_discounts: list[dict[str, Any]] | None = None,
     risk_evidence: dict[str, Any] | None = None,
     risk_input_diagnostics: RiskInputDiagnostics | None = None,
+    written_latest_outputs: Collection[str] | None = None,
 ) -> Path:
     """Write artifacts/logs/run-report-{ts}.json.
 
@@ -134,6 +136,8 @@ def write_run_report(
     }
     if risk_input_diagnostics is not None:
         report["risk_input_diagnostics"] = risk_input_diagnostics.model_dump(mode="json")
+    if written_latest_outputs is not None:
+        report["written_latest_outputs"] = sorted(written_latest_outputs)
     if failure_code is not None:
         report["failure_code"] = failure_code.value
     if rejection_code is not None:

@@ -105,6 +105,23 @@ def test_run_report_serializes_failure_code_and_omits_it_when_absent(tmp_path):
     )
     assert "failure_code" not in json.loads(clean_path.read_text(encoding="utf-8"))
     assert "rejection_code" not in json.loads(clean_path.read_text(encoding="utf-8"))
+    assert "written_latest_outputs" not in json.loads(clean_path.read_text(encoding="utf-8"))
+
+
+def test_run_report_serializes_successful_latest_output_receipt(tmp_path):
+    report_path = write_run_report(
+        tmp_path,
+        command="full",
+        ok=True,
+        durations={},
+        provider_status={},
+        degraded=[],
+        dataset_counts={},
+        written_latest_outputs=frozenset({"latest/energy.json", "latest/risk.json"}),
+    )
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["written_latest_outputs"] == ["latest/energy.json", "latest/risk.json"]
 
 
 def test_run_report_serializes_optional_rejection_code(tmp_path):
@@ -274,12 +291,18 @@ def test_main_full_rejection_rolls_back_before_health_and_reports_fixed_code(
     rejection = run_mod.RunRejection(
         run_mod.RunRejectionCode.RISK_VALIDATION_FAILED, local_error
     )
+    writers = []
+
+    def make_writer(path):
+        writer = StorageWriter(path)
+        writers.append(writer)
+        return writer
 
     def reject_candidate(_results, writer, _command):
-        writer.write_json(marker, {"value": "candidate"})
+        writer.write_standalone("candidate", {"value": "candidate"})
         return rejection
 
-    monkeypatch.setattr(run_mod, "StorageWriter", StorageWriter)
+    monkeypatch.setattr(run_mod, "StorageWriter", make_writer)
     monkeypatch.setattr(run_mod, "_run_collection", lambda _command: run_mod._empty_results())
     monkeypatch.setattr(run_mod, "_run_risk_and_write", reject_candidate)
 
@@ -306,6 +329,8 @@ def test_main_full_rejection_rolls_back_before_health_and_reports_fixed_code(
     assert reports[0]["failed_datasets"] == health["failed"]
     assert reports[0]["skipped_datasets"] == health["skipped"]
     assert reports[0]["degraded_datasets"] == health["degraded"]
+    assert "written_latest_outputs" not in reports[0]
+    assert writers[0].written_latest_outputs == frozenset()
 
 
 def test_main_rejection_carries_risk_input_diagnostics_into_report(
@@ -367,7 +392,13 @@ def test_finish_run_marks_dataset_health_failure_and_keeps_report_semantics(monk
         "degraded": ["equities"],
     }
 
-    exit_code = run_mod._finish_run("full", run_mod._empty_results(), 1.5, health)
+    exit_code = run_mod._finish_run(
+        "full",
+        run_mod._empty_results(),
+        1.5,
+        health,
+        written_latest_outputs=frozenset({"latest/risk.json"}),
+    )
 
     assert exit_code == 1
     assert reports[0]["failure_code"] == "dataset_health_failed"
@@ -377,6 +408,34 @@ def test_finish_run_marks_dataset_health_failure_and_keeps_report_semantics(monk
     assert report["failed_datasets"] == health["failed"]
     assert report["skipped_datasets"] == health["skipped"]
     assert report["degraded_datasets"] == health["degraded"]
+    assert "written_latest_outputs" not in report
+
+
+def test_partial_run_omits_latest_output_receipt(monkeypatch, tmp_path):
+    reports = []
+    _configure_run(monkeypatch, tmp_path, reports)
+    monkeypatch.setattr(run_mod, "_print_summary", lambda *_args, **_kwargs: None)
+
+    def write_report(artifacts_dir, **kwargs):
+        reports.append(kwargs)
+        return write_run_report(artifacts_dir, **kwargs)
+
+    monkeypatch.setattr(run_mod, "write_run_report", write_report)
+
+    assert (
+        run_mod._finish_run(
+            "macro-only",
+            run_mod._empty_results(),
+            0.5,
+            {"failed": [], "skipped": [], "degraded": []},
+            written_latest_outputs=frozenset({"latest/macro.json"}),
+        )
+        == 0
+    )
+
+    report_path = next((tmp_path / "artifacts" / "logs").glob("run-report-*.json"))
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert "written_latest_outputs" not in report
 
 
 def test_main_initialization_exception_is_not_mislabeled_as_collection_failure(

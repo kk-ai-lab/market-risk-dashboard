@@ -19,6 +19,7 @@ from .envelope import (
     UTCDateTime,
     validate_utc_datetime,
 )
+from .energy import EnergyDataset, EnergyEnvelope, EnergyObservation
 from .equities import EquitiesDataset, EquitiesEnvelope, EquityAsset
 from .factlayer import EvidenceRef, FactLayer
 from .macro import (
@@ -77,6 +78,9 @@ __all__ = [
     "EquitiesDataset",
     "EquitiesEnvelope",
     "EquityAsset",
+    "EnergyDataset",
+    "EnergyEnvelope",
+    "EnergyObservation",
     "EvidenceRef",
     "FactLayer",
     "FedWatchRateProb",

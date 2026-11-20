@@ -39,6 +39,51 @@ def test_write_dataset_and_slices(tmp_path: Path) -> None:
     assert len(json.loads((tmp_path / "data/history/risk/90d.json").read_text())) == 90
 
 
+def test_writer_exposes_immutable_latest_output_receipt(tmp_path: Path) -> None:
+    from pipeline.schemas import MacroEnvelope
+    from tests.pipeline.factories import make_envelope
+
+    writer = StorageWriter(tmp_path / "data")
+    assert writer.written_latest_outputs == frozenset()
+
+    writer.write_dataset("macro", MacroEnvelope.model_validate(make_envelope("macro")))
+    writer.write_standalone("facts", {"generated_at": "2026-11-17T12:00:00Z"})
+    writer.write_json(writer.metadata_dir / "receipt-test.json", {"ignored": True})
+
+    outputs = writer.written_latest_outputs
+    assert outputs == frozenset({"latest/macro.json", "latest/facts.json"})
+    assert isinstance(outputs, frozenset)
+
+
+def test_writer_does_not_receipt_failed_latest_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    writer = StorageWriter(tmp_path / "data")
+
+    def fail_replace(*_args, **_kwargs):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr("pipeline.storage.writer.os.replace", fail_replace)
+    with pytest.raises(OSError, match="replace failed"):
+        writer.write_standalone("facts", {"generated_at": "2026-11-17T12:00:00Z"})
+
+    assert writer.written_latest_outputs == frozenset()
+
+
+def test_writer_does_not_receipt_latest_output_rolled_back_with_atomic_group(
+    tmp_path: Path,
+) -> None:
+    writer = StorageWriter(tmp_path / "data")
+
+    with writer.atomic_group() as group:
+        writer.write_standalone("facts", {"generated_at": "2026-11-17T12:00:00Z"})
+        assert writer.written_latest_outputs == frozenset({"latest/facts.json"})
+        group.rollback()
+
+    assert not (writer.latest_dir / "facts.json").exists()
+    assert writer.written_latest_outputs == frozenset()
+
+
 def test_history_dedupe_by_date(tmp_path: Path) -> None:
     writer = StorageWriter(tmp_path / "data")
     writer.write_slices("risk", [{"date": "2026-08-03", "total_score": 50.0}])
@@ -775,7 +820,7 @@ def test_dataset_health_skips_only_explicit_source_policy_omissions(tmp_path: Pa
     assert health == {
         "failed": ["sectors", "crypto", "commodities"],
         "degraded": [],
-        "skipped": ["equities", "macro", "calendar", "news", "risk", "dashboard", "factlayer"],
+        "skipped": ["equities", "energy", "macro", "calendar", "news", "risk", "dashboard", "factlayer"],
     }
 
 
@@ -865,7 +910,7 @@ def test_dataset_health_reports_datasets_a_partial_command_skipped(tmp_path: Pat
 
     assert health["failed"] == []
     assert health["degraded"] == []
-    assert health["skipped"] == ["macro", "calendar", "news", "risk", "dashboard", "factlayer"]
+    assert health["skipped"] == ["energy", "macro", "calendar", "news", "risk", "dashboard", "factlayer"]
 
 
 def test_dataset_health_treats_an_unrecorded_attempt_as_failed(tmp_path: Path) -> None:
@@ -897,10 +942,10 @@ def test_dataset_health_treats_a_stale_fresh_entry_from_a_previous_run_as_failed
 
     health = dataset_health(StorageWriter(data_dir), "full", run_started_at="2026-08-05T00:00:00Z")
 
-    assert health["failed"] == list(FULL_RUN_DATASETS), (
+    assert health["failed"] == [name for name in FULL_RUN_DATASETS if name != "energy"], (
         "yesterday's fresh entries must not hide datasets that never wrote this run"
     )
-    assert health["degraded"] == []
+    assert health["degraded"] == ["energy"]
 
 
 def test_dataset_health_accepts_entries_written_during_this_run(tmp_path: Path) -> None:
@@ -923,7 +968,8 @@ def test_dataset_health_before_the_first_run_fails_everything(tmp_path: Path) ->
 
     health = dataset_health(StorageWriter(tmp_path / "data"), "full", run_started_at=_RUN_START)
 
-    assert health["failed"] == list(FULL_RUN_DATASETS)
+    assert health["failed"] == [name for name in FULL_RUN_DATASETS if name != "energy"]
+    assert health["degraded"] == ["energy"]
 
 
 def test_partial_command_writes_a_run_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1062,8 +1108,9 @@ class TestPerDatasetDegradation:
             MacroIndicator,
             NewsDataset,
         )
+        from pipeline.schemas.energy import EnergyDataset
 
-        now = "2026-08-04T12:00:00Z"
+        now = run_mod.now_utc()
 
         def _news_only_collection(command: str) -> dict:
             from pipeline.schemas import NewsItem
@@ -1081,6 +1128,20 @@ class TestPerDatasetDegradation:
             results["calendar"] = CalendarDataset(events=[])
             results["calendar_meta"] = {"data_quality": 1.0, "degraded": [], "provider_outcome": {"provider": "fmp", "used_fallback": False, "from_cache": False}}
             results["calendar_degraded"] = False
+            results["energy"] = EnergyDataset(
+                observations=[],
+                collection_status="not_configured",
+                observation_age="unknown",
+                last_attempt_at=now,
+                last_successful_fetch_at=None,
+            )
+            results["energy_meta"] = {
+                "data_quality": 0.0,
+                "degraded": True,
+                "provider": "unavailable",
+                "error_code": "provider_auth_failed",
+                "detail": "DATA_EIA_API_KEY is not configured; no request was sent",
+            }
             return results
 
         data_dir = tmp_path / "data"
@@ -1091,6 +1152,18 @@ class TestPerDatasetDegradation:
         )
         monkeypatch.setattr(run_mod, "_run_collection", _news_only_collection)
         assert run_mod.main(["--full"]) == 0
+
+        from pipeline.cloud_refresh import (
+            _read_collection_output_receipt,
+            expected_latest_outputs,
+        )
+
+        artifacts_dir = tmp_path / "artifacts"
+        report_path = next((artifacts_dir / "logs").glob("run-report-*.json"))
+        run_report = json.loads(report_path.read_text(encoding="utf-8"))
+        assert set(run_report["written_latest_outputs"]) >= expected_latest_outputs()
+        receipt = _read_collection_output_receipt(artifacts_dir)
+        assert receipt.latest_paths >= expected_latest_outputs()
 
         freshness = json.loads((data_dir / "metadata" / "freshness.json").read_text(encoding="utf-8"))
         for key in ("equities", "sectors", "crypto", "commodities"):
