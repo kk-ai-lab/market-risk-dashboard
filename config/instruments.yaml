@@ -1,0 +1,5 @@
+schema_version: "1.0.0"
+
+# Source preference chains for indices, sector ETFs and crypto. PR 2 ships the
+# schema and validation only; PR 10 fills the chain table.
+instruments: {}
