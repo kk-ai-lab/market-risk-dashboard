@@ -185,6 +185,79 @@ def test_scheduled_refresh_rejects_registered_output_missing_from_new_collection
     assert (collected_dirs[0] / "latest/energy.json").is_file()
 
 
+def test_scheduled_refresh_rejects_registered_output_missing_from_disk(
+    tmp_path, setup, monkeypatch, files
+):
+    root, generation = deployed(tmp_path, files)
+    paths, settings = setup
+    missing = "latest/energy.json"
+
+    def collect_receipt_without_file(isolated):
+        for relative, value in files.items():
+            target = isolated.data_dir / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(canonical_json(value))
+        (isolated.data_dir / missing).unlink()
+        return collected_receipt()
+
+    monkeypatch.setattr(cloud, "_collect_approved", collect_receipt_without_file)
+    import scripts.stage_publication as stage
+
+    monkeypatch.setattr(stage, "validate_candidate", lambda _: True)
+    state = Store(PublicationState(deployed=generation, last_attempt=1))
+
+    with pytest.raises(cloud.CloudRefreshError, match="omitted registered latest outputs"):
+        cloud.refresh_cloud(
+            mode="scheduled",
+            app_revision=REVISION,
+            checkpoint=state,
+            paths=paths,
+            settings=settings,
+            restorer=restorer(root),
+        )
+
+    assert state.writes == 0
+
+
+def test_full_run_receipt_matches_cloud_refresh_expected_outputs(tmp_path, monkeypatch):
+    import pipeline.run as run_module
+    from pipeline.collectors.energy import EnergyCollector
+    from tests.pipeline.test_factlayer import _full_run_results
+
+    data_dir = tmp_path / "data"
+    artifacts_dir = tmp_path / "artifacts"
+    settings = Settings(
+        _env_file=None,
+        eia_api_key=None,
+        data_dir=data_dir,
+        artifacts_dir=artifacts_dir,
+    )
+    monkeypatch.setattr(run_module, "settings", settings)
+    energy = EnergyCollector(object(), settings).collect()
+    results = _full_run_results(
+        energy=energy["payload"],
+        energy_meta=energy,
+        durations={},
+    )
+
+    def collect(command):
+        assert command == "full"
+        return results
+
+    monkeypatch.setattr(run_module, "_run_collection", collect)
+    assert run_module.main(["--full"]) == 0
+
+    expected = cloud.expected_latest_outputs()
+    receipt = cloud._read_collection_output_receipt(artifacts_dir)
+    on_disk = {
+        path.relative_to(data_dir).as_posix()
+        for path in (data_dir / "latest").rglob("*")
+        if path.is_file()
+    }
+    assert receipt.latest_paths == expected == on_disk
+    cloud._validate_collection_outputs(data_dir, receipt, expected)
+
+
 def test_scheduled_refresh_accepts_current_degraded_energy_output(
     tmp_path, setup, monkeypatch, files
 ):
