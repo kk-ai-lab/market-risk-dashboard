@@ -4,6 +4,7 @@ import json
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+import httpx
 import pytest
 import yaml
 from pydantic import SecretStr
@@ -121,6 +122,20 @@ def test_eia_provider_does_not_put_key_or_response_body_in_provider_error(tmp_pa
 
     assert api_key not in str(error.value)
     assert "response" not in str(error.value).lower()
+
+
+def test_eia_provider_without_api_key_raises_and_sends_no_request(tmp_path, monkeypatch):
+    sent = []
+
+    def send(self, request, **kwargs):
+        sent.append(request)
+        return httpx.Response(200, json={"response": {"data": []}}, request=request)
+
+    monkeypatch.setattr(httpx.Client, "send", send)
+    provider = EiaProvider(settings_at(tmp_path, api_key=None))
+    with pytest.raises(ProviderError, match="EIA weekly inventory is not configured"):
+        provider.get_weekly_inventory()
+    assert sent == []
 
 
 def test_missing_key_publishes_not_configured_without_provider_request(tmp_path):
