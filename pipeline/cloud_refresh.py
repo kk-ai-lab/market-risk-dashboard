@@ -10,9 +10,10 @@ import re
 import shutil
 import subprocess
 import sys
+from collections.abc import Collection, Sequence
 from dataclasses import asdict, dataclass
 from enum import StrEnum
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from time import sleep
 from typing import TYPE_CHECKING, Literal, Protocol
 from urllib.parse import urlsplit
@@ -35,6 +36,7 @@ from pipeline.report import (
     RunRejectionCode,
     parse_risk_input_diagnostics,
 )
+from pipeline.schemas.registry import DATASETS, DatasetSpec
 from pipeline.settings import Settings
 from pipeline.storage.bls_snapshot import SnapshotError as BlsSnapshotError
 from pipeline.storage.cloud_bls import _decode as decode_bls
@@ -50,6 +52,104 @@ if TYPE_CHECKING:
 
 CloudMode = Literal["scheduled", "code-only"]
 _PAGES_POINTER_RETRY_DELAYS = (0.25, 0.5)
+
+
+@dataclass(frozen=True)
+class ReusePlan:
+    reason: Literal["code_only_compatible"] = "code_only_compatible"
+
+
+@dataclass(frozen=True)
+class CollectPlan:
+    reason: Literal["initial_bootstrap", "scheduled", "missing_outputs"]
+    missing_paths: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class CollectionOutputReceipt:
+    latest_paths: frozenset[str]
+
+
+RefreshPlan = ReusePlan | CollectPlan
+
+
+def expected_latest_outputs(specs: Sequence[DatasetSpec] = DATASETS) -> frozenset[str]:
+    return frozenset(
+        f"latest/{filename}"
+        for spec in specs
+        if spec.required or spec.full_run
+        for filename in spec.filenames
+    )
+
+
+def choose_refresh_plan(*, mode: CloudMode, available_paths: Collection[str] | None) -> RefreshPlan:
+    if mode == "scheduled":
+        return CollectPlan("scheduled")
+    if mode != "code-only":
+        raise ValueError("Unsupported cloud refresh mode")
+    if available_paths is None:
+        return CollectPlan("initial_bootstrap")
+    missing_paths = tuple(sorted(expected_latest_outputs() - set(available_paths)))
+    if missing_paths:
+        return CollectPlan("missing_outputs", missing_paths)
+    return ReusePlan()
+
+
+def _valid_latest_output_path(value: str) -> bool:
+    if not isinstance(value, str):
+        return False
+    path = PurePosixPath(value)
+    return (
+        value == path.as_posix()
+        and not path.is_absolute()
+        and len(path.parts) >= 2
+        and path.parts[0] == "latest"
+        and all(part not in {"", ".", ".."} for part in path.parts)
+        and "\\" not in value
+        and "\x00" not in value
+    )
+
+
+def _read_collection_output_receipt(artifacts_dir: Path) -> CollectionOutputReceipt:
+    reports = sorted((artifacts_dir / "logs").glob("run-report-*.json"))
+    if len(reports) != 1:
+        raise CloudRefreshError("Approved-source collection omitted registered latest outputs")
+    try:
+        report = load_json_rejecting_duplicates(reports[0].read_bytes())
+    except (OSError, ValueError, UnicodeError) as exc:
+        raise CloudRefreshError(
+            "Approved-source collection omitted registered latest outputs"
+        ) from exc
+    if not isinstance(report, dict):
+        raise CloudRefreshError("Approved-source collection omitted registered latest outputs")
+    if report.get("command") != "full" or report.get("ok") is not True:
+        raise CloudRefreshError("Approved-source collection omitted registered latest outputs")
+    values = report.get("written_latest_outputs")
+    if (
+        not isinstance(values, list)
+        or any(
+            not isinstance(value, str) or not _valid_latest_output_path(value) for value in values
+        )
+        or len(values) != len(set(values))
+    ):
+        raise CloudRefreshError("Approved-source collection omitted registered latest outputs")
+    return CollectionOutputReceipt(frozenset(values))
+
+
+def _validate_collection_outputs(
+    data_dir: Path,
+    receipt: CollectionOutputReceipt,
+    expected_paths: frozenset[str],
+) -> None:
+    if not isinstance(receipt, CollectionOutputReceipt) or any(
+        not _valid_latest_output_path(path) for path in receipt.latest_paths
+    ):
+        raise CloudRefreshError("Approved-source collection omitted registered latest outputs")
+    if any(
+        path not in receipt.latest_paths or not (data_dir / path).is_file()
+        for path in expected_paths
+    ):
+        raise CloudRefreshError("Approved-source collection omitted registered latest outputs")
 
 
 class CloudRefreshError(ValueError):
@@ -72,6 +172,7 @@ class RefreshStage(StrEnum):
 class RefreshFailureCode(StrEnum):
     REFRESH_FAILED = "refresh_failed"
     CHILD_EXIT_NONZERO = "child_exit_nonzero"
+    REGISTERED_OUTPUTS_MISSING = "registered_outputs_missing"
 
 
 @dataclass(frozen=True)
@@ -136,6 +237,23 @@ class RefreshDiagnostics:
     collection: CollectionSummary | None = None
     candidate_stage_code: CandidateStageCode | None = None
 
+    def record_plan(self, mode: CloudMode, plan: RefreshPlan) -> None:
+        if not self.enabled:
+            return
+        payload: dict[str, object] = {
+            "event": "cloud_refresh.plan",
+            "mode": mode,
+            "action": "reuse" if isinstance(plan, ReusePlan) else "collect",
+            "reason": plan.reason,
+        }
+        if isinstance(plan, CollectPlan):
+            payload["missing_output_count"] = len(plan.missing_paths)
+        print(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")),
+            file=sys.stderr,
+            flush=True,
+        )
+
     def enter(self, stage: RefreshStage) -> None:
         self.stage = stage
         if self.enabled:
@@ -158,6 +276,9 @@ class RefreshDiagnostics:
 
     def record_candidate_stage_failure(self, code: CandidateStageCode) -> None:
         self.candidate_stage_code = code
+
+    def record_missing_registered_outputs(self) -> None:
+        self.failure_code = RefreshFailureCode.REGISTERED_OUTPUTS_MISSING
 
     def emit_failure(self) -> None:
         if not self.enabled:
@@ -445,7 +566,9 @@ def _verify_checkout(settings: Settings, revision: str) -> None:
         )
 
 
-def _collect_approved(settings: Settings, *, diagnostics: RefreshDiagnostics | None = None) -> None:
+def _collect_approved(
+    settings: Settings, *, diagnostics: RefreshDiagnostics | None = None
+) -> CollectionOutputReceipt:
     if not settings.cloud_state_repo or settings.cloud_state_token is None:
         raise CloudRefreshError("Cloud state repository and token are required")
     env = {key: value for key, value in os.environ.items() if not key.startswith("DATA_")}
@@ -466,6 +589,12 @@ def _collect_approved(settings: Settings, *, diagnostics: RefreshDiagnostics | N
             "DATA_TREASURY_CHECKPOINT_PATH": settings.treasury_checkpoint_path,
         }
     )
+    eia_api_key = (
+        settings.eia_api_key.get_secret_value().strip()
+        if settings.eia_api_key is not None else ""
+    )
+    if eia_api_key:
+        env["DATA_EIA_API_KEY"] = eia_api_key
     result = subprocess.run(
         [sys.executable, "-m", "pipeline.run", "--full"],
         cwd=settings.project_root,
@@ -481,6 +610,12 @@ def _collect_approved(settings: Settings, *, diagnostics: RefreshDiagnostics | N
                 result.returncode, _read_collection_summary(settings.artifacts_dir)
             )
         raise CloudRefreshError("Approved-source collection or risk calculation failed")
+    try:
+        return _read_collection_output_receipt(settings.artifacts_dir)
+    except CloudRefreshError:
+        if diagnostics is not None:
+            diagnostics.record_missing_registered_outputs()
+        raise
 
 
 def refresh_cloud(
@@ -518,6 +653,7 @@ def refresh_cloud(
     workspace.mkdir(parents=True, exist_ok=False)
     store = workspace / "store"
     restored = None
+    manifest = None
     if state.deployed:
         if diagnostics is not None:
             diagnostics.enter(RefreshStage.GENERATION_RESTORE)
@@ -529,7 +665,13 @@ def refresh_cloud(
             raise CloudRefreshError("Restored generation does not match checkpoint")
     parent = state.deployed.generation_id if state.deployed else None
     collection_logs_dir = None
-    if restored is not None and mode == "code-only":
+    plan = choose_refresh_plan(
+        mode=mode,
+        available_paths=set(manifest["files"]) if manifest is not None else None,
+    )
+    if diagnostics is not None:
+        diagnostics.record_plan(mode, plan)
+    if restored is not None and isinstance(plan, ReusePlan):
         pointer = publish_reused_generation(
             store,
             GenerationSource(restored, state.deployed.manifest_sha256),
@@ -556,9 +698,9 @@ def refresh_cloud(
         )
         if diagnostics is not None:
             diagnostics.enter(RefreshStage.APPROVED_SOURCE_COLLECTION)
-            _collect_approved(isolated, diagnostics=diagnostics)
+            receipt = _collect_approved(isolated, diagnostics=diagnostics)
         else:
-            _collect_approved(isolated)
+            receipt = _collect_approved(isolated)
         if diagnostics is not None:
             diagnostics.enter(RefreshStage.PROVIDER_CHECKPOINT_RECHECK)
         _require_provisioned_provider_state(checkpoint, paths)
@@ -566,6 +708,13 @@ def refresh_cloud(
 
         if diagnostics is not None:
             diagnostics.enter(RefreshStage.CANDIDATE_STAGING)
+        if isinstance(plan, CollectPlan):
+            try:
+                _validate_collection_outputs(data, receipt, expected_latest_outputs())
+            except CloudRefreshError:
+                if diagnostics is not None:
+                    diagnostics.record_missing_registered_outputs()
+                raise
         try:
             pointer = stage_candidate(
                 data, store, parent_id=parent, revision=app_revision, created_at=now_utc()

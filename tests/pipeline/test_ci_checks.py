@@ -20,6 +20,7 @@ from typing import Any
 import pytest
 
 from pipeline.collectors.macro import SERIES_GROUPS
+from pipeline.schemas import registry
 from pipeline.validation.ci_checks import (
     ENVELOPE_MODELS,
     STANDALONE_MODELS,
@@ -52,6 +53,9 @@ from tests.pipeline.factories import (
 )
 
 ENVELOPE_FILENAMES: list[str] = sorted(ENVELOPE_MODELS)
+REQUIRED_ENVELOPE_FILENAMES: list[str] = sorted(
+    name for name, spec in registry.enveloped_specs().items() if registry.BY_FILENAME[name].required
+)
 STANDALONE_FILENAMES: list[str] = sorted(STANDALONE_MODELS)
 
 
@@ -206,7 +210,7 @@ def test_required_file_missing(empty_data_dir: Path, now: datetime) -> None:
     assert any("file missing (required dataset)" in e for e in report.errors), report.errors
 
 
-@pytest.mark.parametrize("filename", ENVELOPE_FILENAMES)
+@pytest.mark.parametrize("filename", REQUIRED_ENVELOPE_FILENAMES)
 def test_missing_single_dataset_detected(filename: str, make_data_dir: Any, now: datetime) -> None:
     """Each required dataset is individually required, not merely required as a group."""
     root = make_data_dir(latest={filename: REMOVE})

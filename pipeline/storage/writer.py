@@ -60,10 +60,12 @@ class _AtomicGroup:
         self.writer = writer
         self.outermost = False
         self._rollback_requested = False
+        self._written_latest_outputs: set[str] | None = None
 
     def __enter__(self) -> _AtomicGroup:
         if self.writer._atomic_originals is None:
             self.writer._atomic_originals = {}
+            self._written_latest_outputs = set(self.writer._written_latest_outputs)
             self.outermost = True
         return self
 
@@ -76,7 +78,11 @@ class _AtomicGroup:
             return False
         try:
             if exc_type is not None or self._rollback_requested:
-                self.writer._restore_atomic_group()
+                try:
+                    self.writer._restore_atomic_group()
+                finally:
+                    if self._written_latest_outputs is not None:
+                        self.writer._written_latest_outputs = self._written_latest_outputs
         finally:
             self.writer._atomic_originals = None
         return False
@@ -92,11 +98,16 @@ class StorageWriter:
     def __init__(self, data_dir: Path) -> None:
         self.data_dir = data_dir
         self._atomic_originals: dict[Path, tuple[bytes, int] | None] | None = None
+        self._written_latest_outputs: set[str] = set()
         self.latest_dir = data_dir / "latest"
         self.history_dir = data_dir / "history"
         self.metadata_dir = data_dir / "metadata"
         for d in (self.latest_dir, self.history_dir, self.metadata_dir):
             d.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def written_latest_outputs(self) -> frozenset[str]:
+        return frozenset(self._written_latest_outputs)
 
     def atomic_group(self) -> _AtomicGroup:
         """Group file writes and restore the prior set when the operation fails.
@@ -176,11 +187,15 @@ class StorageWriter:
 
     def write_dataset(self, name: str, envelope: BaseEnvelope) -> Path:
         """latest/{name}.json (envelope structure)."""
-        return self.write_json(self.latest_dir / f"{name}.json", envelope.model_dump(mode="json"))
+        path = self.write_json(self.latest_dir / f"{name}.json", envelope.model_dump(mode="json"))
+        self._written_latest_outputs.add(path.relative_to(self.data_dir).as_posix())
+        return path
 
     def write_standalone(self, name: str, obj: Any) -> Path:
         """Self-describing contract file (facts/analysis/news-translations)."""
-        return self.write_json(self.latest_dir / f"{name}.json", obj)
+        path = self.write_json(self.latest_dir / f"{name}.json", obj)
+        self._written_latest_outputs.add(path.relative_to(self.data_dir).as_posix())
+        return path
 
     # ---- History + slices ----
 

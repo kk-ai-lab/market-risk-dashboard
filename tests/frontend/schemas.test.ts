@@ -25,6 +25,7 @@ import {
   CalendarEnvelope,
   CryptoEnvelope,
   DashboardEnvelope,
+  EnergyEnvelope,
   EquitiesEnvelope,
   FactLayer,
   MacroEnvelope,
@@ -47,6 +48,7 @@ import {
   cryptoFixture,
   dashboardFixture,
   equitiesFixture,
+  energyFixture,
   macroFixture,
   newsFixture,
   sectorsFixture,
@@ -58,6 +60,7 @@ const ENVELOPE_CASES: Array<[string, unknown, z.ZodTypeAny]> = [
   ["equities", equitiesFixture, EquitiesEnvelope],
   ["sectors", sectorsFixture, SectorsEnvelope],
   ["crypto", cryptoFixture, CryptoEnvelope],
+  ["energy", energyFixture, EnergyEnvelope],
   ["news", newsFixture, NewsEnvelope],
   ["calendar", calendarFixture, CalendarEnvelope],
   ["risk", riskFixture, RiskEnvelope],
@@ -89,6 +92,12 @@ describe("Zod contract: documents pass", () => {
   it("analysis.zh-CN.json / analysis.en.json parse as AnalysisDataset", () => {
     expect(AnalysisDataset.safeParse(analysisZhFixture).success).toBe(true);
     expect(AnalysisDataset.safeParse(analysisEnFixture).success).toBe(true);
+  });
+
+  it("energy period dates are strict calendar dates", () => {
+    const invalid = structuredClone(energyFixture) as { payload: { observations: Array<{ week_ending: string; value: number }> } };
+    invalid.payload.observations = [{ week_ending: "2026-13-40", value: 1 }];
+    expect(EnergyEnvelope.safeParse(invalid).success).toBe(false);
   });
 });
 

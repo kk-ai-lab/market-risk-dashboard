@@ -5,6 +5,7 @@ import {
   CommoditiesEnvelope,
   CryptoEnvelope,
   DashboardEnvelope,
+  EnergyEnvelope,
   EquitiesEnvelope,
   FactLayer,
   MacroEnvelope,
@@ -49,6 +50,7 @@ export type DatasetSchemaKey =
   | "sectors"
   | "crypto"
   | "commodities"
+  | "energy"
   | "news"
   | "calendar"
   | "risk"
@@ -67,6 +69,7 @@ export const DATASET_SCHEMAS: Record<DatasetSchemaKey, z.ZodTypeAny> = {
   sectors: SectorsEnvelope,
   crypto: CryptoEnvelope,
   commodities: CommoditiesEnvelope,
+  energy: EnergyEnvelope,
   news: NewsEnvelope,
   calendar: CalendarEnvelope,
   risk: RiskEnvelope,

@@ -19,6 +19,7 @@ expectations:
   crypto: { interval_minutes: 480, note: "Crypto 2-3 times/day, alongside market" }
   commodities:
     { interval_minutes: 480, note: "Commodities futures (gold/silver/copper/oil) alongside market" }
+  energy: { interval_minutes: 15, note: "Cloud checks every 15 minutes; EIA WCESTUS1 observations are weekly" }
   macro:
     { interval_minutes: 240, note: "Macro 2-4h (FRED is actually T+1; judged by release schedule)" }
   calendar: { interval_minutes: 15, note: "Cloud release-schedule check every 15 minutes; publication dates follow each source" }
@@ -47,6 +48,8 @@ providers:
     - { name: fmp_quotes, priority: 2, max_concurrency: 1, min_interval_ms: 1000 }
   macro:
     - { name: fred, priority: 1, max_concurrency: 2, min_interval_ms: 600 }
+  energy:
+    - { name: eia, priority: 1, max_concurrency: 1, min_interval_ms: 1000 }
   fedwatch:
     - { name: fedwatch, priority: 1, max_concurrency: 1, min_interval_ms: 1000 }
   crypto:

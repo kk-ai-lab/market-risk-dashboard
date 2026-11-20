@@ -18,6 +18,7 @@ from pipeline.providers.coinmetrics import CoinMetricsProvider
 from pipeline.providers.fedwatch import FedWatchProvider
 from pipeline.providers.fmp import FmpProvider, FmpQuotesProvider
 from pipeline.providers.fred import FredProvider
+from pipeline.providers.eia import EiaProvider
 from pipeline.providers.fred_calendar import FredCalendarProvider
 from pipeline.providers.nasdaq import NasdaqCalendarProvider
 from pipeline.providers.rss_news import RssNewsProvider
@@ -32,6 +33,7 @@ _PROVIDER_CLASSES: dict[str, type[BaseProvider]] = {
     "yfinance": YahooProvider,
     "yfinance_a_share": YahooAShareProvider,
     "fred": FredProvider,
+    "eia": EiaProvider,
     "coingecko": CoinGeckoProvider,
     "coinmetrics": CoinMetricsProvider,
     "fmp": FmpProvider,
@@ -128,6 +130,7 @@ __all__ = [
     "FredCalendarProvider",
     "FedWatchProvider",
     "FredProvider",
+    "EiaProvider",
     "HistoryResult",
     "NasdaqCalendarProvider",
     "ProviderError",

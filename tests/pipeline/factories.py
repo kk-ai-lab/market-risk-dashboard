@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -67,6 +67,7 @@ __all__ = [
     "make_envelope",
     "make_equities_payload",
     "make_equity_asset",
+    "make_energy_payload",
     "make_evidence_ref",
     "make_facts",
     "make_fedwatch_history",
@@ -133,12 +134,12 @@ def _build(defaults: dict[str, Any], overrides: Mapping[str, Any]) -> dict[str, 
 # Frozen clock
 # --------------------------------------------------------------------------------------
 
-DEFAULT_NOW: datetime = datetime(2026, 8, 4, 12, 0, 0, tzinfo=timezone.utc)
+DEFAULT_NOW: datetime = datetime(2026, 8, 4, 12, 0, 0, tzinfo=UTC)
 
 
 def iso(moment: datetime) -> str:
     """Format an aware datetime as the ISO 8601 UTC + Z string the contracts require."""
-    return moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def ago(minutes: float, *, base: datetime = DEFAULT_NOW) -> str:
@@ -659,6 +660,21 @@ def make_dashboard_payload(**overrides: Any) -> dict[str, Any]:
     )
 
 
+def make_energy_payload(**overrides: Any) -> dict[str, Any]:
+    return _build(
+        {
+            "series_id": "WCESTUS1",
+            "unit": "thousand_barrels",
+            "observations": [{"week_ending": "2026-08-03", "value": 420_000.0}],
+            "collection_status": "available",
+            "observation_age": "within_window",
+            "last_attempt_at": NOW_ISO,
+            "last_successful_fetch_at": NOW_ISO,
+        },
+        overrides,
+    )
+
+
 #: Logical dataset name -> payload builder. Envelope datasets only.
 PAYLOAD_BUILDERS: dict[str, Callable[..., dict[str, Any]]] = {
     "macro": make_macro_payload,
@@ -666,6 +682,7 @@ PAYLOAD_BUILDERS: dict[str, Callable[..., dict[str, Any]]] = {
     "sectors": make_sectors_payload,
     "crypto": make_crypto_payload,
     "commodities": make_commodities_payload,
+    "energy": make_energy_payload,
     "news": make_news_payload,
     "calendar": make_calendar_payload,
     "risk": make_risk_payload,
@@ -682,6 +699,7 @@ _ENVELOPE_SOURCE: dict[str, Any] = {
     "sectors": ["yfinance"],
     "crypto": ["coingecko"],
     "commodities": ["yfinance"],
+    "energy": "eia",
     "news": ["rss"],
     "calendar": ["fmp"],
     "risk": "pipeline.risk",
