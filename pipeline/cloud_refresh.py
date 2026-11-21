@@ -365,6 +365,7 @@ class CloudPaths:
     publication: str = "publication.json"
     bls: str = "bls/ledger.json"
     treasury: str = "treasury/ledger.json"
+    fred: str = "fred/snapshot.json"
 
 
 @dataclass(frozen=True)
@@ -577,6 +578,7 @@ def _collect_approved(
             "DATA_APPROVED_SOURCES_ONLY": "true",
             "DATA_BLS_CLOUD_ENABLED": "true",
             "DATA_TREASURY_CLOUD_ENABLED": "true",
+            "DATA_FRED_CLOUD_ENABLED": "true",
             "DATA_COINMETRICS_ENABLED": "true",
             "DATA_DATA_DIR": str(settings.data_dir),
             "DATA_ARTIFACTS_DIR": str(settings.artifacts_dir),
@@ -587,6 +589,7 @@ def _collect_approved(
             "DATA_CLOUD_STATE_TOKEN": settings.cloud_state_token.get_secret_value(),
             "DATA_BLS_CHECKPOINT_PATH": settings.bls_checkpoint_path,
             "DATA_TREASURY_CHECKPOINT_PATH": settings.treasury_checkpoint_path,
+            "DATA_FRED_CHECKPOINT_PATH": settings.fred_checkpoint_path,
         }
     )
     eia_api_key = (
@@ -595,6 +598,12 @@ def _collect_approved(
     )
     if eia_api_key:
         env["DATA_EIA_API_KEY"] = eia_api_key
+    fred_api_key = (
+        settings.fred_api_key.get_secret_value().strip()
+        if settings.fred_api_key is not None else ""
+    )
+    if fred_api_key:
+        env["DATA_FRED_API_KEY"] = fred_api_key
     result = subprocess.run(
         [sys.executable, "-m", "pipeline.run", "--full"],
         cwd=settings.project_root,
@@ -692,8 +701,10 @@ def refresh_cloud(
                 "approved_sources_only": True,
                 "bls_cloud_enabled": True,
                 "treasury_cloud_enabled": True,
+                "fred_cloud_enabled": True,
                 "bls_checkpoint_path": paths.bls,
                 "treasury_checkpoint_path": paths.treasury,
+                "fred_checkpoint_path": paths.fred,
             }
         )
         if diagnostics is not None:
@@ -765,6 +776,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.work_dir,
                 bls=settings.bls_checkpoint_path,
                 treasury=settings.treasury_checkpoint_path,
+                fred=settings.fred_checkpoint_path,
             ),
             settings=settings,
             restorer=PagesGenerationRestorer(args.site_url),

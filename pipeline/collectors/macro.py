@@ -27,6 +27,7 @@ from pipeline.fedwatch import (
     save_history,
 )
 from pipeline.fred_access import Configured, NotConfigured, fred_access
+from pipeline.storage.fred_snapshot import FredSnapshot
 from pipeline.metadata import oldest_source_timestamp, quality_for_outcomes
 from pipeline.config.models import ApprovedCollectionPlan
 from pipeline.providers.base import ProviderError, ProviderRegistry
@@ -75,11 +76,12 @@ MACRO_LOOKBACK_DAYS = 5 * 365
 
 
 class MacroCollector:
-    def __init__(self, registry: ProviderRegistry, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None, bls_snapshot: BlsSnapshot | None = None, treasury_snapshot: TreasurySnapshot | None = None, source_errors: dict[str, str] | None = None) -> None:
+    def __init__(self, registry: ProviderRegistry, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None, bls_snapshot: BlsSnapshot | None = None, treasury_snapshot: TreasurySnapshot | None = None, fred_snapshot: FredSnapshot | None = None, source_errors: dict[str, str] | None = None) -> None:
         self.registry = registry
         self.settings = settings or Settings()
         self.fred_access = fred_access(self.settings)
         self._fred_not_configured = isinstance(self.fred_access, NotConfigured)
+        self.fred_snapshot = fred_snapshot
         self.collection_plan = collection_plan or (
             self.settings.load_public_source_policy().collection_plan()
             if self.settings.approved_sources_only else None
@@ -178,7 +180,23 @@ class MacroCollector:
                     self._degraded_sources.add("treasury")
                     self.degraded.append(f"Treasury {series_id}: degraded snapshot")
             elif grant is not None and grant.provider == "fred":
-                rows = self._fred_series(series_id) if isinstance(self.fred_access, Configured) else []
+                if self.fred_snapshot is not None:
+                    state = self.fred_snapshot.series.get(series_id)
+                    rows = (
+                        [
+                            {"date": observation.date.isoformat(), "value": observation.value}
+                            for observation in state.rows
+                        ]
+                        if state is not None else []
+                    )
+                    self.series_history[series_id.lower()] = rows
+                    if state is not None and state.access == "failed":
+                        self._degraded_sources.add("fred")
+                        self.degraded.append(f"FRED {series_id}: last-good observations after a failed fetch")
+                elif isinstance(self.fred_access, Configured):
+                    rows = self._fred_series(series_id)
+                else:
+                    rows = []
                 if self._fred_not_configured:
                     self._degraded_sources.add("fred")
             elif self.collection_plan is not None and bls is None:
@@ -238,6 +256,18 @@ class MacroCollector:
             )
             group = _group_of(series_id)
             groups[group].append(indicator)
+        if self.fred_snapshot is not None:
+            failed = sorted(
+                series_id for series_id, state in self.fred_snapshot.series.items()
+                if state.access == "failed"
+            )
+            self.provider_status["fred"] = {
+                "provider": "fred",
+                "degraded": bool(failed),
+                "failed_series": failed,
+            }
+            if failed:
+                self._degraded_sources.add("fred")
         return MacroDataset(
             rates=groups["rates"],
             credit=groups["credit"],
