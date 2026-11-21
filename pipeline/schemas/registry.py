@@ -30,6 +30,7 @@ from pipeline.schemas.commodities import CommoditiesEnvelope
 from pipeline.schemas.crypto import CryptoEnvelope
 from pipeline.schemas.dashboard import DashboardEnvelope
 from pipeline.schemas.equities import EquitiesEnvelope
+from pipeline.schemas.energy import EnergyEnvelope
 from pipeline.schemas.factlayer import FactLayer
 from pipeline.schemas.macro import MacroEnvelope
 from pipeline.schemas.news import NewsEnvelope, NewsTranslationsDataset
@@ -45,9 +46,8 @@ class DatasetSpec:
     other datasets rather than fetched. It is what lets ``freshness.json`` (keyed by dataset)
     and ``sources.json`` (keyed by domain) be rendered as two projections of one record.
 
-    ``required`` means "a full run must produce this". ``analysis`` and ``news_translations``
-    are produced by the AI automations rather than the collection run, so their absence is a
-    degraded mode, not a failure.
+    ``required`` means "a full run must produce this". Historical ``analysis`` and
+    ``news_translations`` contracts remain optional for archival tools.
 
     ``row_counted`` marks datasets whose payload has a meaningful row cardinality. Derived
     datasets like ``risk`` and ``dashboard`` are always a single object, so asking whether they
@@ -70,6 +70,7 @@ class DatasetSpec:
     required: bool
     row_counted: bool
     row_key: str | None = None
+    full_run: bool = False
 
 
 #: The canonical dataset vocabulary. Adding a dataset means adding it here and nowhere else.
@@ -116,6 +117,17 @@ DATASETS: tuple[DatasetSpec, ...] = (
         required=True,
         row_counted=True,
         row_key="assets",
+    ),
+    DatasetSpec(
+        key="energy",
+        filenames=("energy.json",),
+        model=EnergyEnvelope,
+        enveloped=True,
+        domain="energy",
+        required=False,
+        row_counted=True,
+        row_key="observations",
+        full_run=True,
     ),
     DatasetSpec(
         key="macro",
@@ -208,6 +220,9 @@ NON_DATASET_SUFFIXES: tuple[str, ...] = (".gz", ".br")
 
 CANONICAL_KEYS: tuple[str, ...] = tuple(spec.key for spec in DATASETS)
 
+# Historical contracts remain readable, but data collection no longer produces or requires them.
+LEGACY_AI_DATASET_KEYS: frozenset[str] = frozenset({"analysis", "news_translations"})
+
 #: dataset key → provider domain, for the datasets that are actually fetched.
 DATASET_DOMAIN: dict[str, str] = {
     spec.key: spec.domain for spec in DATASETS if spec.domain is not None
@@ -220,6 +235,7 @@ DATASET_DOMAIN: dict[str, str] = {
 #: run (the E-1 class of misleading metadata this repo has been closing).
 EXTRA_DOMAIN_DATASETS: dict[str, tuple[str, ...]] = {
     "economic": ("calendar",),
+    "bea_calendar": ("calendar",),
 }
 
 #: provider domain → the dataset keys it serves. The inverse of :data:`DATASET_DOMAIN` (+

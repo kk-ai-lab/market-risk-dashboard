@@ -1,0 +1,75 @@
+schema_version: "1.0.0"
+
+sources:
+  coinmetrics:
+    provider: coinmetrics
+    registry_domain: crypto
+    datasets: [crypto]
+    macro_series: []
+    market_symbols: [BTC, ETH, SOL, ADA, XRP, DOGE, BNB, LINK, LTC, AVAX]
+    license_id: CC-BY-NC-4.0
+    license_url: https://creativecommons.org/licenses/by-nc/4.0/
+    attribution: "Data provided by Coin Metrics Community Network Data. Modified from source."
+    permitted_use: noncommercial
+    cadence_minutes: 15
+  bls:
+    provider: bls
+    registry_domain: null
+    datasets: [macro]
+    macro_series: [CPIAUCSL, CPILFESL, PAYEMS, UNRATE]
+    market_symbols: []
+    license_id: public-domain
+    license_url: https://www.bls.gov/opub/copyright-information.htm
+    attribution: "U.S. Bureau of Labor Statistics"
+    permitted_use: public-domain
+    cadence_minutes: 1440
+  treasury:
+    provider: treasury
+    registry_domain: null
+    datasets: [macro]
+    macro_series: [DGS2, DGS10]
+    market_symbols: []
+    license_id: CC0-1.0
+    license_url: https://catalog.data.gov/dataset/interest-rate-statistics-daily-treasury-yield-curve-rates
+    attribution: "U.S. Department of the Treasury, Daily Treasury Yield Curve Rates"
+    permitted_use: public-domain
+    cadence_minutes: 1440
+  fred:
+    provider: fred
+    registry_domain: macro
+    datasets: [macro]
+    macro_series: [VIXCLS, DFII10, DFF, PCEPILFE, T5YIFR, T10YIE, ICSA, CCSA, CIVPART,
+                   WALCL, WRESBAL, WTREGEN, RRPONTSYD, SOFR, DTWEXBGS, DTWEXAFEGS, DEXUSEU, DEXJPUS, DEXCHUS]
+    market_symbols: []
+    license_id: FRED-citation-required
+    license_url: https://fred.stlouisfed.org/legal/
+    attribution: "Cboe via FRED; Moody's via FRED; Federal Reserve Bank of St. Louis (FRED)"
+    series_attribution:
+      VIXCLS: "Cboe via FRED"
+    permitted_use: personal-use
+    accepted_by: Kai
+    accepted_on: 2026-11-20
+    cadence_minutes: 60
+  eia_weekly_crude_inventory:
+    provider: eia
+    registry_domain: energy
+    datasets: [energy]
+    macro_series: []
+    market_symbols: []
+    energy_series: [WCESTUS1]
+    license_id: public-domain
+    license_url: https://www.eia.gov/about/copyrights_reuse.php
+    attribution: "U.S. Energy Information Administration, Weekly U.S. Ending Stocks of Crude Oil Excluding SPR (WCESTUS1)"
+    permitted_use: public-domain
+    cadence_minutes: 15
+  bea_calendar:
+    provider: bea_calendar
+    registry_domain: bea_calendar
+    datasets: [calendar]
+    macro_series: []
+    market_symbols: []
+    license_id: public-domain
+    license_url: https://www.bea.gov/help/faq/147
+    attribution: "Source: U.S. Bureau of Economic Analysis. This product uses the Bureau of Economic Analysis (BEA) Data API but is not endorsed or certified by BEA."
+    permitted_use: public-domain
+    cadence_minutes: 15

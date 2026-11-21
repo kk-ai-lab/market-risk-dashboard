@@ -1,4 +1,10 @@
-# Weekend is news-only; holidays gate per market
+---
+status: superseded
+---
+
+# Weekend and holiday news-only schedule
+
+> Superseded for dashboard scheduling on 2026-11-15. The GitHub Pages workflow now defines the intended 15-minute cloud attempt. GitHub runs scheduled workflows only from the default branch, and cloud publication also requires provisioned state. This ADR remains as a record of the former local schedule. It does not cancel external WorkBuddy tasks. The weekend translation gap-fill is retired because the pipeline no longer generates translations.
 
 The five MRD automations ran `FREQ=DAILY` — every day of the week, at 04:30 / 11:30 / 12:30 / 20:30 / 21:30 Dublin. On Saturdays and Sundays that meant the pre-market brief summarized a closed market, the post-market brief summarized a market that never opened, and both pipeline refreshes fetched flat sessions and committed Friday's numbers twice. Work nobody reads, produced on schedule. The request was simple: weekends run only the news refresh. The same reasoning one day removed is an exchange holiday — a Thursday on which the NYSE never opens deserves the same treatment as a Sunday, and the RRULE language cannot express either "not Saturday" or "not Thanksgiving". So the two problems get two mechanisms:
 

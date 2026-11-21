@@ -1,4 +1,5 @@
 import type { FreshnessStatus, MarketRegime, RiskLevel } from "@/schemas";
+import { CONTRACT_CONSTANTS } from "@/schemas/generated";
 
 /**
  * Semantic color families (ADR-0002; architecture §8.6).
@@ -13,6 +14,16 @@ import type { FreshnessStatus, MarketRegime, RiskLevel } from "@/schemas";
 /* ================= Risk family (risk level + regime) ================= */
 
 export type RiskTone = "low" | "caution" | "high" | "severe" | "na";
+
+export function riskLevelForScore(score: number): RiskLevel {
+  const thresholds = CONTRACT_CONSTANTS.risk_level_thresholds;
+  if (score >= thresholds.crisis.gte) return "crisis";
+  if (score >= thresholds.severe_risk.gte) return "severe_risk";
+  if (score >= thresholds.high_risk.gte) return "high_risk";
+  if (score >= thresholds.caution.gte) return "caution";
+  if (score >= thresholds.low_risk.gte) return "low_risk";
+  return "risk_on";
+}
 
 /** Risk level → semantic color. */
 export function riskLevelTone(level: RiskLevel): RiskTone {

@@ -27,10 +27,11 @@ from pipeline.providers.base import (
     PERMANENT,
     RATE_LIMITED,
     TRANSIENT,
-    GuardedClient,
     CircuitBreaker,
+    GuardedClient,
     HostRateLimiter,
     NewsRow,
+    PartialProviderResult,
     ProviderError,
     ProviderHealth,
     ProviderRegistry,
@@ -384,6 +385,44 @@ def _registry(tmp_path: Path, provider: _FakeProvider) -> ProviderRegistry:
     registry.cache_dir.mkdir(parents=True, exist_ok=True)
     registry.register(provider.domain, provider)
     return registry
+
+
+def _quote_at(price: float) -> QuoteResult:
+    return QuoteResult(symbol="SYM", price=price, source="fake", provider="fake", updated_at=now_utc())
+
+
+def test_registry_marks_partial_result_degraded_and_preserves_last_good_cache(tmp_path: Path) -> None:
+    provider = _FakeProvider()
+    provider.results = [
+        _quote_at(1.0),
+        PartialProviderResult(result=_quote_at(2.0), errors=("FRED release 10 failed (transient)",)),
+        ProviderError("provider unavailable", cls=PERMANENT),
+    ]
+    registry = _registry(tmp_path, provider)
+    registry.max_retries = 0
+
+    initial = registry.call("test", "get_quote", "q_partial", args=("SYM",))
+    partial = registry.call("test", "get_quote", "q_partial", args=("SYM",))
+    replay = registry.call("test", "get_quote", "q_partial", args=("SYM",))
+
+    assert initial["result"].price == 1.0
+    assert partial["result"].price == 2.0
+    assert partial["meta"]["degraded"] is True
+    assert partial["meta"]["errors"] == ["FRED release 10 failed (transient)"]
+    assert replay["result"].price == 1.0
+    assert replay["meta"]["from_cache"] is True
+
+
+def test_registry_keeps_empty_partial_result_degraded_and_uncached(tmp_path: Path) -> None:
+    provider = _FakeProvider()
+    provider.results = [PartialProviderResult(result=[], errors=("FOMC schedule failed (transient)",))]
+    registry = _registry(tmp_path, provider)
+
+    outcome = registry.call("test", "get_quote", "q_empty_partial", args=("SYM",))
+
+    assert outcome["result"] == []
+    assert outcome["meta"]["degraded"] is True
+    assert not (registry.cache_dir / "test__q_empty_partial.json").exists()
 
 
 def test_registry_retries_transient_then_succeeds(tmp_path: Path) -> None:

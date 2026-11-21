@@ -16,17 +16,18 @@
     "provisional": "Provisional",
     "calibrated": "Out-of-sample calibrated",
     "version": "Policy version",
-    "explanation": "Current weights and risk bands are retained. Refitting is gated until point-in-time source vintages and regime-labelled out-of-sample evidence are available."
+    "explanation": "Existing dimension weights and risk bands are retained. The labor signal uses a provisional weight and threshold mapping. Refitting is gated until point-in-time source vintages and regime-labelled out-of-sample evidence are available."
   },
   "evidence": {
     "title": "Evidence state",
     "complete": "Complete evidence",
     "partial": "Partial evidence",
     "insufficient": "Insufficient evidence",
+    "unknown": "Evidence status unknown",
     "coverage": "Effective coverage",
     "scoreRange": "Evidence score range",
-    "missingIndicators": "Missing indicators",
-    "explanation": "The score remains a point estimate; the range shows how missing indicators could change it."
+    "missingIndicators": "Missing or excluded indicators",
+    "explanation": "The score is a point estimate. The range only shows the effect of extreme values for missing indicators; it excludes model error, proxy error and statistical uncertainty."
   },
   "level": {
     "riskOn": "Risk On",
@@ -67,7 +68,7 @@
     "coverage": "Coverage",
     "trend": "Trend",
     "indicators": "Indicators",
-    "disclaimer": "When a dimension is missing, its weight is re-normalized across remaining dimensions. Availability and trust-adjusted coverage are shown separately."
+    "disclaimer": "When a dimension is missing, its weight is re-normalized across remaining dimensions. Excluded inputs count as missing evidence. Availability and trust-adjusted coverage are shown separately."
   },
   "crossAssetSignals": {
     "title": "Governed cross-asset diagnostics",
@@ -126,9 +127,27 @@
     "direction": "Direction",
     "weight": "Weight",
     "source": "Source",
+    "observationPeriod": "Observation month",
+    "fetchedAt": "Retrieved",
+    "scoreExcluded": "Excluded from score",
     "updatedAt": "Updated",
     "status": "Status",
+    "freshnessUnknown": "Freshness unknown",
     "proxy": "Proxy"
+  },
+  "laborSignal": {
+    "unit": "pp",
+    "formula": "Current 3-month unemployment average minus the lowest 3-month average in the preceding 12 months.",
+    "caveat": "Calculated from revised BLS data. The score mapping is provisional and does not represent a recession probability.",
+    "historyUnavailable": "Scoring requires a matching observation month and 15 consecutive monthly observations.",
+    "sourceExcluded": "The source is stale, degraded, or unavailable, so this value does not contribute to the score or evidence coverage."
+  },
+  "breadth": {
+    "title": "Breadth sample",
+    "above200": "Above the 200-day average",
+    "newHighs": "New highs",
+    "newLows": "New lows",
+    "explanation": "Counts cover only eligible instruments in the configured sample, not the entire market."
   },
   "confidenceFactors": {
     "title": "Data-trust factors",
@@ -142,6 +161,7 @@
     "yieldCurve": "10Y-2Y Curve",
     "dollarIndex": "Dollar Index",
     "tenYearYield": "10Y Yield",
+    "sahmStyleLaborStress": "Sahm-style Labor Stress",
     "fedBalanceSheet": "Fed Balance Sheet",
     "reverseRepo": "Reverse Repo",
     "hyOas": "High-Yield OAS",

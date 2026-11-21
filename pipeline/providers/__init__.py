@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from pipeline.config.models import ConfigError
+from pipeline.config.models import ApprovedCollectionPlan, ConfigError
+from pipeline.fred_access import NotConfigured, fred_access
 from pipeline.providers.akshare_provider import AkshareProvider
 from pipeline.providers.base import (
     BaseProvider,
@@ -12,10 +13,13 @@ from pipeline.providers.base import (
     ProviderRegistry,
     QuoteResult,
 )
+from pipeline.providers.bea_calendar import BeaCalendarProvider
 from pipeline.providers.coingecko import CoinGeckoProvider
+from pipeline.providers.coinmetrics import CoinMetricsProvider
 from pipeline.providers.fedwatch import FedWatchProvider
 from pipeline.providers.fmp import FmpProvider, FmpQuotesProvider
 from pipeline.providers.fred import FredProvider
+from pipeline.providers.eia import EiaProvider
 from pipeline.providers.fred_calendar import FredCalendarProvider
 from pipeline.providers.nasdaq import NasdaqCalendarProvider
 from pipeline.providers.rss_news import RssNewsProvider
@@ -30,18 +34,21 @@ _PROVIDER_CLASSES: dict[str, type[BaseProvider]] = {
     "yfinance": YahooProvider,
     "yfinance_a_share": YahooAShareProvider,
     "fred": FredProvider,
+    "eia": EiaProvider,
     "coingecko": CoinGeckoProvider,
+    "coinmetrics": CoinMetricsProvider,
     "fmp": FmpProvider,
     "fmp_quotes": FmpQuotesProvider,
     "nasdaq": NasdaqCalendarProvider,
     "fred_calendar": FredCalendarProvider,
+    "bea_calendar": BeaCalendarProvider,
     "fedwatch": FedWatchProvider,
     "akshare": AkshareProvider,
     "rss_news": RssNewsProvider,
 }
 
 
-def build_default_providers(settings=None) -> list[BaseProvider]:
+def build_default_providers(settings=None, *, collection_plan: ApprovedCollectionPlan | None = None) -> list[BaseProvider]:
     """Build Providers from config/sources.yaml:providers — order, priority and enabled (C-3).
 
     The degradation chain used to be a hardcoded list here; it is now declared in config.
@@ -51,9 +58,40 @@ def build_default_providers(settings=None) -> list[BaseProvider]:
     :class:`~pipeline.config.models.ConfigError` before any provider is constructed.
     """
     s = settings or Settings()
+    if s.approved_sources_only:
+        plan = collection_plan or s.load_public_source_policy().collection_plan()
+        providers: list[BaseProvider] = []
+        for grant in plan.grants:
+            domain = grant.registry_domain
+            if domain is None:
+                continue
+            cls = _PROVIDER_CLASSES.get(grant.provider)
+            if cls is None:
+                raise ConfigError(
+                    f"public_sources.yaml: unknown provider {grant.provider!r}"
+                )
+            if grant.provider == "coinmetrics" and not grant.market_symbols:
+                continue
+            if grant.provider == "fred" and isinstance(fred_access(s), NotConfigured):
+                continue
+            provider = (
+                CoinMetricsProvider(s, symbols=grant.market_symbols)
+                if grant.provider == "coinmetrics" else cls(s)
+            )
+            if provider.domain != domain:
+                raise ConfigError(
+                    f"public_sources.yaml: {grant.provider!r} is a {provider.domain!r} "
+                    f"provider, not {domain!r}"
+                )
+            provider.priority = len(providers)
+            providers.append(provider)
+        return providers
     cfg = s.load_sources_config()
     providers: list[BaseProvider] = []
     for domain, entries in cfg.providers.items():
+        if domain == "crypto" and s.coinmetrics_enabled:
+            providers.append(CoinMetricsProvider(s))
+            continue
         for entry in sorted(entries, key=lambda e: e.priority):
             if not entry.enabled:
                 continue
@@ -74,10 +112,15 @@ def build_default_providers(settings=None) -> list[BaseProvider]:
     return providers
 
 
-def build_registry(settings=None) -> ProviderRegistry:
+def build_registry(settings=None, *, collection_plan: ApprovedCollectionPlan | None = None) -> ProviderRegistry:
     """Build a Registry with all Providers registered."""
-    registry = ProviderRegistry(settings)
-    registry.register_all(build_default_providers(settings))
+    s = settings or Settings()
+    plan = collection_plan or (
+        s.load_public_source_policy().collection_plan()
+        if s.approved_sources_only else None
+    )
+    registry = ProviderRegistry(s, collection_plan=plan)
+    registry.register_all(build_default_providers(s, collection_plan=plan))
     return registry
 
 
@@ -90,6 +133,7 @@ __all__ = [
     "FredCalendarProvider",
     "FedWatchProvider",
     "FredProvider",
+    "EiaProvider",
     "HistoryResult",
     "NasdaqCalendarProvider",
     "ProviderError",

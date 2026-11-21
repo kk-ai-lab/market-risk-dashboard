@@ -59,15 +59,18 @@ from pydantic.json_schema import models_json_schema  # noqa: E402
 
 import pipeline.schemas  # noqa: E402,F401  (import for the side effect: resolves forward refs)
 from pipeline.schemas import registry  # noqa: E402
+from pipeline.schemas.energy import ENERGY_OBSERVATION_WINDOW_DAYS  # noqa: E402
 from pipeline.schemas.envelope import SCHEMA_VERSION, BaseEnvelope  # noqa: E402
 from pipeline.schemas.metadata import (  # noqa: E402
     METADATA_SCHEMA_VERSION,
     FreshnessDocument,
     SourcesDocument,
 )
+from pipeline.validation.freshness import COINMETRICS_EXPECTED_MINUTES  # noqa: E402
 
 OUT_DIR = ROOT / "src" / "schemas" / "generated"
 SOURCES_YAML = ROOT / "config" / "sources.yaml"
+RISK_MODEL_YAML = ROOT / "config" / "risk_model.yaml"
 
 #: Modules scanned for module-level ``Literal[...]`` aliases. A named alias in Python becomes a
 #: named ``z.enum`` in TypeScript; without this the emitter would inline every enum and the
@@ -205,6 +208,10 @@ class Emitter:
                 if {"minLength", "maxLength"} & node.keys():
                     raise UnsupportedSchema(where, node)
                 return "utcDateTime"
+            if node.get("format") == "date":
+                if {"minLength", "maxLength", "pattern"} & node.keys():
+                    raise UnsupportedSchema(where, node)
+                return "isoDate"
             if node.get("format"):
                 raise UnsupportedSchema(where, node)
             out = "z.string()"
@@ -243,10 +250,10 @@ class Emitter:
                 raise UnsupportedSchema(where, node)
             extra = node.get("additionalProperties")
             if extra is True or extra is None:
-                return "z.record(z.unknown())"
+                return "z.record(z.string(), z.unknown())"
             if extra is False:
                 raise UnsupportedSchema(where, node)
-            return f"z.record({self.emit(extra, f'{where}{{}}')})"
+            return f"z.record(z.string(), {self.emit(extra, f'{where}{{}}')})"
 
         raise UnsupportedSchema(where, node)
 
@@ -371,11 +378,11 @@ HEADER = """// =================================================================
 // a field to a dataset cannot take a page down. Unknown fields are reported by
 // src/lib/api.ts.
 // ============================================================================
-/* eslint-disable */
 import { z } from "zod";
 
 /** ISO 8601 UTC + Z timestamp, e.g. 2026-08-03T10:00:00Z. */
 export const utcDateTime = z.string().datetime();
+export const isoDate = z.iso.date();
 """
 
 
@@ -411,6 +418,7 @@ def render_index(defs: dict[str, Any]) -> str:
 def build_constants(named_enums: dict[tuple[str, ...], str]) -> dict[str, Any]:
     """The non-schema half of the contract: vocabularies, the registry, and the intervals."""
     config = yaml.safe_load(SOURCES_YAML.read_text(encoding="utf-8"))
+    risk_model = yaml.safe_load(RISK_MODEL_YAML.read_text(encoding="utf-8"))
     expectations = config.get("expectations") or {}
 
     unregistered = sorted(set(expectations) - set(registry.CANONICAL_KEYS))
@@ -430,6 +438,9 @@ def build_constants(named_enums: dict[tuple[str, ...], str]) -> dict[str, Any]:
         "metadata_schema_version": METADATA_SCHEMA_VERSION,
         "freshness_status": by_name["FreshnessStatus"],
         "reason_codes": by_name["ReasonCode"],
+        "coinmetrics_expected_interval_minutes": COINMETRICS_EXPECTED_MINUTES,
+        "energy_observation_window_days": ENERGY_OBSERVATION_WINDOW_DAYS,
+        "risk_level_thresholds": risk_model["thresholds"]["risk_level"],
         "canonical_dataset_keys": list(registry.CANONICAL_KEYS),
         "expected_interval_minutes": {
             key: int(expectations[key]["interval_minutes"]) for key in registry.CANONICAL_KEYS
@@ -449,6 +460,7 @@ def build_constants(named_enums: dict[tuple[str, ...], str]) -> dict[str, Any]:
             }
             for spec in registry.DATASETS
         },
+        "legacy_ai_dataset_keys": sorted(registry.LEGACY_AI_DATASET_KEYS),
         "domain_datasets": {d: list(k) for d, k in registry.DOMAIN_DATASETS.items()},
         "non_dataset_suffixes": list(registry.NON_DATASET_SUFFIXES),
     }

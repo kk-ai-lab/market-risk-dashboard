@@ -8,7 +8,9 @@ import { describe, expect, it, afterEach } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import i18n from "@/i18n";
 import { NewsCard } from "@/components/news/NewsCard";
+import { NewsItem as NewsItemSchema } from "@/schemas";
 import type { NewsItem } from "@/schemas";
+import originals from "../fixtures/news-originals.json";
 
 function makeItem(overrides: Partial<NewsItem> = {}): NewsItem {
   return {
@@ -64,14 +66,47 @@ describe("NewsCard bilingual selection (canonical bilingual, ADR-0003)", () => {
     expect(screen.queryByText("Fed raises rates by 25bp")).not.toBeInTheDocument();
   });
 
+  it("shows collected Chinese originals with company names in Chinese locale", async () => {
+    await setLocale("zh-CN");
+    const item = NewsItemSchema.parse({ ...makeItem(), ...originals[0] });
+    render(<NewsCard item={item} />);
+    expect(screen.getByText(originals[0].title)).toBeInTheDocument();
+    expect(screen.getByText(originals[0].summary)).toBeInTheDocument();
+    expect(screen.queryByText("暂无本语言翻译")).not.toBeInTheDocument();
+  });
+
+  it("does not present Chinese-source originals as an English translation", async () => {
+    await setLocale("en");
+    const item = NewsItemSchema.parse({ ...makeItem(), ...originals[0] });
+    render(<NewsCard item={item} />);
+    expect(screen.getAllByText("Translation unavailable")).toHaveLength(2);
+    expect(screen.queryByText(originals[0].title)).not.toBeInTheDocument();
+    expect(screen.queryByText(originals[0].summary)).not.toBeInTheDocument();
+  });
+
+  it("keeps untranslated English-source news unavailable in Chinese locale", async () => {
+    await setLocale("zh-CN");
+    const item = NewsItemSchema.parse({ ...makeItem(), ...originals[1] });
+    render(<NewsCard item={item} />);
+    expect(screen.getByText("暂无本语言翻译")).toBeInTheDocument();
+    expect(screen.queryByText(originals[1].title)).not.toBeInTheDocument();
+    expect(screen.queryByText(originals[1].summary)).not.toBeInTheDocument();
+  });
+
+  it("does not infer an English translation from Latin text in a Chinese source", async () => {
+    await setLocale("en");
+    render(<NewsCard item={makeItem({ lang: "zh", title: "OpenAI", title_zh: null, summary: "", summary_zh: null })} />);
+    expect(screen.getByText("Translation unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("OpenAI")).not.toBeInTheDocument();
+  });
+
   it("en locale uses a localized placeholder when only Chinese exists", async () => {
     await setLocale("en");
     render(
       <NewsCard
         item={makeItem({
           lang: "zh",
-          // Pre-translation zh-source data: the canonical English side is not filled yet, so the
-          // raw Chinese feed text sits in title/summary. The card degrades to it rather than blanking.
+          // Source-language text is not an English translation.
           title: "全球市场收跌",
           title_zh: null,
           summary: "美股三大指数收跌",

@@ -24,7 +24,7 @@ class CryptoAsset(ContractModel):
     market_cap: float | None = None
     volume_24h: float | None = None
     source: str = Field(min_length=1)
-    updated_at: UTCDateTime
+    updated_at: UTCDateTime | None = Field(default=None, description="provider observation time, if known")
 
 
 class CryptoDataset(ContractModel):

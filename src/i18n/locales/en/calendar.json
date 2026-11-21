@@ -1,6 +1,6 @@
 {
   "title": "Calendar",
-  "subtitle": "Economic + earnings calendar (next 7 days)",
+  "subtitle": "Economic and earnings calendar",
   "type": {
     "economic": "Economic",
     "earnings": "Earnings"
@@ -19,6 +19,30 @@
     "source": "Source"
   },
   "none": "No calendar events",
+  "coverage": {
+    "title": "Source checks",
+    "description": "Results from the last collection. The cloud checks schedules every 15 minutes. Official release plans may change.",
+    "unavailable": "Source checks are unavailable in this snapshot.",
+    "checkedAt": "Checked {{time}}",
+    "cached": "Cached response",
+    "fallback": "Fallback source",
+    "sources": {
+      "earnings": "Earnings",
+      "economic": "FRED and Federal Reserve",
+      "bea_calendar": "BEA release schedule"
+    },
+    "states": {
+      "fresh": "Retrieved",
+      "empty": "No events in the window",
+      "degraded": "Unavailable or degraded",
+      "not_configured": "Not configured for this run"
+    }
+  },
+  "bea": {
+    "notice": "This product uses the Bureau of Economic Analysis (BEA) Data API but is not endorsed or certified by BEA.",
+    "calendarLink": "Official BEA release schedule",
+    "scheduleOnly": "Scheduled release time. Actual values and forecasts are not supplied by this calendar."
+  },
   "filter": {
     "label": "Filter by type",
     "all": "All"
@@ -28,7 +52,44 @@
     "events": {
       "consumerPriceIndex": "Consumer Price Index",
       "producerPriceIndex": "Producer Price Index",
-      "advanceRetailSales": "Advance Retail Sales"
+      "advanceRetailSales": "Advance Retail Sales",
+      "personalIncomeAndOutlays": "Personal Income and Outlays",
+      "grossDomesticProduct": "Gross Domestic Product",
+      "employmentSituation": "Employment Situation",
+      "jobOpenings": "Job Openings and Labor Turnover Survey",
+      "fomcMeeting": "FOMC Meeting",
+      "fomcMeetingPressConference": "FOMC Meeting (press conference)",
+      "internationalTrade": "U.S. International Trade in Goods and Services",
+      "travelAndTourism": "Travel and Tourism Satellite Account",
+      "internationalTransactions": "U.S. International Transactions",
+      "internationalInvestmentPosition": "U.S. International Investment Position",
+      "stateGdpAndPersonalIncome": "Gross Domestic Product by State and Personal Income by State",
+      "spaceEconomy": "Space Economy Statellite Account",
+      "artsAndCulture": "Arts and Cultural Production Satellite Account",
+      "industryProduction": "Integrated BEA-BLS Industry-Level Production Account",
+      "marineEconomy": "Marine Economy Satellite Account",
+      "tradeInValueAdded": "Trade in Value Added",
+      "tradeInServices": "U.S. Trade in Services Detailed Tables",
+      "prototypeStateIncomeDistribution": "Prototype Distribution of State Personal Income",
+      "newForeignDirectInvestment": "New Foreign Direct Investment in the United States",
+      "directInvestment": "Direct Investment by Country and Industry",
+      "personalIncomeDistribution": "Distribution of U.S. Personal Income",
+      "usMultinationalActivities": "Activities of U.S. Multinational Enterprises",
+      "researchAndDevelopmentSatellite": "Experimental Research and Development Satellite Account",
+      "puertoRicoGdp": "Gross Domestic Product for Puerto Rico",
+      "affiliateServices": "Services Supplied Through Affiliates",
+      "foreignMultinationalAffiliateActivities": "Activities of U.S. Affiliates of Foreign Multinational Enterprises",
+      "countyMetroGdpAndIncome": "Gross Domestic Product by County and Metropolitan Area and Personal Income by County and Metropolitan Area",
+      "stateRealConsumptionAndIncome": "Real Personal Consumption Expenditures by State and Real Personal Income by State",
+      "outdoorRecreation": "Outdoor Recreation Economic Statistics",
+      "internationalTransactionsAndPosition": "U.S. International Transactions and Investment Position",
+      "globalValueChains": "Global Value Chains (Trade in Value Added)",
+      "householdProduction": "U.S. Household Production Economic Statistics",
+      "researchAndDevelopmentStatistics": "Experimental Research and Development Economic Statistics",
+      "countyGdpAndIncome": "GDP by County and Personal Income by County",
+      "countyGdpAndPersonalIncome": "Gross Domestic Product by County and Personal Income by County",
+      "stateRealSpendingAndIncome": "Real Consumer Spending by State and Real Personal Income by State",
+      "corporateProfits": "Corporate Profits"
     }
   }
 }

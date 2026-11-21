@@ -8,6 +8,9 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/layout/StatusBadge";
+import { hasRiskEvidence } from "@/lib/riskEvidence";
+import type { EnergyEnvelope } from "@/schemas";
+import { EnergyContextCard } from "@/components/energy/EnergyContextCard";
 
 /**
  * RiskLabPage: risk lab (6-dimension risk model breakdown + weights + confidence + disclaimer).
@@ -15,6 +18,7 @@ import { StatusBadge } from "@/components/layout/StatusBadge";
 export default function RiskLabPage() {
   const { t } = useTranslation("risk");
   const riskQ = useDataset<RiskEnvelope>("risk");
+  const energyQ = useDataset<EnergyEnvelope>("energy");
 
   return (
     <div className="flex flex-col gap-4">
@@ -23,7 +27,7 @@ export default function RiskLabPage() {
           {t("title")}
         </h1>
         <p className="text-xs text-muted-foreground">{t("subtitle")}</p>
-        {riskQ.data ? <span className="ml-auto"><StatusBadge status={riskQ.data.freshness_status} fromCache={riskQ.data.provenance?.from_cache} withDescription /></span> : null}
+        {riskQ.data ? <span className="ml-auto"><StatusBadge dataset="risk" generatedAt={riskQ.data.generated_at} status={riskQ.data.freshness_status} fromCache={riskQ.data.provenance?.from_cache} withDescription /></span> : null}
       </header>
 
       {riskQ.isLoading ? (
@@ -41,6 +45,8 @@ export default function RiskLabPage() {
                 trend1w={riskQ.data.payload.trend_1w}
                 trend1m={riskQ.data.payload.trend_1m}
                 confidence={riskQ.data.payload.confidence}
+                hasEvidence={hasRiskEvidence(riskQ.data.payload)}
+                evidenceState={riskQ.data.payload.evidence_state}
               />
             </div>
             <div className="md:col-span-2">
@@ -55,6 +61,16 @@ export default function RiskLabPage() {
       ) : (
         <EmptyState title={t("common:empty.title")} />
       )}
+
+      <section className="border-t border-hairline pt-4" data-testid="risklab-energy-context">
+        <EnergyContextCard
+          dataset={energyQ.data}
+          isLoading={energyQ.isLoading}
+          isError={energyQ.isError}
+          onRetry={energyQ.refetch}
+          contextOnly
+        />
+      </section>
     </div>
   );
 }

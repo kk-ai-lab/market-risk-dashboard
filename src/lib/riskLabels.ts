@@ -3,7 +3,7 @@ import type { MarketRegime, RiskDimensionKey, RiskEvidenceState, RiskLevel, Risk
 /**
  * Risk enum → i18n key mapping (architecture §8.7: terminology follows the glossary; no hardcoded UI copy).
  * Keys are **namespace-relative paths** (default risk namespace, used with useTranslation("risk");
- * cross-namespace usages like AIBrief use the explicit `risk:${key}` prefix, which also works).
+ * cross-namespace usages use the explicit `risk:${key}` prefix, which also works).
  * RISK_TREND_KEYS belong to the common namespace and carry an explicit `common:` prefix.
  */
 
@@ -42,6 +42,7 @@ export const RISK_TREND_KEYS: Record<RiskTrend, string> = {
   rising: "common:direction.rising",
   falling: "common:direction.falling",
   flat: "common:direction.flat",
+  unknown: "common:direction.unknown",
 };
 
 export const RISK_EVIDENCE_KEYS: Record<RiskEvidenceState, string> = {
@@ -55,6 +56,7 @@ export const RISK_INDICATOR_KEYS: Record<string, string> = {
   yield_curve_10y2y: "indicatorNames.yieldCurve",
   dollar_index: "indicatorNames.dollarIndex",
   dgs10: "indicatorNames.tenYearYield",
+  sahm_style_labor_stress: "indicatorNames.sahmStyleLaborStress",
   fed_balance_sheet: "indicatorNames.fedBalanceSheet",
   reverse_repo: "indicatorNames.reverseRepo",
   hy_oas: "indicatorNames.hyOas",

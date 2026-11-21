@@ -127,11 +127,10 @@ def test_fact_layer_rebuild_writes_facts_and_freshness(fact_layer_env: Path) -> 
     assert entry["reason"]["code"] == "ok"
     assert entry["reason"]["detail"] == "rebuilt from latest/*.json"
 
-    # Every registered dataset appears, always. An absent key used to be indistinguishable
-    # from a healthy one.
+    # Production health excludes the retired AI artifacts.
     from pipeline.schemas import registry
 
-    assert set(freshness["datasets"]) == set(registry.CANONICAL_KEYS)
+    assert set(freshness["datasets"]) == set(registry.CANONICAL_KEYS) - registry.LEGACY_AI_DATASET_KEYS
 
 
 def test_fact_layer_rebuild_without_sectors_still_succeeds(
@@ -401,8 +400,8 @@ def _full_run_dataset(
         run_module, "settings",
         Settings(_env_file=None, data_dir=data_dir, artifacts_dir=data_dir / "artifacts"),
     )
-    ok, error = run_module._run_risk_and_write(_full_run_results(**overrides), writer, "test-full")
-    assert ok, f"full-path write failed: {error}"
+    rejection = run_module._run_risk_and_write(_full_run_results(**overrides), writer, "test-full")
+    assert rejection is None, f"full-path write failed: {rejection}"
     freshness = json.loads((data_dir / "metadata" / "freshness.json").read_text(encoding="utf-8"))
     return freshness["datasets"][record_key]
 
@@ -578,21 +577,33 @@ def test_dashboard_inherits_degradation_from_commodity_risk_input(
             },
         }
     )
-    ok, error = run_module._run_risk_and_write(results, StorageWriter(data_dir), "test-full")
-    assert ok, error
+    rejection = run_module._run_risk_and_write(results, StorageWriter(data_dir), "test-full")
+    assert rejection is None, rejection
 
     freshness = json.loads((data_dir / "metadata" / "freshness.json").read_text(encoding="utf-8"))
     assert freshness["datasets"]["risk"]["status"] == "degraded"
     assert freshness["datasets"]["dashboard"]["status"] == "degraded"
 
 
-def test_full_path_rejects_canonical_validation_failure(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("branch", "expected_code"),
+    [
+        ("no_usable_indicators", "risk_no_usable_indicators"),
+        ("computation", "risk_computation_failed"),
+        ("write", "risk_write_failed"),
+        ("validation", "risk_validation_failed"),
+    ],
+)
+def test_full_path_rejections_return_fixed_reason_and_local_error(
+    branch: str,
+    expected_code: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The production-like write path must honor the composed Python validator result."""
+    from types import SimpleNamespace
+
     import pipeline.run as run_module
     from pipeline.storage.writer import StorageWriter
-    from pipeline.validation.ci_checks import CheckReport
 
     data_dir = tmp_path / "data"
     writer = StorageWriter(data_dir)
@@ -601,13 +612,56 @@ def test_full_path_rejects_canonical_validation_failure(
         "settings",
         Settings(_env_file=None, data_dir=data_dir, artifacts_dir=data_dir / "artifacts"),
     )
-    monkeypatch.setattr(
-        run_module,
-        "run_data_validation",
-        lambda _data_dir: CheckReport(errors=["forced canonical validation failure"]),
-    )
 
-    ok, error = run_module._run_risk_and_write(_full_run_results(), writer, "test-full")
+    if branch == "no_usable_indicators":
+        score = SimpleNamespace(
+            dimensions=[SimpleNamespace(indicators=[SimpleNamespace(value=None)])]
+        )
+        monkeypatch.setattr(
+            run_module,
+            "RiskModel",
+            lambda _settings: SimpleNamespace(
+                model_version="1.1.0", derived_history_enabled=False, score=lambda _ctx: score
+            ),
+        )
+    elif branch == "computation":
 
-    assert not ok
-    assert error == "validation failed: forced canonical validation failure"
+        def fail_score(_context):
+            raise RuntimeError("risk-computation-secret")
+
+        monkeypatch.setattr(
+            run_module,
+            "RiskModel",
+            lambda _settings: SimpleNamespace(
+                model_version="1.1.0", derived_history_enabled=False, score=fail_score
+            ),
+        )
+    elif branch == "write":
+        from pipeline.storage import macro_history
+
+        def fail_write(*_args, **_kwargs):
+            raise RuntimeError("write-secret")
+
+        monkeypatch.setattr(macro_history, "write_macro_history", fail_write)
+    else:
+        from pipeline.validation.ci_checks import CheckReport
+
+        monkeypatch.setattr(
+            run_module,
+            "run_data_validation",
+            lambda _data_dir: CheckReport(errors=["forced canonical validation failure"]),
+        )
+
+    rejection = run_module._run_risk_and_write(_full_run_results(), writer, "test-full")
+
+    assert rejection is not None
+    assert rejection.code.value == expected_code
+    local_error = rejection.local_error
+    if branch == "no_usable_indicators":
+        assert local_error == "risk calculation has no available indicators"
+    elif branch == "computation":
+        assert "risk-computation-secret" in local_error
+    elif branch == "write":
+        assert "write-secret" in local_error
+    else:
+        assert local_error == "validation failed: forced canonical validation failure"

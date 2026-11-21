@@ -28,8 +28,10 @@
       "cache_invalid": "Cache entry invalid",
       "all_providers_failed": "All providers failed",
       "not_collected_this_run": "Not collected this run",
+      "source_policy_excluded": "No approved source is configured for this dataset",
       "interval_exceeded": "Update interval exceeded",
-      "input_dataset_unhealthy": "An input dataset is unhealthy"
+      "input_dataset_unhealthy": "An input dataset is unhealthy",
+      "news_translation_incomplete": "News translation coverage is incomplete"
     }
   },
   "datasets": {
@@ -42,11 +44,11 @@
     "calendar": "Calendar",
     "risk": "Risk",
     "factlayer": "Fact layer",
-    "analysis": "AI brief",
     "dashboard": "Dashboard",
     "news_translations": "News translations"
   },
   "providers": {
+    "lastRunNote": "Provider health reflects the last collection, not a live check.",
     "title": "Provider Health",
     "domain": "Domain",
     "provider": "Provider",
@@ -65,6 +67,7 @@
     "crypto": "Crypto",
     "calendar": "Calendar",
     "economic": "Economic calendar",
+    "bea_calendar": "BEA release schedule",
     "news": "News"
   }
 }

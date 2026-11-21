@@ -36,12 +36,12 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from pipeline.lineage import fact_generation_id
-from pipeline.schemas import registry
+from pipeline.schemas import FactLayer, registry
 from pipeline.schemas.envelope import SCHEMA_VERSION
 
 __all__ = [
@@ -67,6 +67,7 @@ __all__ = [
     "make_envelope",
     "make_equities_payload",
     "make_equity_asset",
+    "make_energy_payload",
     "make_evidence_ref",
     "make_facts",
     "make_fedwatch_history",
@@ -133,12 +134,12 @@ def _build(defaults: dict[str, Any], overrides: Mapping[str, Any]) -> dict[str, 
 # Frozen clock
 # --------------------------------------------------------------------------------------
 
-DEFAULT_NOW: datetime = datetime(2026, 8, 4, 12, 0, 0, tzinfo=timezone.utc)
+DEFAULT_NOW: datetime = datetime(2026, 8, 4, 12, 0, 0, tzinfo=UTC)
 
 
 def iso(moment: datetime) -> str:
     """Format an aware datetime as the ISO 8601 UTC + Z string the contracts require."""
-    return moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def ago(minutes: float, *, base: datetime = DEFAULT_NOW) -> str:
@@ -659,6 +660,21 @@ def make_dashboard_payload(**overrides: Any) -> dict[str, Any]:
     )
 
 
+def make_energy_payload(**overrides: Any) -> dict[str, Any]:
+    return _build(
+        {
+            "series_id": "WCESTUS1",
+            "unit": "thousand_barrels",
+            "observations": [{"week_ending": "2026-08-03", "value": 420_000.0}],
+            "collection_status": "available",
+            "observation_age": "within_window",
+            "last_attempt_at": NOW_ISO,
+            "last_successful_fetch_at": NOW_ISO,
+        },
+        overrides,
+    )
+
+
 #: Logical dataset name -> payload builder. Envelope datasets only.
 PAYLOAD_BUILDERS: dict[str, Callable[..., dict[str, Any]]] = {
     "macro": make_macro_payload,
@@ -666,6 +682,7 @@ PAYLOAD_BUILDERS: dict[str, Callable[..., dict[str, Any]]] = {
     "sectors": make_sectors_payload,
     "crypto": make_crypto_payload,
     "commodities": make_commodities_payload,
+    "energy": make_energy_payload,
     "news": make_news_payload,
     "calendar": make_calendar_payload,
     "risk": make_risk_payload,
@@ -682,6 +699,7 @@ _ENVELOPE_SOURCE: dict[str, Any] = {
     "sectors": ["yfinance"],
     "crypto": ["coingecko"],
     "commodities": ["yfinance"],
+    "energy": "eia",
     "news": ["rss"],
     "calendar": ["fmp"],
     "risk": "pipeline.risk",
@@ -821,7 +839,7 @@ def make_facts(**overrides: Any) -> dict[str, Any]:
         overrides,
     )
     if "generation_id" not in overrides:
-        result["generation_id"] = fact_generation_id(result)
+        result["generation_id"] = fact_generation_id(FactLayer.model_validate(result))
     return result
 
 
@@ -1040,6 +1058,7 @@ def default_latest_files() -> dict[str, Any]:
     files: dict[str, Any] = {
         filename: make_envelope(name) for name, filename in DATASET_FILENAMES.items()
     }
+    files["macro.json"] = make_envelope("macro", payload=make_macro_roster_payload())
     files["facts.json"] = make_facts()
     files["analysis.zh-CN.json"] = make_analysis(language="zh-CN")
     files["analysis.en.json"] = make_analysis(language="en")
@@ -1047,8 +1066,41 @@ def default_latest_files() -> dict[str, Any]:
     return files
 
 
+def make_macro_roster_payload(*, include_live_rate: bool = False) -> dict[str, Any]:
+    from pipeline.collectors.macro import SERIES_GROUPS
+    from pipeline.providers.fred import SERIES_CATALOG
+
+    payload = make_macro_payload()
+    for group, series_ids in SERIES_GROUPS.items():
+        payload[group] = []
+        for series_id in series_ids:
+            catalog = SERIES_CATALOG[series_id]
+            if include_live_rate and series_id == "DGS10":
+                indicator = make_macro_indicator(
+                    key=series_id.lower(), label=catalog["label"], unit=catalog["unit"],
+                    source="FRED", updated_at=NOW_ISO,
+                )
+            else:
+                indicator = {
+                    "key": series_id.lower(),
+                    "label": catalog["label"],
+                    "value": None,
+                    "previous": None,
+                    "change_1m": None,
+                    "unit": catalog["unit"],
+                    "source": "unavailable",
+                    "updated_at": None,
+                    "status": "missing",
+                }
+            payload[group].append(indicator)
+    return payload
+
+
 def default_support_files() -> dict[str, Any]:
     """Every ``history/`` ``metadata/`` and ``feeds/`` file the validator looks for, all valid."""
+    from pipeline.collectors.macro import SERIES_GROUPS
+    from pipeline.providers.fred import SERIES_CATALOG
+
     files: dict[str, Any] = {}
     for series in ("risk", "market"):
         for slice_name in ("30d", "90d", "daily"):
@@ -1058,6 +1110,26 @@ def default_support_files() -> dict[str, Any]:
     files["metadata/sources.json"] = make_metadata_sources()
     files["metadata/schema-version.json"] = make_metadata_schema_version()
     files["feeds/fedwatch-history.json"] = make_fedwatch_history()
+    for group in SERIES_GROUPS:
+        for slice_name in ("30d", "90d"):
+            files[f"history/macro/{group}.{slice_name}.json"] = {}
+    files["history/macro/index.json"] = {
+        "series": {
+            series_id: {
+                "group": group,
+                "label": SERIES_CATALOG[series_id]["label"],
+                "frequency": SERIES_CATALOG[series_id]["frequency"],
+                "unit": SERIES_CATALOG[series_id]["unit"],
+                "scale": SERIES_CATALOG[series_id]["scale"],
+                "last_observation": None,
+                "next_expected_release": None,
+                "count": 0,
+            }
+            for group, series_ids in SERIES_GROUPS.items()
+            for series_id in series_ids
+        },
+        "updated_at": None,
+    }
     return files
 
 

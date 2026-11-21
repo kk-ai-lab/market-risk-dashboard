@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import random
 import re
 import time
@@ -36,6 +37,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from ipaddress import ip_address
 from pathlib import Path
@@ -45,8 +47,10 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, Field, RootModel, field_validator
 
+from pipeline.config.models import ApprovedCollectionPlan
 from pipeline.degrade import degrade_factor as resolve_degrade_factor
-from pipeline.schemas.envelope import SCHEMA_VERSION
+from pipeline.schemas.calendar import EventImportance
+from pipeline.schemas.envelope import SCHEMA_VERSION, UTCDateTime
 from pipeline.schemas.news import _validate_news_url
 from pipeline.settings import Settings
 from pipeline.utils import now_utc
@@ -115,6 +119,20 @@ def redact(text: str, max_len: int = 200) -> str:
     return s[:max_len]
 
 
+@dataclass(frozen=True)
+class PartialProviderResult[T]:
+    """Usable provider data accompanied by failures from part of one aggregate request."""
+
+    result: T
+    errors: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        errors = tuple(redact(error) for error in self.errors if error.strip())[:8]
+        if not errors:
+            raise ValueError("partial provider results require at least one error")
+        object.__setattr__(self, "errors", errors)
+
+
 def _retry_after_seconds(response: httpx.Response | None) -> float | None:
     """Honour ``Retry-After`` (delay-seconds or RFC-7231 HTTP-date), capped at 30s (#103)."""
     if response is None:
@@ -143,12 +161,12 @@ _RELAY_VOUCH = object()
 
 
 class GuardedClient(httpx.Client):
-    """An httpx client whose outbound requests are allowlisted **per hop** (S-3/#92).
+    """An httpx client with HTTPS and host checks on every outbound request.
 
-    ``follow_redirects`` is disabled and redirects are walked manually (≤ :data:`MAX_REDIRECT_HOPS`),
-    so every hop is checked against the allowlist and for https before its body is fetched.
-    A response larger than 2 MB is refused. Used by every httpx-based provider instead of a
-    bare ``httpx.Client``.
+    ``get()`` disables automatic redirects, validates each hop in a bounded manual walk, and
+    refuses decoded bodies larger than 2 MB. Inherited streaming methods send one request by
+    default; callers must choose redirect behavior and enforce their own decoded-body limit.
+    Used by every httpx-based provider instead of a bare ``httpx.Client``.
     """
 
     def __init__(
@@ -388,9 +406,8 @@ class EarningsRow(BaseModel):
 class EconomicRow(BaseModel):
     id: str = Field(min_length=1)
     title: str = Field(min_length=1)
-    date: str = Field(min_length=1)
-    time_et: str = Field(min_length=1)
-    importance: str = "medium"
+    datetime: UTCDateTime
+    importance: EventImportance = "medium"
     country: str = "US"
     source: str = Field(min_length=1)
 
@@ -418,7 +435,7 @@ class CryptoAssetRow(BaseModel):
     market_cap: float | None = None
     volume_24h: float | None = None
     source: str = Field(min_length=1)
-    updated_at: str = Field(min_length=1)
+    updated_at: str | None = Field(default=None, min_length=1)
 
 
 class CryptoMarketResult(BaseModel):
@@ -448,10 +465,11 @@ _RESULT_MODELS: dict[str, type[BaseModel]] = {
     "fetch_news": NewsRow,
     "get_crypto_market": CryptoMarketResult,
     "get_series": SeriesRow,
+    "get_weekly_inventory": SeriesRow,
     "get_contract_prices": FedWatchPrices,
 }
 _LIST_RESULT_METHODS = frozenset(
-    {"get_earnings_calendar", "get_economic_calendar", "fetch_news", "get_series"}
+    {"get_earnings_calendar", "get_economic_calendar", "fetch_news", "get_series", "get_weekly_inventory"}
 )
 
 
@@ -591,8 +609,12 @@ class CircuitBreaker:
 class ProviderRegistry:
     """Maintains the "domain → ordered Provider list" and the last-good cache (architecture §1.4)."""
 
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(self, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None) -> None:
         self.settings = settings or Settings()
+        self.collection_plan = collection_plan or (
+            self.settings.load_public_source_policy().collection_plan()
+            if self.settings.approved_sources_only else None
+        )
         # #102: retries/backoff/jitter and the cache directory come from the VALIDATED
         # SourcesConfig.degrade, not the raw dict — a typo in the degrade block now fails
         # loudly at construction instead of silently falling back to a Python default.
@@ -631,6 +653,15 @@ class ProviderRegistry:
     # ---- Registration ----
 
     def register(self, domain: str, provider: BaseProvider) -> None:
+        if (
+            self.collection_plan is not None
+            and not self.collection_plan.allows_provider(domain, provider.name)
+        ):
+            raise ValueError(
+                f"public source policy does not allow {provider.name!r} in {domain!r}"
+            )
+        if domain == "crypto" and self.settings.coinmetrics_enabled and provider.name != "coinmetrics":
+            raise ValueError("Coin Metrics opt-in forbids other crypto providers")
         providers = self._providers.setdefault(domain, [])
         providers.append(provider)
         providers.sort(key=lambda p: p.priority)
@@ -645,6 +676,14 @@ class ProviderRegistry:
     # ---- last-good cache ----
 
     def _cache_path(self, domain: str, key: str) -> Path:
+        if domain == "crypto" and (
+            self.settings.coinmetrics_enabled
+            or (
+                self.collection_plan is not None
+                and self.collection_plan.allows_provider(domain, "coinmetrics")
+            )
+        ):
+            return self.cache_dir / f"{domain}__coinmetrics__{key}.json"
         return self.cache_dir / f"{domain}__{key}.json"
 
     def _quarantine(self, path: Path) -> None:
@@ -665,6 +704,13 @@ class ProviderRegistry:
         undated entry (the pre-#66 disk format) is beyond the maximum age.
         """
         from pipeline.degrade import cache_max_age_hours
+
+        allowed_cache_providers = (
+            self.collection_plan.providers_for_domain(domain)
+            if self.collection_plan is not None else None
+        )
+        if allowed_cache_providers is not None and not allowed_cache_providers:
+            return None
 
         path = self._cache_path(domain, key)
         if not path.exists():
@@ -701,7 +747,52 @@ class ProviderRegistry:
             return None
 
         data = cached.get("data")
+        if method == "get_crypto_market" and cached.get("observation_time_basis") != "provider":
+            if isinstance(data, dict) and isinstance(data.get("assets"), list):
+                data = {**data, "assets": [
+                    {**row, "updated_at": None} if isinstance(row, dict) else row
+                    for row in data["assets"]
+                ]}
         provider = str(cached.get("provider", "unknown"))
+        if allowed_cache_providers is not None and provider not in allowed_cache_providers:
+            return None
+        if domain == "crypto" and (
+            self.settings.coinmetrics_enabled
+            or (
+                self.collection_plan is not None
+                and self.collection_plan.allows_provider(domain, "coinmetrics")
+            )
+        ):
+            if provider != "coinmetrics" or cached.get("observation_time_basis") != "provider":
+                return None
+            rows = data.get("assets") if isinstance(data, dict) else None
+            grant = (
+                self.collection_plan.grant_for_dataset("crypto")
+                if self.collection_plan is not None else None
+            )
+            expected_symbols = (
+                set(grant.market_symbols)
+                if grant is not None else {"BTC", "ETH"}
+            )
+            if (
+                not isinstance(rows, list)
+                or len(rows) != len(expected_symbols)
+                or any(not isinstance(row, dict) or not isinstance(row.get("symbol"), str) for row in rows)
+            ):
+                return None
+            if any(not isinstance(row, dict) or row.get("source") != "coinmetrics" for row in rows):
+                return None
+            symbols = [row["symbol"] for row in rows]
+            if len(symbols) != len(set(symbols)) or set(symbols) != expected_symbols:
+                return None
+            for row in rows:
+                try:
+                    observed = datetime.fromisoformat(row["updated_at"].replace("Z", "+00:00"))
+                    price = float(row["price"])
+                    if observed.tzinfo is None or observed > now or not math.isfinite(price) or price <= 0:
+                        return None
+                except (KeyError, TypeError, ValueError, AttributeError, OverflowError):
+                    return None
         restore_type = _RESULT_MODELS.get(method)
         if restore_type is not None:
             try:
@@ -722,7 +813,25 @@ class ProviderRegistry:
         return data, {"provider": provider, "fetched_at": fetched_at}
 
     def _save_last_good(self, domain: str, key: str, method: str, payload: Any, provider: str) -> None:
+        if (
+            self.collection_plan is not None
+            and not self.collection_plan.allows_provider(domain, provider)
+        ):
+            return
         data = payload.model_dump(mode="json") if isinstance(payload, BaseModel) else payload
+        if self.collection_plan is not None and domain == "crypto" and method == "get_crypto_market":
+            grant = self.collection_plan.grant_for_dataset("crypto")
+            rows = data.get("assets") if isinstance(data, dict) else None
+            symbols = [row.get("symbol") for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+            if (
+                grant is None
+                or not isinstance(rows, list)
+                or any(not isinstance(row, dict) for row in rows)
+                or any(not isinstance(symbol, str) for symbol in symbols)
+                or len(symbols) != len(set(symbols))
+                or set(symbols) != set(grant.market_symbols)
+            ):
+                return
         try:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             self._cache_path(domain, key).write_text(
@@ -733,6 +842,7 @@ class ProviderRegistry:
                         "fetched_at": now_utc(),
                         "provider": provider,
                         "schema_version": SCHEMA_VERSION,
+                        **({"observation_time_basis": "provider"} if method == "get_crypto_market" and provider in {"coingecko", "coinmetrics"} else {}),
                     },
                     ensure_ascii=False,
                     default=str,
@@ -772,18 +882,24 @@ class ProviderRegistry:
                 continue
             try:
                 result = self._attempt(provider, method, args, kwargs, host)
+                partial_errors: list[str] = []
+                is_partial = isinstance(result, PartialProviderResult)
+                if is_partial:
+                    partial_errors = list(result.errors)
+                    result = result.result
                 meta = {
                     "provider": provider.name,
                     "used_fallback": index > 0,
                     "from_cache": False,
-                    "degraded": index > 0,
-                    "errors": [],
+                    "degraded": index > 0 or is_partial,
+                    "errors": partial_errors,
                 }
                 self.breaker.record_success(provider, host)
-                if index > 0:
+                if index > 0 or is_partial:
                     self.degraded_domains.add(domain)
                 self._last_outcome[domain] = meta
-                self._save_last_good(domain, key, method, result, provider.name)
+                if not is_partial:
+                    self._save_last_good(domain, key, method, result, provider.name)
                 return {"result": result, "meta": meta}
             except ProviderError as exc:
                 self.breaker.record_failure(provider, host, exc)

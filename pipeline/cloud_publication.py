@@ -1,0 +1,879 @@
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import sys
+import tempfile
+from dataclasses import dataclass
+from enum import StrEnum
+from pathlib import Path
+from typing import Literal
+from urllib.parse import quote
+from uuid import uuid4
+
+import httpx
+from pydantic import ValidationError
+
+from pipeline.cloud_refresh import CloudRefreshError, PagesGenerationRestorer
+from pipeline.pages_deployment import (
+    TERMINAL_FAILURES,
+    GitHubPagesDeploymentApi,
+    PagesStatusError,
+)
+from pipeline.publication import PublicationError, verify_generation
+from pipeline.settings import Settings
+from pipeline.storage.github_checkpoint import (
+    CheckpointError,
+    GitHubCheckpoint,
+)
+from pipeline.storage.publication_checkpoint import (
+    DeploymentObservation,
+    Generation,
+    PublicationCheckpoint,
+    PublicationState,
+    SubmissionOutcome,
+)
+
+WORKFLOW_PATH = ".github/workflows/deploy-pages.yml"
+CloudMode = Literal["scheduled", "code-only"]
+
+
+class CloudPublicationError(ValueError):
+    """A Pages attempt cannot be safely prepared or reconciled."""
+
+
+class PublicationFailureCode(StrEnum):
+    ACTIVE_PAGES_RUN = "active_pages_run"
+    ACTIONS_RUN_LIST_READ_FAILED = "actions_run_list_read_failed"
+    ACTIONS_RUN_LIST_INVALID = "actions_run_list_invalid"
+    BRANCH_HEAD_READ_FAILED = "branch_head_read_failed"
+    BRANCH_HEAD_INVALID = "branch_head_invalid"
+    WORKFLOW_JOB_LIST_READ_FAILED = "workflow_job_list_read_failed"
+    WORKFLOW_JOB_LIST_INVALID = "workflow_job_list_invalid"
+    PAGES_DEPLOYMENT_STATUS_READ_FAILED = "pages_deployment_status_read_failed"
+    PAGES_DEPLOYMENT_STATUS_INVALID = "pages_deployment_status_invalid"
+    EVENT_REVISION_STALE = "event_revision_stale"
+    PUBLICATION_CHECKPOINT_READ_FAILED = "publication_checkpoint_read_failed"
+    PUBLICATION_CHECKPOINT_TRANSITION_UNCONFIRMED = "publication_checkpoint_transition_unconfirmed"
+    PUBLICATION_CHECKPOINT_OPERATION_FAILED = "publication_checkpoint_operation_failed"
+    PAGES_POINTER_READ_FAILED = "pages_pointer_read_failed"
+    LEGACY_DATA_PROBE_FAILED = "legacy_data_probe_failed"
+    UNCHECKPOINTED_PAGES_GENERATION = "uncheckpointed_pages_generation"
+    LEGACY_BOOTSTRAP_REQUIRED = "legacy_bootstrap_required"
+    WORKFLOW_RUN_READ_FAILED = "workflow_run_read_failed"
+    WORKFLOW_RUN_INVALID = "workflow_run_invalid"
+    CANDIDATE_ARTIFACT_READ_FAILED = "candidate_artifact_read_failed"
+    CANDIDATE_ARTIFACT_INVALID = "candidate_artifact_invalid"
+    CANDIDATE_REVISION_MISMATCH = "candidate_revision_mismatch"
+    PAGES_GENERATION_UNKNOWN = "pages_generation_unknown"
+    PRIOR_RUN_OUTCOME_NOT_ABANDONABLE = "prior_run_outcome_not_abandonable"
+    CANDIDATE_GENERATION_RESTORE_FAILED = "candidate_generation_restore_failed"
+    DEPLOYED_GENERATION_RESTORE_FAILED = "deployed_generation_restore_failed"
+    PUBLICATION_CONFIGURATION_INVALID = "preflight_configuration_invalid"
+    PUBLICATION_INPUT_INVALID = "preflight_input_invalid"
+    PUBLICATION_IO_FAILED = "preflight_io_failed"
+    PUBLICATION_TRANSPORT_FAILED = "preflight_transport_failed"
+    PAGES_OPERATION_FAILED = "pages_operation_failed"
+    GENERATION_VERIFICATION_FAILED = "generation_verification_failed"
+    PUBLICATION_FAILURE_UNCLASSIFIED = "preflight_failure_unclassified"
+
+
+class CloudPublicationFailure(CloudPublicationError):
+    def __init__(self, message: str, *, code: PublicationFailureCode):
+        super().__init__(message)
+        self.code = code
+
+
+def _validate_artifact(
+    artifact: dict,
+    *,
+    repository_id: int,
+    artifact_id: int,
+    run_id: int,
+    event_sha: str,
+    expected_digest: str | None = None,
+) -> str:
+    workflow_run = artifact.get("workflow_run")
+    digest = artifact.get("digest")
+    repository_ids = (
+        workflow_run.get("repository_id") if isinstance(workflow_run, dict) else None,
+        workflow_run.get("head_repository_id") if isinstance(workflow_run, dict) else None,
+    )
+    if (
+        type(repository_id) is not int
+        or repository_id < 1
+        or type(artifact_id) is not int
+        or artifact_id < 1
+        or type(run_id) is not int
+        or run_id < 1
+        or type(artifact.get("id")) is not int
+        or artifact["id"] != artifact_id
+        or artifact.get("name") != "github-pages"
+        or artifact.get("expired") is not False
+        or not isinstance(digest, str)
+        or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None
+        or expected_digest is not None
+        and digest != expected_digest
+        or not isinstance(workflow_run, dict)
+        or type(workflow_run.get("id")) is not int
+        or workflow_run["id"] != run_id
+        or workflow_run.get("head_sha") != event_sha
+        or any(
+            type(value) is not int or value < 1 or value != repository_id
+            for value in repository_ids
+        )
+    ):
+        raise CloudPublicationFailure(
+            "Pages artifact provenance does not match its reservation",
+            code=PublicationFailureCode.CANDIDATE_ARTIFACT_INVALID,
+        )
+    return digest
+
+
+class GitHubActionsApi:
+    def __init__(
+        self, repository: str, token: str, *, transport: httpx.BaseTransport | None = None
+    ):
+        parts = repository.split("/")
+        if len(parts) != 2 or any(re.fullmatch(r"[A-Za-z0-9_.-]+", part) is None for part in parts):
+            raise ValueError("Invalid GitHub repository")
+        self.repository = repository
+        self._root = "https://api.github.com/repos/" + quote(repository, safe="/")
+        self._client = httpx.Client(
+            transport=transport,
+            timeout=30,
+            follow_redirects=False,
+            trust_env=False,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
+
+    def close(self) -> None:
+        self._client.close()
+
+    def _get(
+        self,
+        path: str,
+        *,
+        params: dict | None = None,
+        read_failure_code: PublicationFailureCode,
+        invalid_response_code: PublicationFailureCode,
+    ) -> dict:
+        try:
+            response = self._client.get(self._root + path, params=params)
+        except httpx.HTTPError as exc:
+            raise CloudPublicationFailure(
+                "GitHub Actions state could not be read", code=read_failure_code
+            ) from exc
+        if response.status_code != 200:
+            raise CloudPublicationFailure(
+                "GitHub Actions state could not be read", code=read_failure_code
+            )
+        try:
+            value = response.json()
+        except ValueError as exc:
+            raise CloudPublicationFailure(
+                "GitHub returned invalid Actions metadata", code=invalid_response_code
+            ) from exc
+        if not isinstance(value, dict):
+            raise CloudPublicationFailure(
+                "GitHub returned invalid Actions metadata", code=invalid_response_code
+            )
+        return value
+
+    def artifact(self, artifact_id: int) -> dict:
+        if type(artifact_id) is not int or artifact_id < 1:
+            raise CloudPublicationFailure(
+                "Invalid Pages artifact ID", code=PublicationFailureCode.CANDIDATE_ARTIFACT_INVALID
+            )
+        return self._get(
+            f"/actions/artifacts/{artifact_id}",
+            read_failure_code=PublicationFailureCode.CANDIDATE_ARTIFACT_READ_FAILED,
+            invalid_response_code=PublicationFailureCode.CANDIDATE_ARTIFACT_INVALID,
+        )
+
+    def workflow_run(self, run_id: int) -> dict:
+        if type(run_id) is not int or run_id < 1:
+            raise CloudPublicationFailure(
+                "Invalid workflow run ID", code=PublicationFailureCode.WORKFLOW_RUN_INVALID
+            )
+        return self._get(
+            f"/actions/runs/{run_id}",
+            read_failure_code=PublicationFailureCode.WORKFLOW_RUN_READ_FAILED,
+            invalid_response_code=PublicationFailureCode.WORKFLOW_RUN_INVALID,
+        )
+
+    def branch_head(self, branch: str) -> str:
+        if branch not in {"main", "dev"}:
+            raise CloudPublicationFailure(
+                "Unsupported Pages publication branch",
+                code=PublicationFailureCode.PUBLICATION_INPUT_INVALID,
+            )
+        reference = self._get(
+            "/git/ref/heads/" + quote(branch, safe=""),
+            read_failure_code=PublicationFailureCode.BRANCH_HEAD_READ_FAILED,
+            invalid_response_code=PublicationFailureCode.BRANCH_HEAD_INVALID,
+        )
+        target = reference.get("object")
+        sha = target.get("sha") if isinstance(target, dict) else None
+        if (
+            reference.get("ref") != f"refs/heads/{branch}"
+            or not isinstance(sha, str)
+            or re.fullmatch(r"[0-9a-f]{40}", sha) is None
+        ):
+            raise CloudPublicationFailure(
+                "Current Pages branch revision could not be verified",
+                code=PublicationFailureCode.BRANCH_HEAD_INVALID,
+            )
+        return sha
+
+    def active_workflow_runs(self, *, current_run_id: int) -> list[dict]:
+        workflow_id = Path(WORKFLOW_PATH).name
+        path = "/actions/workflows/" + quote(workflow_id, safe="") + "/runs"
+        value = self._get(
+            path,
+            params={"status": "in_progress", "per_page": 100},
+            read_failure_code=PublicationFailureCode.ACTIONS_RUN_LIST_READ_FAILED,
+            invalid_response_code=PublicationFailureCode.ACTIONS_RUN_LIST_INVALID,
+        )
+        runs = value.get("workflow_runs")
+        if (
+            not isinstance(runs, list)
+            or type(value.get("total_count")) is not int
+            or value["total_count"] > len(runs)
+        ):
+            raise CloudPublicationFailure(
+                "Active Pages runs could not be enumerated",
+                code=PublicationFailureCode.ACTIONS_RUN_LIST_INVALID,
+            )
+        if any(
+            not isinstance(run, dict) or type(run.get("id")) is not int or run["id"] < 1
+            for run in runs
+        ):
+            raise CloudPublicationFailure(
+                "Active Pages runs could not be enumerated",
+                code=PublicationFailureCode.ACTIONS_RUN_LIST_INVALID,
+            )
+        return [run for run in runs if run["id"] != current_run_id]
+
+    def deployment_action_was_skipped(self, run_id: int) -> bool:
+        if type(run_id) is not int or run_id < 1:
+            raise CloudPublicationFailure(
+                "Invalid publication workflow run ID",
+                code=PublicationFailureCode.WORKFLOW_RUN_INVALID,
+            )
+        jobs: list[dict] = []
+        total_count: int | None = None
+        page = 1
+        while total_count is None or len(jobs) < total_count:
+            value = self._get(
+                f"/actions/runs/{run_id}/jobs",
+                params={"filter": "all", "per_page": 100, "page": page},
+                read_failure_code=PublicationFailureCode.WORKFLOW_JOB_LIST_READ_FAILED,
+                invalid_response_code=PublicationFailureCode.WORKFLOW_JOB_LIST_INVALID,
+            )
+            page_jobs = value.get("jobs")
+            reported_total = value.get("total_count")
+            if (
+                type(reported_total) is not int
+                or reported_total < 0
+                or not isinstance(page_jobs, list)
+                or any(not isinstance(job, dict) for job in page_jobs)
+                or total_count is not None and reported_total != total_count
+                or not page_jobs and len(jobs) < reported_total
+                or len(jobs) + len(page_jobs) > reported_total
+            ):
+                raise CloudPublicationFailure(
+                    "Publication workflow jobs could not be enumerated",
+                    code=PublicationFailureCode.WORKFLOW_JOB_LIST_INVALID,
+                )
+            total_count = reported_total
+            jobs.extend(page_jobs)
+            page += 1
+        if total_count != len(jobs):
+            raise CloudPublicationFailure(
+                "Publication workflow jobs could not be enumerated",
+                code=PublicationFailureCode.WORKFLOW_JOB_LIST_INVALID,
+            )
+        deploy_jobs = [job for job in jobs if job.get("name") == "deploy"]
+        if not deploy_jobs:
+            return False
+        for deploy_job in deploy_jobs:
+            if deploy_job.get("conclusion") == "skipped":
+                continue
+            steps = deploy_job.get("steps")
+            if not isinstance(steps, list) or any(not isinstance(step, dict) for step in steps):
+                raise CloudPublicationFailure(
+                    "Publication deployment steps could not be enumerated",
+                    code=PublicationFailureCode.WORKFLOW_JOB_LIST_INVALID,
+                )
+            deploy_steps = [
+                step for step in steps if step.get("name") == "Deploy the reserved artifact"
+            ]
+            if len(deploy_steps) != 1:
+                return False
+            deploy_step = deploy_steps[0]
+            if deploy_step.get("status") != "completed" or deploy_step.get("conclusion") != "skipped":
+                return False
+        return True
+
+
+@dataclass(frozen=True)
+class PublicationPlan:
+    mode: CloudMode
+    application_revision: str
+    resume: Generation | None = None
+
+
+class CloudPublisher:
+    def __init__(
+        self,
+        publication: PublicationCheckpoint,
+        actions: GitHubActionsApi,
+        pages: PagesGenerationRestorer,
+        pages_deployments: GitHubPagesDeploymentApi,
+        repository: str,
+        repository_id: int,
+    ):
+        self.publication = publication
+        self.actions = actions
+        self.pages = pages
+        self.pages_deployments = pages_deployments
+        self.repository = repository
+        self.repository_id = repository_id
+
+    def _assert_no_other_pages_run(self, run_id: int) -> None:
+        try:
+            other_runs = self.actions.active_workflow_runs(current_run_id=run_id)
+        except CloudPublicationFailure:
+            raise
+        except CloudPublicationError as exc:
+            raise CloudPublicationFailure(
+                "Active Pages runs could not be read",
+                code=PublicationFailureCode.ACTIONS_RUN_LIST_READ_FAILED,
+            ) from exc
+        if other_runs:
+            raise CloudPublicationFailure(
+                "Another Pages workflow is still running",
+                code=PublicationFailureCode.ACTIVE_PAGES_RUN,
+            )
+
+    def _validate_run(self, run: dict, run_id: int, *, require_completed: bool) -> None:
+        head_repository = run.get("head_repository")
+        repository_name = (
+            head_repository.get("full_name") if isinstance(head_repository, dict) else None
+        )
+        if (
+            run.get("id") != run_id
+            or run.get("path") != WORKFLOW_PATH
+            or not isinstance(repository_name, str)
+            or repository_name.casefold() != self.repository.casefold()
+            or require_completed
+            and run.get("status") != "completed"
+        ):
+            raise CloudPublicationFailure(
+                "Publication run provenance does not match",
+                code=PublicationFailureCode.WORKFLOW_RUN_INVALID,
+            )
+
+    def _read_publication_state_for_preflight(self) -> PublicationState:
+        try:
+            return self.publication.read()
+        except CheckpointError as exc:
+            raise CloudPublicationFailure(
+                "Publication checkpoint could not be read",
+                code=PublicationFailureCode.PUBLICATION_CHECKPOINT_READ_FAILED,
+            ) from exc
+
+    def _read_pages_pointer_for_preflight(self) -> dict | None:
+        try:
+            return self.pages.read_pointer()
+        except CloudRefreshError as exc:
+            raise CloudPublicationFailure(
+                "Pages pointer could not be read",
+                code=PublicationFailureCode.PAGES_POINTER_READ_FAILED,
+            ) from exc
+
+    def _probe_legacy_data_for_preflight(self) -> bool:
+        try:
+            return self.pages.has_legacy_data()
+        except CloudRefreshError as exc:
+            raise CloudPublicationFailure(
+                "Legacy Pages data could not be checked",
+                code=PublicationFailureCode.LEGACY_DATA_PROBE_FAILED,
+            ) from exc
+
+    def _restore_generation_for_preflight(
+        self,
+        generation: Generation,
+        destination: Path,
+        *,
+        code: PublicationFailureCode,
+    ) -> None:
+        try:
+            self.pages.restore(generation, destination)
+        except (CloudRefreshError, PublicationError, OSError, ValueError) as exc:
+            raise CloudPublicationFailure(
+                "Pages generation could not be restored", code=code
+            ) from exc
+
+    @staticmethod
+    def _pointer_for(generation: Generation | None) -> dict | None:
+        if generation is None:
+            return None
+        return {
+            "version": 1,
+            "generation_id": generation.generation_id,
+            "manifest_sha256": generation.manifest_sha256,
+        }
+
+    def _transition(self, operation, expected: PublicationState) -> PublicationState:
+        try:
+            operation()
+        except CheckpointError:
+            observed = self.publication.read()
+            if observed != expected:
+                raise
+        observed = self.publication.read()
+        if observed != expected:
+            raise CloudPublicationFailure(
+                "Publication checkpoint transition was not confirmed",
+                code=PublicationFailureCode.PUBLICATION_CHECKPOINT_TRANSITION_UNCONFIRMED,
+            )
+        return observed
+
+    def _transition_for_preflight(
+        self, operation, expected: PublicationState
+    ) -> PublicationState:
+        try:
+            return self._transition(operation, expected)
+        except CheckpointError as exc:
+            raise CloudPublicationFailure(
+                "Publication checkpoint transition was not confirmed",
+                code=PublicationFailureCode.PUBLICATION_CHECKPOINT_TRANSITION_UNCONFIRMED,
+            ) from exc
+
+    def _reconcile(
+        self, state: PublicationState, candidate: Generation, *, current_run_id: int
+    ) -> PublicationState:
+        previous_run = self.actions.workflow_run(candidate.workflow_run_id)
+        self._validate_run(previous_run, candidate.workflow_run_id, require_completed=True)
+        self._assert_no_other_pages_run(current_run_id)
+        live_pointer = self._read_pages_pointer_for_preflight()
+        candidate_pointer = self._pointer_for(candidate)
+        deployed_pointer = self._pointer_for(state.deployed)
+        if live_pointer == candidate_pointer:
+            with tempfile.TemporaryDirectory(prefix="pages-reconcile-") as directory:
+                self._restore_generation_for_preflight(
+                    candidate,
+                    Path(directory) / "site",
+                    code=PublicationFailureCode.CANDIDATE_GENERATION_RESTORE_FAILED,
+                )
+            expected = PublicationState(deployed=candidate, last_attempt=state.last_attempt)
+            return self._transition_for_preflight(
+                lambda: self.publication.mark_deployed(
+                    candidate, observed=DeploymentObservation(candidate)
+                ),
+                expected,
+            )
+        if live_pointer != deployed_pointer:
+            raise CloudPublicationFailure(
+                "Pages serves an unknown generation; publication is paused",
+                code=PublicationFailureCode.PAGES_GENERATION_UNKNOWN,
+            )
+        if state.deployed is not None:
+            with tempfile.TemporaryDirectory(prefix="pages-reconcile-") as directory:
+                self._restore_generation_for_preflight(
+                    state.deployed,
+                    Path(directory) / "site",
+                    code=PublicationFailureCode.DEPLOYED_GENERATION_RESTORE_FAILED,
+                )
+        if previous_run.get("conclusion") not in {
+            "failure",
+            "cancelled",
+            "timed_out",
+            "startup_failure",
+            "action_required",
+            "neutral",
+            "skipped",
+            "stale",
+        }:
+            raise CloudPublicationFailure(
+                "Pages still serves the previous generation after a successful run",
+                code=PublicationFailureCode.PRIOR_RUN_OUTCOME_NOT_ABANDONABLE,
+            )
+        if candidate.pages_build_version is None:
+            deployment_terminated = self.actions.deployment_action_was_skipped(
+                candidate.workflow_run_id
+            )
+        else:
+            try:
+                deployment_status = self.pages_deployments.status(candidate.pages_build_version)
+            except PagesStatusError as exc:
+                raise CloudPublicationFailure(
+                    "GitHub Pages deployment status could not be read",
+                    code=PublicationFailureCode.PAGES_DEPLOYMENT_STATUS_READ_FAILED,
+                ) from exc
+            deployment_terminated = deployment_status in TERMINAL_FAILURES
+            if (deployment_status is None
+                    and (candidate.submission is None
+                         or candidate.submission.outcome is SubmissionOutcome.REJECTED)):
+                deployment_terminated = True
+        if not deployment_terminated:
+            raise CloudPublicationFailure(
+                "Pages deployment has not confirmed termination",
+                code=PublicationFailureCode.PRIOR_RUN_OUTCOME_NOT_ABANDONABLE,
+            )
+        expected = PublicationState(
+            deployed=state.deployed, abandoned=candidate, last_attempt=state.last_attempt
+        )
+        return self._transition_for_preflight(
+            lambda: self.publication.abandon(
+                candidate,
+                observed_deployed=DeploymentObservation(state.deployed),
+                deployment_terminated=deployment_terminated,
+            ),
+            expected,
+        )
+
+    def preflight(
+        self, *, mode: CloudMode, event_ref: str, event_sha: str, run_id: int,
+        allow_legacy_bootstrap: bool = False,
+    ) -> PublicationPlan:
+        if (
+            mode not in {"scheduled", "code-only"}
+            or re.fullmatch(r"[0-9a-f]{40}", event_sha) is None
+            or event_ref not in {"refs/heads/main", "refs/heads/dev"}
+        ):
+            raise CloudPublicationFailure(
+                "Invalid publication mode or event revision",
+                code=PublicationFailureCode.PUBLICATION_INPUT_INVALID,
+            )
+        self._assert_no_other_pages_run(run_id)
+        branch = event_ref.removeprefix("refs/heads/")
+        if self.actions.branch_head(branch) != event_sha:
+            raise CloudPublicationFailure(
+                "Publication event is no longer the branch head",
+                code=PublicationFailureCode.EVENT_REVISION_STALE,
+            )
+        state = self._read_publication_state_for_preflight()
+        if state.deployed is None and state.candidate is None:
+            if self._read_pages_pointer_for_preflight() is not None:
+                raise CloudPublicationFailure(
+                    "Pages serves an uncheckpointed generation; migrate its checkpoint first",
+                    code=PublicationFailureCode.UNCHECKPOINTED_PAGES_GENERATION,
+                )
+            legacy_data_found = self._probe_legacy_data_for_preflight()
+            if not allow_legacy_bootstrap:
+                detail = "legacy Pages data was found" if legacy_data_found else "the site appears empty"
+                raise CloudPublicationFailure(
+                    f"Initial Pages publication ({detail}) requires explicit bootstrap confirmation",
+                    code=PublicationFailureCode.LEGACY_BOOTSTRAP_REQUIRED,
+                )
+        if state.candidate is not None:
+            candidate = state.candidate
+            if candidate.workflow_run_id == run_id:
+                run = self.actions.workflow_run(run_id)
+                self._validate_run(run, run_id, require_completed=False)
+                _validate_artifact(
+                    self.actions.artifact(candidate.artifact_id),
+                    repository_id=self.repository_id,
+                    artifact_id=candidate.artifact_id,
+                    run_id=candidate.workflow_run_id,
+                    event_sha=event_sha,
+                    expected_digest=candidate.artifact_digest,
+                )
+                expected_revision = (
+                    state.deployed.producer_revision
+                    if mode == "scheduled" and state.deployed
+                    else event_sha
+                )
+                if candidate.producer_revision != expected_revision:
+                    raise CloudPublicationFailure(
+                        "Pending candidate does not match the active application revision",
+                        code=PublicationFailureCode.CANDIDATE_REVISION_MISMATCH,
+                    )
+                return PublicationPlan(mode, candidate.producer_revision, candidate)
+            state = self._reconcile(state, candidate, current_run_id=run_id)
+        app_revision = (
+            state.deployed.producer_revision
+            if mode == "scheduled" and state.deployed is not None
+            else event_sha
+        )
+        return PublicationPlan(mode, app_revision)
+
+    def reserve(
+        self, *, generation_dir: Path, artifact_id: int, run_id: int, event_sha: str
+    ) -> Generation:
+        state = self.publication.read()
+        if state.candidate is not None:
+            raise CloudPublicationError("Another publication candidate is pending")
+        manifest = verify_generation(generation_dir)
+        artifact = self.actions.artifact(artifact_id)
+        digest = _validate_artifact(
+            artifact,
+            repository_id=self.repository_id,
+            artifact_id=artifact_id,
+            run_id=run_id,
+            event_sha=event_sha,
+        )
+        candidate = Generation(
+            generation_id=manifest["generation_id"],
+            manifest_sha256=hashlib.sha256(
+                (generation_dir / "manifest.json").read_bytes()
+            ).hexdigest(),
+            producer_revision=manifest["producer_revision"],
+            parent_id=manifest["parent_id"],
+            attempt_number=state.last_attempt + 1,
+            attempt_id=str(uuid4()),
+            artifact_id=artifact_id,
+            workflow_run_id=run_id,
+            artifact_digest=digest,
+        )
+        prepared = self.publication.prepare(candidate)
+        if prepared.candidate is None:
+            raise CloudPublicationFailure(
+                "Publication candidate was not reserved",
+                code=PublicationFailureCode.PUBLICATION_CHECKPOINT_TRANSITION_UNCONFIRMED,
+            )
+        return prepared.candidate
+
+    def finish(self, *, current_run_id: int, event_sha: str) -> Generation:
+        state = self.publication.read()
+        candidate = state.candidate
+        if candidate is None or candidate.workflow_run_id != current_run_id:
+            if state.deployed is not None and state.deployed.workflow_run_id == current_run_id:
+                candidate = state.deployed
+            else:
+                raise CloudPublicationError("No candidate belongs to this workflow run")
+        run = self.actions.workflow_run(current_run_id)
+        self._validate_run(run, current_run_id, require_completed=False)
+        _validate_artifact(
+            self.actions.artifact(candidate.artifact_id),
+            repository_id=self.repository_id,
+            artifact_id=candidate.artifact_id,
+            run_id=candidate.workflow_run_id,
+            event_sha=event_sha,
+            expected_digest=candidate.artifact_digest,
+        )
+        with tempfile.TemporaryDirectory(prefix="pages-verify-") as directory:
+            self.pages.restore(candidate, Path(directory) / "site")
+        if state.candidate is not None:
+            expected = PublicationState(deployed=candidate, last_attempt=state.last_attempt)
+            self._transition(
+                lambda: self.publication.mark_deployed(
+                    candidate, observed=DeploymentObservation(candidate)
+                ),
+                expected,
+            )
+        return candidate
+
+
+def _runtime() -> tuple[
+    GitHubCheckpoint, GitHubActionsApi, GitHubPagesDeploymentApi, Settings, int
+]:
+    try:
+        settings = Settings()
+    except ValidationError as exc:
+        raise CloudPublicationFailure(
+            "Cloud publication settings are invalid",
+            code=PublicationFailureCode.PUBLICATION_CONFIGURATION_INVALID,
+        ) from exc
+    repository = settings.cloud_state_repo
+    token = settings.cloud_state_token.get_secret_value() if settings.cloud_state_token else None
+    if not repository or not token:
+        raise CloudPublicationFailure(
+            "Cloud checkpoint repository and token are required",
+            code=PublicationFailureCode.PUBLICATION_CONFIGURATION_INVALID,
+        )
+    checkpoint_parts = repository.split("/")
+    if len(checkpoint_parts) != 2:
+        raise CloudPublicationFailure(
+            "Cloud checkpoint repository must use owner/repo",
+            code=PublicationFailureCode.PUBLICATION_CONFIGURATION_INVALID,
+        )
+    runner_repository = os.environ.get("GITHUB_REPOSITORY")
+    runner_repository_id = os.environ.get("GITHUB_REPOSITORY_ID")
+    if (
+        not isinstance(runner_repository, str)
+        or runner_repository.casefold() != repository.casefold()
+        or not isinstance(runner_repository_id, str)
+        or re.fullmatch(r"[0-9]+", runner_repository_id) is None
+    ):
+        raise CloudPublicationFailure(
+            "GitHub runner repository identity is invalid",
+            code=PublicationFailureCode.PUBLICATION_CONFIGURATION_INVALID,
+        )
+    try:
+        repository_id = int(runner_repository_id)
+    except ValueError as exc:
+        raise CloudPublicationFailure(
+            "GitHub runner repository identity is invalid",
+            code=PublicationFailureCode.PUBLICATION_CONFIGURATION_INVALID,
+        ) from exc
+    if repository_id < 1:
+        raise CloudPublicationFailure(
+            "GitHub runner repository identity is invalid",
+            code=PublicationFailureCode.PUBLICATION_CONFIGURATION_INVALID,
+        )
+    checkpoint = GitHubCheckpoint(*checkpoint_parts, settings.cloud_state_branch, token)
+    return (
+        checkpoint,
+        GitHubActionsApi(repository, token),
+        GitHubPagesDeploymentApi(repository, token),
+        settings,
+        repository_id,
+    )
+
+
+def _write_outputs(values: dict[str, object]) -> None:
+    output = os.environ.get("GITHUB_OUTPUT")
+    lines = "".join(f"{key}={value}\n" for key, value in values.items())
+    if output:
+        with Path(output).open("a", encoding="utf-8") as file:
+            file.write(lines)
+    else:
+        sys.stdout.write(lines)
+
+
+def _preflight_failure_code(exc: BaseException) -> PublicationFailureCode:
+    if isinstance(exc, CloudPublicationFailure):
+        return exc.code
+    if isinstance(exc, CheckpointError):
+        return PublicationFailureCode.PUBLICATION_CHECKPOINT_OPERATION_FAILED
+    if isinstance(exc, CloudRefreshError):
+        return PublicationFailureCode.PAGES_OPERATION_FAILED
+    if isinstance(exc, PublicationError):
+        return PublicationFailureCode.GENERATION_VERIFICATION_FAILED
+    if isinstance(exc, CloudPublicationError):
+        return PublicationFailureCode.PUBLICATION_FAILURE_UNCLASSIFIED
+    if isinstance(exc, httpx.HTTPError):
+        return PublicationFailureCode.PUBLICATION_TRANSPORT_FAILED
+    if isinstance(exc, OSError):
+        return PublicationFailureCode.PUBLICATION_IO_FAILED
+    if isinstance(exc, ValueError):
+        return PublicationFailureCode.PUBLICATION_INPUT_INVALID
+    return PublicationFailureCode.PUBLICATION_FAILURE_UNCLASSIFIED
+
+
+def _emit_preflight_failure(code: PublicationFailureCode) -> None:
+    print(
+        json.dumps(
+            {
+                "event": "cloud_publication.failure",
+                "stage": "preflight",
+                "code": code.value,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+        file=sys.stderr,
+        flush=True,
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="command", required=True)
+    preflight = commands.add_parser("preflight")
+    preflight.add_argument("--mode", choices=("scheduled", "code-only"), required=True)
+    preflight.add_argument("--event-ref", required=True)
+    preflight.add_argument("--event-sha", required=True)
+    preflight.add_argument("--run-id", type=int, required=True)
+    preflight.add_argument("--allow-legacy-bootstrap", action="store_true")
+    preflight.add_argument("--site-url", required=True)
+    reserve = commands.add_parser("reserve")
+    reserve.add_argument("--generation-dir", type=Path, required=True)
+    reserve.add_argument("--artifact-id", type=int, required=True)
+    reserve.add_argument("--run-id", type=int, required=True)
+    reserve.add_argument("--event-sha", required=True)
+    finish = commands.add_parser("finish")
+    finish.add_argument("--run-id", type=int, required=True)
+    finish.add_argument("--event-sha", required=True)
+    finish.add_argument("--site-url", required=True)
+    args = parser.parse_args(argv)
+    checkpoint = actions = pages_deployments = None
+    try:
+        checkpoint, actions, pages_deployments, settings, repository_id = _runtime()
+        publication = PublicationCheckpoint(checkpoint)
+        site_url = getattr(args, "site_url", None)
+        pages = PagesGenerationRestorer(site_url) if site_url else None
+        publisher = CloudPublisher(
+            publication, actions, pages, pages_deployments, settings.cloud_state_repo, repository_id
+        )
+        if args.command == "preflight":
+            plan = publisher.preflight(
+                mode=args.mode, event_ref=args.event_ref, event_sha=args.event_sha,
+                run_id=args.run_id, allow_legacy_bootstrap=args.allow_legacy_bootstrap,
+            )
+            values: dict[str, object] = {
+                "mode": plan.mode,
+                "app_revision": plan.application_revision,
+                "resume": str(plan.resume is not None).lower(),
+            }
+            if plan.resume is not None:
+                values.update(
+                    {
+                        "generation_id": plan.resume.generation_id,
+                        "manifest_sha256": plan.resume.manifest_sha256,
+                        "producer_revision": plan.resume.producer_revision,
+                        "parent_id": plan.resume.parent_id or "",
+                        "artifact_id": plan.resume.artifact_id,
+                        "pages_build_version": plan.resume.pages_build_version or "",
+                    }
+                )
+            _write_outputs(values)
+        elif args.command == "reserve":
+            generation = publisher.reserve(
+                generation_dir=args.generation_dir,
+                artifact_id=args.artifact_id,
+                run_id=args.run_id,
+                event_sha=args.event_sha,
+            )
+            _write_outputs(
+                {
+                    "generation_id": generation.generation_id,
+                    "attempt_id": generation.attempt_id,
+                    "artifact_id": generation.artifact_id,
+                    "pages_build_version": generation.pages_build_version or "",
+                }
+            )
+        else:
+            generation = publisher.finish(current_run_id=args.run_id, event_sha=args.event_sha)
+            _write_outputs(
+                {
+                    "generation_id": generation.generation_id,
+                    "manifest_sha256": generation.manifest_sha256,
+                }
+            )
+        return 0
+    except (
+        CheckpointError,
+        CloudPublicationError,
+        CloudRefreshError,
+        PublicationError,
+        OSError,
+        ValueError,
+        httpx.HTTPError,
+    ) as exc:
+        if args.command == "preflight":
+            _emit_preflight_failure(_preflight_failure_code(exc))
+        print("Cloud Pages publication could not be confirmed", file=sys.stderr)
+        return 1
+    finally:
+        if actions is not None:
+            actions.close()
+        if pages_deployments is not None:
+            pages_deployments.close()
+        if checkpoint is not None:
+            checkpoint.close()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

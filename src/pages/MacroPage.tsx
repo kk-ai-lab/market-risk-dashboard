@@ -18,7 +18,7 @@ const SECTIONS = ["rates", "credit", "volatility", "inflation", "labor", "liquid
 type MacroGroup = (typeof SECTIONS)[number];
 
 /** history/macro/{group}.{slice}.json — sparse column-oriented per-series history (#84 §3). */
-const MacroBundleSchema = z.record(z.object({ d: z.array(z.string()), v: z.array(z.number()) }));
+const MacroBundleSchema = z.record(z.string(), z.object({ d: z.array(z.string()), v: z.array(z.number()) }));
 
 /**
  * MacroPage: macro page (rates / credit / volatility / inflation / labor / liquidity / fx
@@ -53,7 +53,7 @@ export default function MacroPage() {
           {t("title")}
         </h1>
         <p className="text-xs text-muted-foreground">{t("subtitle")}</p>
-        {macroQ.data ? <span className="ml-auto"><StatusBadge status={macroQ.data.freshness_status} fromCache={macroQ.data.provenance?.from_cache} withDescription /></span> : null}
+        {macroQ.data ? <span className="ml-auto"><StatusBadge dataset="macro" generatedAt={macroQ.data.generated_at} status={macroQ.data.freshness_status} fromCache={macroQ.data.provenance?.from_cache} withDescription /></span> : null}
       </header>
 
       {macroQ.isLoading ? (

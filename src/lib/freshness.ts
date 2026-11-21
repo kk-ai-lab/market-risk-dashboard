@@ -1,4 +1,62 @@
-import type { FreshnessStatus } from "@/schemas";
+import { CONTRACT_CONSTANTS, type FreshnessStatus, type MacroFreshnessPolicy } from "@/schemas";
+
+/** Age a published run status without treating collection time as source observation time. */
+export function currentFreshness(status: FreshnessStatus, dataset: string, generatedAt: string, now = Date.now(), expectedMinutes?: number): FreshnessStatus {
+  if (status !== "fresh" && status !== "delayed" && status !== "stale") return status;
+  const elapsed = elapsedFreshness(dataset, generatedAt, now, expectedMinutes);
+  const rank = { fresh: 0, delayed: 1, stale: 2 } as const;
+  return rank[elapsed] > rank[status] ? elapsed : status;
+}
+
+/** Preserve provider failures while aging a known source observation. */
+export function currentSourceFreshness(status: FreshnessStatus, sourceAge: "fresh" | "delayed" | "stale"): FreshnessStatus {
+  if (status !== "fresh" && status !== "delayed" && status !== "stale") return status;
+  const rank = { fresh: 0, delayed: 1, stale: 2 } as const;
+  return rank[sourceAge] > rank[status] ? sourceAge : status;
+}
+
+/** Age a macro status against its latest source observation, not the pipeline run. */
+export function macroObservationFreshness(
+  status: FreshnessStatus,
+  observedAt: string,
+  policy: MacroFreshnessPolicy,
+  now = Date.now(),
+): FreshnessStatus {
+  if (status !== "fresh" && status !== "delayed" && status !== "stale") return status;
+  const timestamp = Date.parse(observedAt);
+  const age = now - timestamp;
+  const ageStatus = !Number.isFinite(timestamp)
+    || age < -5 * 60_000
+    || age > policy.stale_after_minutes * 60_000
+    ? "stale"
+    : age > policy.delayed_after_minutes * 60_000
+      ? "delayed"
+      : "fresh";
+  return currentSourceFreshness(status, ageStatus);
+}
+
+export function macroObservationTimestamp(
+  observationDate?: string | null,
+  observationPeriod?: string | null,
+  updatedAt?: string | null,
+): string | null {
+  if (observationDate) return `${observationDate}T00:00:00Z`;
+  if (observationPeriod) {
+    const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(observationPeriod);
+    if (!match) return null;
+    return new Date(Date.UTC(Number(match[1]), Number(match[2]), 0, 23, 59, 59, 999)).toISOString();
+  }
+  return updatedAt ?? null;
+}
+
+export function elapsedFreshness(dataset: string, generatedAt: string, now = Date.now(), expectedMinutes?: number): "fresh" | "delayed" | "stale" {
+  const intervals: Record<string, number> = CONTRACT_CONSTANTS.expected_interval_minutes;
+  const interval = expectedMinutes ?? intervals[dataset];
+  const timestamp = Date.parse(generatedAt);
+  if (!interval || interval <= 0 || !Number.isFinite(timestamp)) return "stale";
+  const age = (now - timestamp) / 60_000;
+  return age < -5 || age > interval * 3 ? "stale" : age > interval * 1.5 ? "delayed" : "fresh";
+}
 
 /**
  * Freshness semantics and UI (architecture §8.5, six states after #89).

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from datetime import date, timedelta
+from math import isfinite
 from typing import Any
 
 from pipeline.schemas import registry as dataset_registry
 from pipeline.storage import StorageWriter
+from pipeline.utils import now_utc
 
 #: One source for the gated set (#192): was restated as two literals that could drift.
 GATED_SIGNALS = frozenset({"cyclicals_defensives_relative", "hy_treasury_relative"})
@@ -20,6 +23,7 @@ def build_risk_context(
     prev_dim_scores: dict[str, float] | None,
     risk_history: list[dict[str, Any]],
     series_history: dict[str, list[dict[str, Any]]],
+    derived_series_report: dict[str, Any] | None = None,
     market_provenance: dict[str, Any] | None = None,
     macro_provenance: dict[str, Any] | None = None,
     crypto_provenance: dict[str, Any] | None = None,
@@ -42,7 +46,11 @@ def build_risk_context(
     real_rate = _macro_value(macro, "rates", "dfii10")
     spy_change = _latest_change(histories.get("SPY"))
     iwm_relative = breadth.get("small_cap_relative")
-    btc_change = crypto.payload.assets[0].change_1d if crypto.payload.assets else None
+    bitcoin = next(
+        (asset for asset in crypto.payload.assets if asset.symbol.upper() == "BTC"),
+        None,
+    )
+    btc_change = bitcoin.change_1d if bitcoin is not None else None
     copper_change = _commodity_change(commodities, "HG=F")
     gold_change = _commodity_change(commodities, "GC=F")
 
@@ -111,6 +119,12 @@ def build_risk_context(
         },
         "data_quality": round(data_quality, 4),
         "series_history": series_history,
+        # #D3: the value histories derived from the collected market histories
+        # (pipeline/indicators/derived_series.py). Both are empty when the caller did not opt
+        # in — nothing was computed, so nothing is published, and every derived key falls back
+        # to the heuristic table exactly as before.
+        "derived_series_report": derived_series_report,
+        "derived_indicator_series": (derived_series_report or {}).get("series", {}),
         "_prev_total_score": prev_total_score,
         "_prev_dim_scores": prev_dim_scores,
         "_risk_history": risk_history,
@@ -186,16 +200,35 @@ def _cross_asset_signal(
     }
 
 
-def read_prev_risk(writer: StorageWriter) -> tuple[float | None, dict[str, float] | None, list[dict[str, Any]]]:
-    """Read risk history: previous day total score / previous day dimension scores / all prior rows (P2-9 public read_history)."""
-    rows = writer.read_history("risk", "daily")
+def read_prev_risk(writer: StorageWriter, *, model_version: str, as_of_date: str | None = None) -> tuple[float | None, dict[str, float] | None, list[dict[str, Any]]]:
+    cutoff = as_of_date or now_utc()[:10]
+    def valid_row(row: Any) -> bool:
+        if not isinstance(row, dict) or row.get("model_version") != model_version or row.get("evidence_state") not in ("partial", "complete"):
+            return False
+        value, observed = row.get("total_score"), row.get("date")
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value) or not 0 <= value <= 100:
+            return False
+        try:
+            return isinstance(observed, str) and date.fromisoformat(observed).isoformat() == observed and observed < cutoff
+        except ValueError:
+            return False
+
+    rows = sorted((row for row in writer.read_history("risk", "daily") if valid_row(row)), key=lambda row: row["date"])
     if not rows:
         return None, None, []
     last = rows[-1]
+    if last["date"] != (date.fromisoformat(cutoff) - timedelta(days=1)).isoformat():
+        return None, None, rows
     prev_total = last.get("total_score")
     prev_dims = last.get("dim_scores") if isinstance(last.get("dim_scores"), dict) else None
-    if isinstance(prev_dims, dict):
-        prev_dims = {str(k): float(v) for k, v in prev_dims.items() if isinstance(v, (int, float))}
+    dim_evidence = last.get("dim_evidence_states")
+    if isinstance(prev_dims, dict) and isinstance(dim_evidence, dict):
+        prev_dims = {str(k): float(v) for k, v in prev_dims.items()
+                     if dim_evidence.get(k) in ("partial", "complete")
+                     and isinstance(v, (int, float)) and not isinstance(v, bool)
+                     and isfinite(v) and 0 <= v <= 100}
+    else:
+        prev_dims = None
     return prev_total, prev_dims, rows
 
 
@@ -203,14 +236,8 @@ def read_prev_risk(writer: StorageWriter) -> tuple[float | None, dict[str, float
 # Dataset health for the run report (#63)
 # ============================================================
 
-#: Every dataset a `--full` run is expected to publish, in canonical registry keys.
-#:
-#: Derived from the registry rather than listed by hand: a dataset added to the registry and
-#: forgotten here would be collected, written, and then quietly excluded from the health
-#: report. `analysis` and `news_translations` are `required=False` — the AI automations
-#: produce them out of band, so a collection run that lacks them is degraded, not failed.
 FULL_RUN_DATASETS: tuple[str, ...] = tuple(
-    spec.key for spec in dataset_registry.DATASETS if spec.required
+    spec.key for spec in dataset_registry.DATASETS if spec.required or spec.full_run
 )
 
 #: Datasets each command attempts. Anything in FULL_RUN_DATASETS and not listed here was
@@ -222,5 +249,4 @@ COMMAND_DATASETS: dict[str, tuple[str, ...]] = {
     "macro-only": ("macro",),
     "news-only": ("news",),
     "fact-layer": ("factlayer",),
-    "analysis-only": (),
 }

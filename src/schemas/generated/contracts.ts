@@ -10,16 +10,22 @@
 // a field to a dataset cannot take a page down. Unknown fields are reported by
 // src/lib/api.ts.
 // ============================================================================
-/* eslint-disable */
 import { z } from "zod";
 
 /** ISO 8601 UTC + Z timestamp, e.g. 2026-08-03T10:00:00Z. */
 export const utcDateTime = z.string().datetime();
+export const isoDate = z.iso.date();
 
 // ---- Enumerations (Literal aliases in pipeline/schemas/) ----
 
 export const AnalysisLanguage = z.enum(["zh-CN", "en"]);
 export type AnalysisLanguage = z.infer<typeof AnalysisLanguage>;
+
+export const CalendarSource = z.enum(["earnings", "economic", "bea_calendar"]);
+export type CalendarSource = z.infer<typeof CalendarSource>;
+
+export const CalendarSourceState = z.enum(["fresh", "empty", "degraded", "not_configured"]);
+export type CalendarSourceState = z.infer<typeof CalendarSourceState>;
 
 export const CryptoSentiment = z.enum(["risk_on", "risk_off", "neutral"]);
 export type CryptoSentiment = z.infer<typeof CryptoSentiment>;
@@ -48,7 +54,7 @@ export type NewsSentiment = z.infer<typeof NewsSentiment>;
 export const NewsSourceLang = z.enum(["en", "zh"]);
 export type NewsSourceLang = z.infer<typeof NewsSourceLang>;
 
-export const ReasonCode = z.enum(["ok", "no_rows_returned", "no_events_in_window", "provider_http_error", "provider_rate_limited", "provider_auth_failed", "provider_parse_error", "served_from_fallback", "served_from_cache", "cache_expired", "cache_invalid", "all_providers_failed", "not_collected_this_run", "interval_exceeded", "input_dataset_unhealthy"]);
+export const ReasonCode = z.enum(["ok", "no_rows_returned", "no_events_in_window", "provider_http_error", "provider_rate_limited", "provider_auth_failed", "provider_parse_error", "served_from_fallback", "served_from_cache", "cache_expired", "cache_invalid", "all_providers_failed", "not_collected_this_run", "source_policy_excluded", "interval_exceeded", "input_dataset_unhealthy", "news_translation_incomplete"]);
 export type ReasonCode = z.infer<typeof ReasonCode>;
 
 export const RiskCalibrationStatus = z.enum(["provisional", "calibrated"]);
@@ -66,7 +72,7 @@ export type RiskEvidenceState = z.infer<typeof RiskEvidenceState>;
 export const RiskLevel = z.enum(["risk_on", "low_risk", "caution", "high_risk", "severe_risk", "crisis"]);
 export type RiskLevel = z.infer<typeof RiskLevel>;
 
-export const RiskTrend = z.enum(["rising", "falling", "flat"]);
+export const RiskTrend = z.enum(["rising", "falling", "flat", "unknown"]);
 export type RiskTrend = z.infer<typeof RiskTrend>;
 
 
@@ -77,7 +83,7 @@ export const AnalysisLineage = z
   .object({
     fact_generation_id: z.string().min(71).regex(new RegExp("^sha256:[0-9a-f]{64}$")),
     fact_generated_at: utcDateTime,
-    input_freshness: z.record(FreshnessStatus).default({}),
+    input_freshness: z.record(z.string(), FreshnessStatus).default({}),
     pair_id: z.string().min(1).max(128),
   })
   .passthrough();
@@ -159,7 +165,7 @@ export const BaseEnvelope = z
     freshness_status: FreshnessStatus,
     data_quality: z.number().finite().min(0).max(1),
     provenance: ProviderProvenance,
-    payload: z.record(z.unknown()),
+    payload: z.record(z.string(), z.unknown()),
   })
   .passthrough();
 export type BaseEnvelope = z.infer<typeof BaseEnvelope>;
@@ -201,10 +207,23 @@ export const CalendarEvent = z
   .passthrough();
 export type CalendarEvent = z.infer<typeof CalendarEvent>;
 
+export const CalendarSourceStatus = z
+  .object({
+    source: CalendarSource,
+    state: CalendarSourceState,
+    provider: z.string().min(1),
+    checked_at: utcDateTime.nullable().default(null),
+    used_fallback: z.boolean().default(false),
+    from_cache: z.boolean().default(false),
+  })
+  .passthrough();
+export type CalendarSourceStatus = z.infer<typeof CalendarSourceStatus>;
+
 /** calendar.json payload. */
 export const CalendarDataset = z
   .object({
     events: z.array(CalendarEvent).default([]),
+    source_status: z.array(CalendarSourceStatus).default([]),
     updated_at: utcDateTime.nullable().default(null),
   })
   .passthrough();
@@ -291,7 +310,7 @@ export const CryptoAsset = z
     market_cap: z.number().finite().nullable().default(null),
     volume_24h: z.number().finite().nullable().default(null),
     source: z.string().min(1),
-    updated_at: utcDateTime,
+    updated_at: utcDateTime.nullable().default(null),
   })
   .passthrough();
 export type CryptoAsset = z.infer<typeof CryptoAsset>;
@@ -328,6 +347,7 @@ export const DashboardAsset = z
     asset: z.string().min(1),
     category: z.string().min(1),
     change_1d: z.number().finite().nullable().default(null),
+    source: z.string().nullable().default(null),
   })
   .passthrough();
 export type DashboardAsset = z.infer<typeof DashboardAsset>;
@@ -365,10 +385,14 @@ export const RiskIndicator = z
     percentile: z.number().finite().min(0).max(100).nullable().default(null),
     z_score: z.number().finite().nullable().default(null),
     risk_score: z.number().finite().min(0).max(100),
+    score_included: z.boolean().default(true),
     direction: RiskDirection.default("neutral"),
     weight: z.number().finite().min(0).default(0.0),
     source: z.string().min(1),
     updated_at: utcDateTime.nullable().default(null),
+    observation_date: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])$")).nullable().default(null),
+    observation_period: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])$")).nullable().default(null),
+    fetched_at: utcDateTime.nullable().default(null),
     status: FreshnessStatus.default("fresh"),
     is_proxy: z.boolean(),
   })
@@ -386,7 +410,7 @@ export const RiskDimension = z
     indicators: z.array(RiskIndicator).default([]),
     coverage: z.number().finite().min(0).max(1),
     effective_coverage: z.number().finite().min(0).max(1).nullable().default(null),
-    trend: RiskTrend.default("flat"),
+    trend: RiskTrend.default("unknown"),
     evidence_state: RiskEvidenceState.nullable().default(null),
     missing_indicators: z.array(z.string()).default([]),
   })
@@ -410,7 +434,7 @@ export const RiskModelResult = z
     regime: MarketRegime,
     regime_evidence: z.array(z.string()).default([]),
     confidence: z.number().finite().min(0).max(1),
-    confidence_factors: z.record(z.number().finite()).default({}),
+    confidence_factors: z.record(z.string(), z.number().finite()).default({}),
     disclaimer: z.string().default("This indicator is a modeled estimate of market stress based on historical data and current market signals. Data trust is not statistical confidence, a calibrated probability, or investment advice."),
     evidence_state: RiskEvidenceState.nullable().default(null),
     evidence_coverage: z.number().finite().min(0).max(1).nullable().default(null),
@@ -493,6 +517,43 @@ export const DomainStatus = z
   .passthrough();
 export type DomainStatus = z.infer<typeof DomainStatus>;
 
+/** One reported weekly U.S. crude inventory observation. */
+export const EnergyObservation = z
+  .object({
+    week_ending: isoDate,
+    value: z.number().finite().min(0),
+  })
+  .passthrough();
+export type EnergyObservation = z.infer<typeof EnergyObservation>;
+
+/** Latest 260-or-fewer weekly observations for EIA series WCESTUS1. */
+export const EnergyDataset = z
+  .object({
+    series_id: z.string().default("WCESTUS1"),
+    unit: z.string().default("thousand_barrels"),
+    observations: z.array(EnergyObservation).default([]),
+    collection_status: z.enum(["not_configured", "available", "empty", "degraded"]),
+    observation_age: z.enum(["unknown", "within_window", "overdue"]),
+    last_attempt_at: utcDateTime,
+    last_successful_fetch_at: utcDateTime.nullable().default(null),
+  })
+  .passthrough();
+export type EnergyDataset = z.infer<typeof EnergyDataset>;
+
+export const EnergyEnvelope = z
+  .object({
+    generated_at: utcDateTime,
+    schema_version: z.string().min(1),
+    source: z.union([z.string(), z.array(z.string())]),
+    source_updated_at: utcDateTime.nullable().default(null),
+    freshness_status: FreshnessStatus,
+    data_quality: z.number().finite().min(0).max(1),
+    provenance: ProviderProvenance,
+    payload: EnergyDataset,
+  })
+  .passthrough();
+export type EnergyEnvelope = z.infer<typeof EnergyEnvelope>;
+
 /** Card-level data of a single equity. */
 export const EquityAsset = z
   .object({
@@ -550,13 +611,13 @@ export const FactLayer = z
     generated_at: utcDateTime,
     schema_version: z.string().min(1),
     generation_id: z.string().min(71).regex(new RegExp("^sha256:[0-9a-f]{64}$")).nullable().default(null),
-    data_freshness: z.record(FreshnessStatus).default({}),
+    data_freshness: z.record(z.string(), FreshnessStatus).default({}),
     risk: RiskModelResult,
-    macro_summary: z.record(z.unknown()).default({}),
-    market_summary: z.record(z.unknown()).default({}),
-    news_top: z.array(z.record(z.unknown())).default([]),
-    calendar_next7d: z.array(z.record(z.unknown())).default([]),
-    evidence_index: z.record(EvidenceRef).default({}),
+    macro_summary: z.record(z.string(), z.unknown()).default({}),
+    market_summary: z.record(z.string(), z.unknown()).default({}),
+    news_top: z.array(z.record(z.string(), z.unknown())).default([]),
+    calendar_next7d: z.array(z.record(z.string(), z.unknown())).default([]),
+    evidence_index: z.record(z.string(), EvidenceRef).default({}),
   })
   .passthrough();
 export type FactLayer = z.infer<typeof FactLayer>;
@@ -579,7 +640,7 @@ export const FedWatchSnapshot = z
     implied_rate: z.number().finite(),
     probabilities: z.array(FedWatchRateProb).default([]),
     inferred_action: z.enum(["hold", "hike", "cut", "insufficient_data"]).nullable().default(null),
-    change_1d: z.record(z.number().finite()).nullable().default(null),
+    change_1d: z.record(z.string(), z.number().finite()).nullable().default(null),
     status: z.enum(["accumulating", "ready"]).default("accumulating"),
   })
   .passthrough();
@@ -590,10 +651,18 @@ export const FreshnessDocument = z
   .object({
     schema_version: z.string().min(1),
     updated_at: utcDateTime,
-    datasets: z.record(DatasetFreshness).default({}),
+    datasets: z.record(z.string(), DatasetFreshness).default({}),
   })
   .passthrough();
 export type FreshnessDocument = z.infer<typeof FreshnessDocument>;
+
+export const MacroFreshnessPolicy = z
+  .object({
+    delayed_after_minutes: z.number().int().gt(0),
+    stale_after_minutes: z.number().int().gt(0),
+  })
+  .passthrough();
+export type MacroFreshnessPolicy = z.infer<typeof MacroFreshnessPolicy>;
 
 /** A single macro indicator (raw numeric storage, architecture §8.3). */
 export const MacroIndicator = z
@@ -606,7 +675,11 @@ export const MacroIndicator = z
     unit: MacroUnit.default("level"),
     source: z.string().min(1),
     updated_at: utcDateTime.nullable().default(null),
+    observation_date: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])$")).nullable().default(null),
+    observation_period: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])$")).nullable().default(null),
+    fetched_at: utcDateTime.nullable().default(null),
     status: FreshnessStatus.default("fresh"),
+    freshness_policy: MacroFreshnessPolicy.nullable().default(null),
   })
   .passthrough();
 export type MacroIndicator = z.infer<typeof MacroIndicator>;
@@ -698,7 +771,7 @@ export const NewsEnvelope = z
   .passthrough();
 export type NewsEnvelope = z.infer<typeof NewsEnvelope>;
 
-/** Symmetric full-pair translation of a news item (AI automation produces news.zh-translations.json, ADR-0003). Carries both English (title/summary) and Chinese (title_zh/summary_zh) for the same id; merge copies both sides without overwriting the canonical English (title/summary) of the item. */
+/** Translation fields used to fill the missing language for a news item. */
 export const NewsTranslation = z
   .object({
     id: z.string().min(1),
@@ -710,7 +783,7 @@ export const NewsTranslation = z
   .passthrough();
 export type NewsTranslation = z.infer<typeof NewsTranslation>;
 
-/** news.zh-translations.json (architecture §1.5: merged into news.json on the next pipeline run). */
+/** news.zh-translations.json; merged only when it covers the current news batch. */
 export const NewsTranslationsDataset = z
   .object({
     items: z.array(NewsTranslation).default([]),
@@ -778,7 +851,7 @@ export const SourcesDocument = z
   .object({
     schema_version: z.string().min(1),
     updated_at: utcDateTime,
-    domains: z.record(DomainStatus).default({}),
+    domains: z.record(z.string(), DomainStatus).default({}),
   })
   .passthrough();
 export type SourcesDocument = z.infer<typeof SourcesDocument>;

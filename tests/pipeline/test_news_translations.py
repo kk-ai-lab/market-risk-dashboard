@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from pipeline.collectors.news import NewsCollector
+from pipeline.collectors.news import NewsCollector, news_translation_coverage, translation_sidecar_matches_news_batch
 from pipeline.schemas import NewsDataset, NewsItem, NewsTranslation, NewsTranslationsDataset
 
 UTC = "2026-08-03T00:00:00Z"
@@ -217,3 +217,31 @@ def test_merge_title_fallback_en_source_overlays_chinese():
     assert item.title == "Fed raises rates"  # canonical English untouched
     assert item.title_zh == "美联储加息"
     assert item.summary_zh == "美联储加息25个基点"
+
+
+def test_translation_coverage_requires_both_languages_for_available_text():
+    collector = _collector()
+    incomplete = _payload([_item(id="a")])
+    complete = collector.merge_translations(
+        incomplete,
+        _translations(NewsTranslation(
+            id="a", title_zh="美联储加息", summary_zh="美联储加息25个基点",
+        )),
+    )
+
+    assert news_translation_coverage(incomplete) == (0, 1)
+    assert news_translation_coverage(complete) == (1, 1)
+
+
+def test_translation_sidecar_must_be_as_new_as_the_latest_article():
+    news = _payload([_item(published_at="2026-08-04T00:00:00Z")])
+
+    assert not translation_sidecar_matches_news_batch(news, _translations(NewsTranslation(id="a", title_zh="标题")))
+    assert not translation_sidecar_matches_news_batch(
+        news,
+        NewsTranslationsDataset(items=[], updated_at="2026-08-03T23:59:59Z"),
+    )
+    assert translation_sidecar_matches_news_batch(
+        news,
+        NewsTranslationsDataset(items=[], updated_at="2026-08-04T00:00:00Z"),
+    )

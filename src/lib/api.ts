@@ -6,6 +6,7 @@ import {
   type DatasetSchemaKey,
 } from "@/schemas";
 import { collectUnknownFields } from "@/lib/unknownFields";
+import { PublicationSession } from "@/lib/publication";
 
 /**
  * Frontend data access interface (architecture §3.6).
@@ -62,7 +63,7 @@ export class SchemaError extends Error {
  */
 const inspectedForUnknownFields = new Set<string>();
 
-async function fetchWithTimeout(url: string, externalSignal?: AbortSignal): Promise<Response> {
+async function fetchWithTimeout(url: string, externalSignal?: AbortSignal): Promise<ArrayBuffer> {
   const controller = new AbortController();
   let timedOut = false;
   const timeoutId = globalThis.setTimeout(() => {
@@ -78,7 +79,9 @@ async function fetchWithTimeout(url: string, externalSignal?: AbortSignal): Prom
   }
 
   try {
-    return await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: controller.signal, cache: "no-cache" });
+    if (!response.ok) throw new Error(`Data file unreachable: ${url} (HTTP ${response.status})`);
+    return await response.arrayBuffer();
   } catch (error) {
     if (timedOut) throw new Error(`Data request timed out: ${url}`);
     throw error;
@@ -109,10 +112,12 @@ function reportUnknownFields(key: string, url: string, schema: z.ZodTypeAny, jso
 
 export class DatasetClient {
   private readonly baseUrl: string;
+  private readonly publication: PublicationSession | undefined;
 
-  constructor(baseUrl: string = import.meta.env.BASE_URL) {
+  constructor(baseUrl: string = import.meta.env.BASE_URL, versioned = false) {
     // Normalize: strip the trailing slash, e.g. "/market-risk-dashboard/"
     this.baseUrl = baseUrl.replace(/\/+$/, "");
+    this.publication = versioned ? new PublicationSession(this.baseUrl, fetchWithTimeout) : undefined;
   }
 
   /** Build the data file URL (see the header comment for path rules). */
@@ -157,11 +162,13 @@ export class DatasetClient {
     signal?: AbortSignal,
   ): Promise<T> {
     const url = this.pathFor(key, opts);
-    const response = await fetchWithTimeout(url, signal);
-    if (!response.ok) {
-      throw new Error(`Data file unreachable: ${url} (HTTP ${response.status})`);
+    let json: unknown;
+    if (this.publication) {
+      json = await this.publication.fetch(url.slice(`${this.baseUrl}/data/`.length), signal);
+    } else {
+      const bytes = await fetchWithTimeout(url, signal);
+      json = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
     }
-    const json: unknown = await response.json();
     const target = schema ?? this.resolveSchema(key as DatasetKey);
     const parsed = target.safeParse(json);
     if (!parsed.success) {
@@ -170,7 +177,11 @@ export class DatasetClient {
     reportUnknownFields(String(key), url, target, json);
     return parsed.data as T;
   }
+
+  async hasPublicationUpdate(): Promise<boolean> {
+    return this.publication ? this.publication.hasUpdate() : false;
+  }
 }
 
 /** Default client singleton (reused by T04 hooks/useDataset). */
-export const datasetClient = new DatasetClient();
+export const datasetClient = new DatasetClient(import.meta.env.BASE_URL, import.meta.env.VITE_VERSIONED_DATA === "true");

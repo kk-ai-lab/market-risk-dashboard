@@ -16,17 +16,18 @@
     "provisional": "暂定校准",
     "calibrated": "已完成样本外校准",
     "version": "政策版本",
-    "explanation": "当前权重和风险区间暂予保留。在具备按时间点的数据版本和带状态标注的样本外证据前，暂不重新拟合。"
+    "explanation": "现有维度权重和风险区间暂予保留。劳动力信号使用暂定权重和阈值映射。在具备按时间点的数据版本和带状态标注的样本外证据前，暂不重新拟合。"
   },
   "evidence": {
     "title": "证据状态",
     "complete": "证据完整",
     "partial": "证据不完整",
     "insufficient": "证据不足",
+    "unknown": "证据状态未知",
     "coverage": "有效覆盖度",
     "scoreRange": "证据分数区间",
-    "missingIndicators": "缺失指标",
-    "explanation": "分数仍为点估计；区间显示缺失指标可能带来的变化。"
+    "missingIndicators": "缺失或未计分指标",
+    "explanation": "分数是点估计。区间仅反映缺失指标取极端值时的变化，不包含模型误差、代理误差或统计不确定性。"
   },
   "level": {
     "riskOn": "风险偏好",
@@ -67,7 +68,7 @@
     "coverage": "覆盖度",
     "trend": "趋势",
     "indicators": "指标",
-    "disclaimer": "维度缺失时权重按剩余维度比例重归一化；可用性覆盖度与信任调整覆盖度会分别展示。"
+    "disclaimer": "维度缺失时，权重按剩余维度比例重归一化。未计分输入视为缺失证据。可用性覆盖度与信任调整覆盖度会分别展示。"
   },
   "crossAssetSignals": {
     "title": "受治理的跨资产诊断",
@@ -126,9 +127,27 @@
     "direction": "方向",
     "weight": "权重",
     "source": "来源",
+    "observationPeriod": "统计月份",
+    "fetchedAt": "抓取时间",
+    "scoreExcluded": "未纳入计分",
     "updatedAt": "更新于",
     "status": "状态",
+    "freshnessUnknown": "时效未知",
     "proxy": "代理"
+  },
+  "laborSignal": {
+    "unit": "个百分点",
+    "formula": "当前三个月平均失业率，减去此前十二个月中最低的三个月平均失业率。",
+    "caveat": "根据美国劳工统计局修订后的数据计算。分数映射仍为暂定方案，不代表经济衰退概率。",
+    "historyUnavailable": "计分需要匹配的统计月份和连续十五个月的观测值。",
+    "sourceExcluded": "来源数据已过期、降级或不可用，因此该值不参与分数和证据覆盖度计算。"
+  },
+  "breadth": {
+    "title": "市场广度样本",
+    "above200": "高于 200 日均线",
+    "newHighs": "创新高",
+    "newLows": "创新低",
+    "explanation": "数量仅覆盖配置样本中符合条件的标的，不代表整个市场。"
   },
   "confidenceFactors": {
     "title": "数据可信度因子",
@@ -142,6 +161,7 @@
     "yieldCurve": "10 年期减 2 年期曲线",
     "dollarIndex": "美元指数",
     "tenYearYield": "10 年期收益率",
+    "sahmStyleLaborStress": "萨姆式劳动力压力",
     "fedBalanceSheet": "美联储资产负债表",
     "reverseRepo": "隔夜逆回购",
     "hyOas": "高收益债利差",

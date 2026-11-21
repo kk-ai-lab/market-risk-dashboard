@@ -309,6 +309,25 @@ export const commoditiesFixture = {
   },
 };
 
+export const energyFixture = {
+  generated_at: "2026-11-16T15:00:00Z",
+  schema_version: "1.0.0",
+  source: "eia",
+  provenance: { provider: "eia", used_fallback: false, from_cache: false },
+  source_updated_at: null,
+  freshness_status: "missing",
+  data_quality: 0,
+  payload: {
+    series_id: "WCESTUS1",
+    unit: "thousand_barrels",
+    observations: [],
+    collection_status: "not_configured",
+    observation_age: "unknown",
+    last_attempt_at: "2026-11-16T15:00:00Z",
+    last_successful_fetch_at: null,
+  },
+};
+
 export const newsFixture = {
   generated_at: "2026-08-03T10:00:00Z",
   schema_version: "1.0.0",
@@ -397,6 +416,7 @@ export const dashboardFixture = {
       generated_at: "2026-08-03T10:00:00Z",
       total_score: 52.3,
       risk_level: "caution",
+      evidence_state: "partial",
       trend_1d: 1.4,
       trend_1w: 3.2,
       trend_1m: -2.1,
@@ -660,7 +680,7 @@ export const dashboardFixture = {
     ],
     cross_asset: [
       { asset: "NVDA", category: "equity", change_1d: 1.2 },
-      { asset: "BTC", category: "crypto", change_1d: -0.5 },
+      { asset: "BTC", category: "crypto", change_1d: -0.5, source: "coingecko" },
     ],
     catalysts: [
       {
