@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import ipaddress
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Literal, TypeVar
 from urllib.parse import urlparse
@@ -26,13 +27,29 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from pipeline.coinmetrics_assets import COINMETRICS_ASSET_SYMBOLS
 from pipeline.degrade import DEFAULT_CACHE_MAX_AGE_HOURS, DEFAULT_DEGRADE_FACTOR
 
-PUBLIC_MACRO_TARGETS = {
-    "bls": frozenset({"CPIAUCSL", "CPILFESL", "PAYEMS", "UNRATE"}),
-    "treasury": frozenset({"DGS2", "DGS10"}),
+FRED_MACRO_SERIES = frozenset({
+    "VIXCLS", "BAA10Y", "DFII10", "DFF", "PCEPILFE", "T5YIFR", "T10YIE", "ICSA",
+    "CCSA", "CIVPART", "WALCL", "WRESBAL", "WTREGEN", "RRPONTSYD", "SOFR",
+    "DTWEXBGS", "DTWEXAFEGS", "DEXUSEU", "DEXJPUS", "DEXCHUS",
+})
+FRED_ICE_SERIES = frozenset({"BAMLH0A0HYM2", "BAMLC0A0CM"})
+SUPPORTED_TARGETS: dict[str, dict[str, frozenset[str]]] = {
+    "bls": {"macro_series": frozenset({"CPIAUCSL", "CPILFESL", "PAYEMS", "UNRATE"})},
+    "treasury": {"macro_series": frozenset({"DGS2", "DGS10"})},
+    "fred": {"macro_series": FRED_MACRO_SERIES | FRED_ICE_SERIES},
+    "coinmetrics": {"market_symbols": COINMETRICS_ASSET_SYMBOLS},
+    "eia": {"energy_series": frozenset({"WCESTUS1"})},
 }
-PUBLIC_MARKET_TARGETS = {"coinmetrics": COINMETRICS_ASSET_SYMBOLS}
-PUBLIC_ENERGY_TARGETS = {"eia": frozenset({"WCESTUS1"})}
+TARGET_FIELDS: dict[str, str] = {
+    "macro": "macro_series",
+    "news": "news_feeds",
+    "equities": "instrument_symbols",
+    "sectors": "instrument_symbols",
+    "crypto": "market_symbols",
+    "energy": "energy_series",
+}
 PUBLIC_DATASETS = frozenset({"calendar", "commodities", "crypto", "energy", "equities", "macro", "news", "sectors"})
+PermittedUse = Literal["public-domain", "noncommercial", "personal-use"]
 
 
 #: Everything config-related that #102 can raise. Loaders use it so a bad config fails the
@@ -115,10 +132,16 @@ class PublicDataSource(BaseModel):
     macro_series: list[str] = Field(default_factory=list)
     market_symbols: list[str] = Field(default_factory=list)
     energy_series: list[str] = Field(default_factory=list)
+    news_feeds: list[str] = Field(default_factory=list)
+    index_series: list[str] = Field(default_factory=list)
+    instrument_symbols: list[str] = Field(default_factory=list)
+    series_attribution: dict[str, str] = Field(default_factory=dict)
     license_id: str = Field(min_length=1)
     license_url: str = Field(min_length=1)
     attribution: str = Field(min_length=1)
-    permitted_use: Literal["public-domain", "noncommercial"]
+    permitted_use: PermittedUse
+    accepted_by: str | None = None
+    accepted_on: date | None = None
     cadence_minutes: int = Field(ge=1)
 
     @field_validator("macro_series", "market_symbols", "energy_series", mode="before")
@@ -138,11 +161,28 @@ class SourceGrant:
     macro_series: frozenset[str]
     market_symbols: frozenset[str]
     energy_series: frozenset[str]
+    news_feeds: frozenset[str]
+    index_series: frozenset[str]
+    instrument_symbols: frozenset[str]
+    series_attribution: dict[str, str]
     license_id: str
     license_url: str
     attribution: str
     permitted_use: str
+    accepted_by: str | None
+    accepted_on: date | None
     cadence_minutes: int
+
+    @property
+    def targets(self) -> frozenset[str]:
+        return (
+            self.macro_series
+            | self.market_symbols
+            | self.energy_series
+            | self.news_feeds
+            | self.index_series
+            | self.instrument_symbols
+        )
 
 
 @dataclass(frozen=True)
@@ -170,6 +210,15 @@ class ApprovedCollectionPlan:
     def energy_grant_for(self, series_id: str) -> SourceGrant | None:
         return next((grant for grant in self.grants if series_id in grant.energy_series), None)
 
+    def grant_for_rung(self, source: str, symbol: str) -> SourceGrant | None:
+        return next(
+            (
+                grant for grant in self.grants
+                if source in (grant.source_id, grant.provider) and symbol in grant.targets
+            ),
+            None,
+        )
+
     def allows_dataset(self, dataset: str) -> bool:
         return any(dataset in grant.datasets for grant in self.grants)
 
@@ -184,6 +233,28 @@ class ApprovedCollectionPlan:
             grant.provider for grant in self.grants
             if grant.registry_domain == domain
         )
+
+
+class InstrumentRung(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    proxy_of: str | None = None
+
+
+class InstrumentChain(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["index", "sector_etf", "crypto"]
+    chain: list[InstrumentRung] = Field(min_length=1)
+
+
+class InstrumentsConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str = Field(min_length=1)
+    instruments: dict[str, InstrumentChain] = Field(default_factory=dict)
 
 
 class PublicSourcePolicy(BaseModel):
@@ -202,23 +273,44 @@ class PublicSourcePolicy(BaseModel):
                 macro_series=frozenset(source.macro_series),
                 market_symbols=frozenset(source.market_symbols),
                 energy_series=frozenset(source.energy_series),
+                news_feeds=frozenset(source.news_feeds),
+                index_series=frozenset(source.index_series),
+                instrument_symbols=frozenset(source.instrument_symbols),
+                series_attribution=dict(source.series_attribution),
                 license_id=source.license_id,
                 license_url=source.license_url,
                 attribution=source.attribution,
                 permitted_use=source.permitted_use,
+                accepted_by=source.accepted_by,
+                accepted_on=source.accepted_on,
                 cadence_minutes=source.cadence_minutes,
             )
             for source_id, source in self.sources.items()
         ))
 
+    def validate_instrument_chains(self, config: InstrumentsConfig) -> None:
+        grants = self.collection_plan().grants
+        for key, instrument in config.instruments.items():
+            for rung in instrument.chain:
+                if not any(
+                    rung.source in (grant.source_id, grant.provider) and rung.symbol in grant.targets
+                    for grant in grants
+                ):
+                    raise ConfigError(
+                        f"instruments.yaml: {key} rung {rung.source}/{rung.symbol} "
+                        "has no public source grant"
+                    )
+
     @model_validator(mode="after")
     def _source_targets_are_unambiguous(self) -> PublicSourcePolicy:
-        series: set[str] = set()
-        symbols: set[str] = set()
-        energy_series: set[str] = set()
-        provider_datasets: set[tuple[str, str]] = set()
+        macro_series: set[str] = set()
+        news_feeds: set[str] = set()
         provider_domains: dict[str, str | None] = {}
-        dataset_owners: dict[str, str] = {}
+        provider_targets: dict[tuple[str, str], set[str]] = {}
+        target_fields = (
+            "macro_series", "market_symbols", "energy_series",
+            "news_feeds", "index_series", "instrument_symbols",
+        )
         for source_id, source in self.sources.items():
             if not source_id or not source.datasets:
                 raise ValueError("each public source needs an id and at least one dataset")
@@ -228,64 +320,57 @@ class PublicSourcePolicy(BaseModel):
             previous_domain = provider_domains.setdefault(source.provider, source.registry_domain)
             if previous_domain != source.registry_domain:
                 raise ValueError(f"{source.provider} has conflicting registry domains")
-            repeated_datasets = provider_datasets.intersection(
-                (source.provider, dataset) for dataset in source.datasets
-            )
-            if repeated_datasets:
-                raise ValueError(f"{source.provider} has multiple grants for {sorted(repeated_datasets)}")
-            provider_datasets.update((source.provider, dataset) for dataset in source.datasets)
+            for field in target_fields:
+                values = getattr(source, field)
+                if len(values) != len(set(values)):
+                    raise ValueError(f"{source_id} repeats a value in {field}")
             for dataset in source.datasets:
-                if dataset == "macro":
+                field = TARGET_FIELDS.get(dataset)
+                if field is None:
                     continue
-                owner = dataset_owners.setdefault(dataset, source_id)
-                if owner != source_id:
-                    raise ValueError(f"{dataset} has multiple approved sources")
-            if len(source.macro_series) != len(set(source.macro_series)):
-                raise ValueError(f"{source_id} repeats a macro series")
-            if len(source.market_symbols) != len(set(source.market_symbols)):
-                raise ValueError(f"{source_id} repeats a market symbol")
-            if len(source.energy_series) != len(set(source.energy_series)):
-                raise ValueError(f"{source_id} repeats an energy series")
-            if "macro" in source.datasets and not source.macro_series:
-                raise ValueError(f"{source_id} authorizes macro without macro_series")
+                targets = getattr(source, field)
+                if not targets:
+                    raise ValueError(f"{source_id} authorizes {dataset} without {field}")
+                overlap = provider_targets.setdefault((source.provider, dataset), set()) & set(targets)
+                if overlap:
+                    raise ValueError(
+                        f"{source.provider} has overlapping grants for {dataset}: {sorted(overlap)}"
+                    )
+                provider_targets[(source.provider, dataset)].update(targets)
             if source.macro_series and "macro" not in source.datasets:
                 raise ValueError(f"{source_id} configures macro_series outside the macro dataset")
-            supported_series = PUBLIC_MACRO_TARGETS.get(source.provider, frozenset())
-            if not set(source.macro_series).issubset(supported_series):
-                raise ValueError(f"{source_id} has macro series unsupported by {source.provider}")
-            if source.provider in PUBLIC_MACRO_TARGETS and "macro" in source.datasets and not source.macro_series:
-                raise ValueError(f"{source_id} requires an explicit {source.provider} macro series list")
-            supported_symbols = PUBLIC_MARKET_TARGETS.get(source.provider, frozenset())
-            if not set(source.market_symbols).issubset(supported_symbols):
-                raise ValueError(f"{source_id} has market symbols unsupported by {source.provider}")
             if source.market_symbols and "crypto" not in source.datasets:
                 raise ValueError(f"{source_id} configures market symbols outside the crypto dataset")
-            if "crypto" in source.datasets and (not supported_symbols or not source.market_symbols):
-                raise ValueError(f"{source_id} requires a supported crypto provider and explicit market symbols")
-            if "energy" in source.datasets and not source.energy_series:
-                raise ValueError(f"{source_id} authorizes energy without energy_series")
             if source.energy_series and "energy" not in source.datasets:
                 raise ValueError(f"{source_id} configures energy_series outside the energy dataset")
-            supported_energy_series = PUBLIC_ENERGY_TARGETS.get(source.provider, frozenset())
-            if not set(source.energy_series).issubset(supported_energy_series):
-                raise ValueError(f"{source_id} has energy series unsupported by {source.provider}")
-            if source.provider in PUBLIC_ENERGY_TARGETS and "energy" in source.datasets and not source.energy_series:
-                raise ValueError(f"{source_id} requires an explicit {source.provider} energy series list")
+            if source.news_feeds and "news" not in source.datasets:
+                raise ValueError(f"{source_id} configures news_feeds outside the news dataset")
+            if source.instrument_symbols and not ({"equities", "sectors"} & set(source.datasets)):
+                raise ValueError(f"{source_id} configures instrument_symbols outside the equities or sectors dataset")
+            supported = SUPPORTED_TARGETS.get(source.provider, {})
+            for field in ("macro_series", "market_symbols", "energy_series"):
+                allowed = supported.get(field, frozenset())
+                if not set(getattr(source, field)).issubset(allowed):
+                    label = field.replace("_", " ")
+                    raise ValueError(f"{source_id} has {label} unsupported by {source.provider}")
+            if "crypto" in source.datasets and not supported.get("market_symbols"):
+                raise ValueError(f"{source_id} requires a supported crypto provider and explicit market symbols")
             if source.provider == "eia" and (
                 set(source.datasets) != {"energy"} or set(source.energy_series) != {"WCESTUS1"}
             ):
                 raise ValueError(f"{source_id} must grant only energy series WCESTUS1")
-            if source.permitted_use == "noncommercial" and not source.attribution.strip():
+            if source.permitted_use == "personal-use" and not (
+                source.accepted_by and source.accepted_on
+            ):
+                raise ValueError(f"{source_id} personal-use grant requires accepted_by and accepted_on")
+            if source.permitted_use != "public-domain" and not source.attribution.strip():
                 raise ValueError(f"{source_id} requires attribution")
-            repeated_series = series.intersection(source.macro_series)
-            repeated_symbols = symbols.intersection(source.market_symbols)
-            if repeated_series or repeated_symbols:
-                raise ValueError("public source series and symbols must have one owner")
-            if energy_series.intersection(source.energy_series):
-                raise ValueError("public source energy series must have one owner")
-            series.update(source.macro_series)
-            symbols.update(source.market_symbols)
-            energy_series.update(source.energy_series)
+            if macro_series.intersection(source.macro_series):
+                raise ValueError("public source macro series must have one owner")
+            if news_feeds.intersection(source.news_feeds):
+                raise ValueError("public source news feeds must have one owner")
+            macro_series.update(source.macro_series)
+            news_feeds.update(source.news_feeds)
         return self
 
     def allows_provider(self, domain: str, provider: str) -> bool:

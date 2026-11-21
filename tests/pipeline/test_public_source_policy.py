@@ -7,6 +7,7 @@ from pipeline.collectors.calendar import CalendarCollector
 from pipeline.collectors.macro import DEFAULT_SERIES, SERIES_GROUPS, MacroCollector
 from pipeline.collectors.market import MarketCollector
 from pipeline.collectors.news import NewsCollector
+from pipeline.config.models import ConfigError, InstrumentsConfig, PublicSourcePolicy
 from pipeline.providers import build_default_providers, build_registry
 from pipeline.providers.base import ProviderError
 from pipeline.providers.coinmetrics import CoinMetricsProvider
@@ -460,3 +461,80 @@ def test_approved_pipeline_refuses_legacy_public_data_output(tmp_path, monkeypat
 
     assert run.main(["--full"]) == 1
     assert "requires an isolated data_dir" in capsys.readouterr().err
+
+
+def _raw_policy(tmp_path):
+    return public_settings(tmp_path).load_public_source_policy().model_dump(mode="json")
+
+
+def test_personal_use_requires_acceptance(tmp_path):
+    raw = _raw_policy(tmp_path)
+    raw["sources"]["coinmetrics"]["permitted_use"] = "personal-use"
+
+    with pytest.raises(ValueError, match="accepted_by"):
+        PublicSourcePolicy.model_validate(raw)
+
+    raw["sources"]["coinmetrics"].update(accepted_by="Kai", accepted_on="2026-11-20")
+    policy = PublicSourcePolicy.model_validate(raw)
+    assert policy.sources["coinmetrics"].accepted_by == "Kai"
+    assert str(policy.sources["coinmetrics"].accepted_on) == "2026-11-20"
+
+
+def test_news_feed_single_owner(tmp_path):
+    raw = _raw_policy(tmp_path)
+    for source in ("coinmetrics", "treasury"):
+        raw["sources"][source]["datasets"].append("news")
+        raw["sources"][source]["news_feeds"] = ["fed_press"]
+
+    with pytest.raises(ValueError, match="news feeds"):
+        PublicSourcePolicy.model_validate(raw)
+
+
+def test_unknown_chain_rung_rejected(tmp_path):
+    policy = public_settings(tmp_path).load_public_source_policy()
+    unapproved = InstrumentsConfig.model_validate({
+        "schema_version": "1.0.0",
+        "instruments": {
+            "spx": {"kind": "index", "chain": [{"source": "yfinance", "symbol": "^GSPC"}]},
+        },
+    })
+    with pytest.raises(ConfigError, match="yfinance/\\^GSPC"):
+        policy.validate_instrument_chains(unapproved)
+
+    approved = InstrumentsConfig.model_validate({
+        "schema_version": "1.0.0",
+        "instruments": {
+            "btc": {"kind": "crypto", "chain": [{"source": "coinmetrics", "symbol": "BTC"}]},
+        },
+    })
+    policy.validate_instrument_chains(approved)
+
+
+def test_same_provider_disjoint_macro_grants(tmp_path):
+    raw = _raw_policy(tmp_path)
+    base = {
+        "provider": "fred",
+        "registry_domain": "macro",
+        "datasets": ["macro"],
+        "macro_series": [],
+        "market_symbols": [],
+        "energy_series": [],
+        "license_id": "FRED-citation-required",
+        "license_url": "https://fred.stlouisfed.org/legal/",
+        "attribution": "Cboe via FRED; Moody's via FRED",
+        "permitted_use": "personal-use",
+        "accepted_by": "Kai",
+        "accepted_on": "2026-11-20",
+        "cadence_minutes": 60,
+    }
+    raw["sources"]["fred"] = {**base, "macro_series": ["VIXCLS", "BAA10Y"]}
+    raw["sources"]["fred_ice"] = {**base, "macro_series": ["BAMLH0A0HYM2", "BAMLC0A0CM"]}
+
+    policy = PublicSourcePolicy.model_validate(raw)
+    plan = policy.collection_plan()
+    assert plan.macro_grant_for("VIXCLS").source_id == "fred"
+    assert plan.macro_grant_for("BAMLH0A0HYM2").source_id == "fred_ice"
+
+    raw["sources"]["fred_ice"]["macro_series"] = ["BAA10Y"]
+    with pytest.raises(ValueError, match="overlapping grants"):
+        PublicSourcePolicy.model_validate(raw)
