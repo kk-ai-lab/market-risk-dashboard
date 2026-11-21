@@ -14,7 +14,7 @@ beautifulsoup4==4.15.0
     #   yfinance
 brotli==1.2.0
     # via market-risk-dashboard (pyproject.toml)
-certifi==2026.7.22
+certifi==2026.11.20
     # via
     #   curl-cffi
     #   httpcore
