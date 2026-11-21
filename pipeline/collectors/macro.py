@@ -26,6 +26,7 @@ from pipeline.fedwatch import (
     next_contract_codes,
     save_history,
 )
+from pipeline.fred_access import Configured, NotConfigured, fred_access
 from pipeline.metadata import oldest_source_timestamp, quality_for_outcomes
 from pipeline.config.models import ApprovedCollectionPlan
 from pipeline.providers.base import ProviderError, ProviderRegistry
@@ -77,6 +78,8 @@ class MacroCollector:
     def __init__(self, registry: ProviderRegistry, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None, bls_snapshot: BlsSnapshot | None = None, treasury_snapshot: TreasurySnapshot | None = None, source_errors: dict[str, str] | None = None) -> None:
         self.registry = registry
         self.settings = settings or Settings()
+        self.fred_access = fred_access(self.settings)
+        self._fred_not_configured = isinstance(self.fred_access, NotConfigured)
         self.collection_plan = collection_plan or (
             self.settings.load_public_source_policy().collection_plan()
             if self.settings.approved_sources_only else None
@@ -133,6 +136,13 @@ class MacroCollector:
 
     def _collect_macro(self) -> MacroDataset:
         groups: dict[str, list[MacroIndicator]] = {g: [] for g in SERIES_GROUPS}
+        if self._fred_not_configured:
+            self.provider_status["fred"] = {
+                "provider": "fred",
+                "degraded": True,
+                "error": "not_configured",
+                "error_code": "provider_auth_failed",
+            }
         for source_id, error in self.source_errors.items():
             self._degraded_sources.add(source_id)
             self.degraded.append(f"{source_id}: {error}")
@@ -167,6 +177,10 @@ class MacroCollector:
                 if treasury.degraded:
                     self._degraded_sources.add("treasury")
                     self.degraded.append(f"Treasury {series_id}: degraded snapshot")
+            elif grant is not None and grant.provider == "fred":
+                rows = self._fred_series(series_id) if isinstance(self.fred_access, Configured) else []
+                if self._fred_not_configured:
+                    self._degraded_sources.add("fred")
             elif self.collection_plan is not None and bls is None:
                 rows = []
             else:
@@ -180,13 +194,15 @@ class MacroCollector:
                 if self.collection_plan is not None:
                     catalog = SERIES_CATALOG[series_id]
                     source_label = (
-                        "BLS" if grant is not None and grant.provider == "bls"
+                        "FRED" if grant is not None and grant.provider == "fred"
+                        else "BLS" if grant is not None and grant.provider == "bls"
                         else "Treasury" if grant is not None and grant.provider == "treasury"
                         else "unavailable"
                     )
                     self.series_history[series_id.lower()] = []
                     self._degraded_sources.add(grant.provider if grant is not None else "public_source_policy")
-                    self.degraded.append(f"No approved public observation for {series_id}")
+                    if not (grant is not None and grant.provider == "fred" and self._fred_not_configured):
+                        self.degraded.append(f"No approved public observation for {series_id}")
                     groups[_group_of(series_id)].append(MacroIndicator(
                         key=series_id.lower(), label=catalog["label"], source=source_label, status="missing",
                         unit=_unit(catalog.get("unit", "level")),
@@ -368,15 +384,27 @@ class MacroCollector:
             if self.collection_plan is not None
             and self.collection_plan.macro_grant_for(series_id) is None
         ]
+        fred_not_configured_series = [
+            series_id
+            for series_id in DEFAULT_SERIES
+            if self._fred_not_configured
+            and self.collection_plan is not None
+            and (grant := self.collection_plan.macro_grant_for(series_id)) is not None
+            and grant.provider == "fred"
+        ]
         detail_parts = []
         if self.source_errors:
             detail_parts.append("Source checkpoints degraded: " + ", ".join(sorted(self.source_errors)))
+        if fred_not_configured_series:
+            detail_parts.append("DATA_FRED_API_KEY is not configured; no request was sent")
         if policy_excluded_series:
             names = ", ".join(policy_excluded_series[:8])
             if len(policy_excluded_series) > 8:
                 names += f", and {len(policy_excluded_series) - 8} more"
             detail_parts.append(f"No approved public source configured for {names}")
-        unavailable_observations = sorted(set(missing_series) - set(policy_excluded_series))
+        unavailable_observations = sorted(
+            set(missing_series) - set(policy_excluded_series) - set(fred_not_configured_series)
+        )
         if unavailable_observations:
             detail_parts.append(f"No observation returned for {', '.join(unavailable_observations)}")
         return dataset, {
@@ -387,7 +415,11 @@ class MacroCollector:
             "data_quality": round(quality, 3),
             "source_updated_at": source_updated_at,
             "detail": "; ".join(detail_parts)[:200],
-            "error_code": SOURCE_POLICY_EXCLUDED_REASON_CODE if policy_excluded_series else None,
+            "error_code": (
+                "provider_auth_failed" if fred_not_configured_series
+                else SOURCE_POLICY_EXCLUDED_REASON_CODE if policy_excluded_series
+                else None
+            ),
             "provider": {
                 "provider": provider,
                 "used_fallback": used_fallback,

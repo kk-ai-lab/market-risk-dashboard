@@ -34,6 +34,22 @@ sources:
     attribution: "U.S. Department of the Treasury, Daily Treasury Yield Curve Rates"
     permitted_use: public-domain
     cadence_minutes: 1440
+  fred:
+    provider: fred
+    registry_domain: macro
+    datasets: [macro]
+    macro_series: [VIXCLS, DFII10, DFF, PCEPILFE, T5YIFR, T10YIE, ICSA, CCSA, CIVPART,
+                   WALCL, WRESBAL, WTREGEN, RRPONTSYD, SOFR, DTWEXBGS, DTWEXAFEGS, DEXUSEU, DEXJPUS, DEXCHUS]
+    market_symbols: []
+    license_id: FRED-citation-required
+    license_url: https://fred.stlouisfed.org/legal/
+    attribution: "Cboe via FRED; Moody's via FRED; Federal Reserve Bank of St. Louis (FRED)"
+    series_attribution:
+      VIXCLS: "Cboe via FRED"
+    permitted_use: personal-use
+    accepted_by: Kai
+    accepted_on: 2026-11-20
+    cadence_minutes: 60
   eia_weekly_crude_inventory:
     provider: eia
     registry_domain: energy

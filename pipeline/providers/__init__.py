@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pipeline.config.models import ApprovedCollectionPlan, ConfigError
+from pipeline.fred_access import NotConfigured, fred_access
 from pipeline.providers.akshare_provider import AkshareProvider
 from pipeline.providers.base import (
     BaseProvider,
@@ -70,6 +71,8 @@ def build_default_providers(settings=None, *, collection_plan: ApprovedCollectio
                     f"public_sources.yaml: unknown provider {grant.provider!r}"
                 )
             if grant.provider == "coinmetrics" and not grant.market_symbols:
+                continue
+            if grant.provider == "fred" and isinstance(fred_access(s), NotConfigured):
                 continue
             provider = (
                 CoinMetricsProvider(s, symbols=grant.market_symbols)

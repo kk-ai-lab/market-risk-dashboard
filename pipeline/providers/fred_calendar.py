@@ -22,6 +22,7 @@ from typing import Any
 
 import httpx
 
+from pipeline.fred_access import Configured, fred_access
 from pipeline.providers._util import UA, _today
 from pipeline.providers.base import (
     PERMANENT,
@@ -63,10 +64,13 @@ class FredCalendarProvider(BaseProvider):
 
     def __init__(self, settings=None) -> None:
         super().__init__(settings)
-        self.api_key = self.settings.fred_api_key
-        from pipeline.providers.base import guarded_client
+        access = fred_access(self.settings)
+        self.api_key = access.key.get_secret_value() if isinstance(access, Configured) else None
+        self._client = None
+        if self.api_key is not None:
+            from pipeline.providers.base import guarded_client
 
-        self._client = guarded_client(set(self.hosts), timeout=15.0, headers={"User-Agent": UA})
+            self._client = guarded_client(set(self.hosts), timeout=15.0, headers={"User-Agent": UA})
 
     def health(self) -> ProviderHealth:
         if not self.api_key:
