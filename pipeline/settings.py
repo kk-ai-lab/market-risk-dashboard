@@ -55,11 +55,13 @@ class Settings(BaseSettings):
 
     bls_cloud_enabled: bool = Field(default=False, description="Opt in to the durable cloud BLS ledger instead of the local snapshot")
     treasury_cloud_enabled: bool = Field(default=False, description="Opt in to the durable cloud Treasury ledger instead of the local snapshot")
+    fred_cloud_enabled: bool = Field(default=False, description="Opt in to the durable cloud FRED observation snapshot")
     cloud_state_repo: str | None = Field(default=None, description="Explicit owner/repository for the pre-provisioned cloud-state branch")
     cloud_state_branch: str = Field(default="cloud-state", description="Pre-provisioned shared state branch; never reset while writers run")
     cloud_state_token: SecretStr | None = Field(default=None, description="Credential with contents write access to the cloud-state branch")
     bls_checkpoint_path: str = Field(default="bls/ledger.json", description="Pre-provisioned cloud BLS ledger path")
     treasury_checkpoint_path: str = Field(default="treasury/ledger.json", description="Pre-provisioned cloud Treasury ledger path")
+    fred_checkpoint_path: str = Field(default="fred/snapshot.json", description="Pre-provisioned cloud FRED observation path")
 
     # Directories (relative to project root)
     project_root: Path = PROJECT_ROOT
