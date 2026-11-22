@@ -75,6 +75,7 @@ from pipeline.schemas import (
     RiskModelResult,
     SectorsEnvelope,
 )
+from pipeline.fred_access import Configured, fred_access
 from pipeline.schemas import registry as dataset_registry
 from pipeline.schemas.envelope import (
     SOURCE_POLICY_EXCLUDED_REASON_CODE,
@@ -704,6 +705,70 @@ def _run_collection(command: str) -> dict[str, Any]:
                     bls_snapshot = empty_bls_snapshot()
                     source_errors["bls"] = "BLS local snapshot unavailable"
             macro_options["bls_snapshot"] = bls_snapshot
+        if collection_plan is not None:
+            fred_grant = collection_plan.grant_for("fred", "macro")
+            if fred_grant is not None and isinstance(fred_access(settings), Configured):
+                from contextlib import suppress
+
+                from pipeline.providers.fred import SERIES_CATALOG
+                from pipeline.storage.fred_snapshot import (
+                    SnapshotError as FredSnapshotError,
+                )
+                from pipeline.storage.fred_snapshot import refresh_fred_snapshot
+
+                def fetch_fred(series_id: str, start: str) -> list[dict]:
+                    units = SERIES_CATALOG.get(series_id, {}).get("units", "lin")
+                    out = registry.call(
+                        "macro", "get_series", f"fred_{series_id}",
+                        args=(series_id,), kwargs={"start": start, "units": units},
+                    )
+                    return out["result"]
+
+                fred_snapshot = None
+                if settings.fred_cloud_enabled:
+                    from pipeline.storage.cloud_fred import (
+                        CloudFredRefreshError,
+                        refresh_cloud_fred_snapshot,
+                    )
+                    from pipeline.storage.github_checkpoint import CheckpointError, GitHubCheckpoint
+
+                    checkpoint = None
+                    try:
+                        repository = (settings.cloud_state_repo or "").split("/")
+                        token = settings.cloud_state_token
+                        if len(repository) != 2 or token is None:
+                            raise ValueError("Cloud state repository or token is not configured")
+                        checkpoint = GitHubCheckpoint(
+                            *repository, settings.cloud_state_branch, token.get_secret_value(),
+                        )
+                        fred_snapshot = refresh_cloud_fred_snapshot(
+                            checkpoint, settings.fred_checkpoint_path, fetch_fred,
+                            now=datetime.now(UTC),
+                            series_ids=fred_grant.macro_series,
+                            retry_minutes=fred_grant.cadence_minutes,
+                        )
+                    except CloudFredRefreshError as exc:
+                        fred_snapshot = exc.snapshot
+                        source_errors["fred"] = "Cloud FRED checkpoint refresh failed"
+                    except (CheckpointError, FredSnapshotError, OSError, ValueError):
+                        source_errors.setdefault("fred", "Cloud FRED checkpoint unavailable")
+                    finally:
+                        if checkpoint is not None:
+                            with suppress(CheckpointError, OSError, ValueError):
+                                checkpoint.close()
+                else:
+                    try:
+                        fred_snapshot = refresh_fred_snapshot(
+                            settings.artifacts_dir / "fred" / "snapshot.json",
+                            fetch_fred,
+                            now=datetime.now(UTC),
+                            series_ids=fred_grant.macro_series,
+                            retry_minutes=fred_grant.cadence_minutes,
+                        )
+                    except (FredSnapshotError, OSError):
+                        source_errors["fred"] = "FRED snapshot unavailable"
+                if fred_snapshot is not None:
+                    macro_options["fred_snapshot"] = fred_snapshot
         macro_options["source_errors"] = source_errors
         if collection_plan is not None:
             macro_options["collection_plan"] = collection_plan
