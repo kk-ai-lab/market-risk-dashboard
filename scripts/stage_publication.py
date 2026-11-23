@@ -62,6 +62,27 @@ class CandidateStageError(PublicationError):
         super().__init__(code.value)
 
 
+def _node_validation_families(output: str) -> list[str]:
+    families: set[str] = set()
+    for line in output.splitlines():
+        if "[ERROR]" not in line:
+            continue
+        location = line.split("[ERROR]", 1)[1].strip().split(":", 1)[0]
+        if location == "latest/macro.json" or location.startswith("history/macro/"):
+            families.add("macro_history")
+        elif location.startswith("metadata/"):
+            families.add("metadata_projection")
+        elif location == "news.json":
+            families.add("news_integrity")
+        elif location.startswith("history/"):
+            families.add("time_series_history")
+        elif location.endswith(".json"):
+            families.add("latest_dataset")
+        else:
+            families.add("other")
+    return sorted(families) or ["unclassified"]
+
+
 class RiskHistoryPoint(BaseModel):
     model_config = ConfigDict(strict=True, extra="allow", allow_inf_nan=False)
     date: str = Field(min_length=1)
@@ -144,6 +165,19 @@ def validate_candidate(path: Path) -> Literal[True]:
     except OSError:
         raise CandidateStageError(CandidateStageCode.NODE_VALIDATOR_UNAVAILABLE) from None
     if result.returncode != 0:
+        print(
+            json.dumps(
+                {
+                    "event": "candidate_validation.failure",
+                    "validator": "node",
+                    "families": _node_validation_families(result.stdout),
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            file=sys.stderr,
+            flush=True,
+        )
         raise CandidateStageError(CandidateStageCode.NODE_VALIDATION_REJECTED)
     return True
 
