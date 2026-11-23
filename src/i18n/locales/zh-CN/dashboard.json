@@ -44,12 +44,24 @@
     "none": "暂无板块数据"
   },
   "news": {
-    "title": "重要新闻",
-    "none": "暂无新闻"
+    "title": "官方公告",
+    "none": "暂无官方公告",
+    "attribution": "来源：美联储理事会；美国证券交易委员会（SEC）。公有领域。"
   },
   "kpi": {
     "trend1d": "一日变化",
+    "baaSpread": "Baa级公司债利差（对10年期美债）",
+    "baaAttribution": "穆迪（经由 FRED）",
+    "baaSpreadNote": "作为高收益债利差的替代风险输入",
     "hyOas": "高收益债利差",
+    "igOas": "投资级债利差",
+    "iceNote": "ICE 数据指数有限责任公司，经由 FRED",
+    "displayOnlyNote": "仅供参考，不计入风险评分",
+    "notConfigured": "尚未配置",
+    "observed": "观测日期",
+    "fullCitation": "完整数据引用",
+    "hyCitation": "ICE BofA 美国高收益债券指数期权调整利差 [BAMLH0A0HYM2]，数据来自圣路易斯联邦储备银行 FRED 数据库。",
+    "igCitation": "ICE BofA 美国公司债券指数期权调整利差 [BAMLC0A0CM]，数据来自圣路易斯联邦储备银行 FRED 数据库。",
     "colDelta": "一日变化",
     "oneWeek": "一周",
     "oneMonth": "一月"

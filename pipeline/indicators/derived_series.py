@@ -94,7 +94,7 @@ UNIVERSE_KEYS: frozenset[str] = frozenset(
 #: is a hit rate over exactly these; a partial replay is a different statistic).
 CROSS_ASSET_SIGNAL_INPUTS: dict[str, tuple[str, str]] = {
     "spy_down": ("market", "SPY"),
-    "hy_oas_widening": ("macro_series", "bamlh0a0hym2"),
+    "baa_spread_widening": ("macro_series", "baa10y"),
     "dollar_strength": ("macro_series", "dtwexbgs"),
     "real_rate_pressure": ("macro_series", "dfii10"),
     "bitcoin_down": ("market", "BTC-USD"),

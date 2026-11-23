@@ -84,9 +84,29 @@ def test_compute_indicator_score_heuristic_fallback() -> None:
 
 
 def test_regime_crisis_on_vix_40() -> None:
-    regime, evidence = regime_mod.infer_regime({"vix": 45.0, "hy_oas": 3.0})
+    regime, evidence = regime_mod.infer_regime({"vix": 45.0, "baa10y_spread": 3.0})
     assert regime == "crisis"
     assert evidence
+
+
+def test_regime_crisis_on_baa_spread_4() -> None:
+    """Model 1.2.0: an investment-grade spread at 4.00 is crisis-level credit stress."""
+    regime, evidence = regime_mod.infer_regime({"baa10y_spread": 4.0})
+    assert regime == "crisis"
+    assert evidence and "Baa-10Y=4.00 ≥ 4.0" in evidence[0]
+
+
+def test_regime_liquidity_stress_on_baa_spread_3() -> None:
+    """Model 1.2.0: 3.00 is the liquidity-stress floor, below the 4.00 crisis floor."""
+    regime, evidence = regime_mod.infer_regime({"baa10y_spread": 3.0})
+    assert regime == "liquidity_stress"
+    assert evidence and "Baa-10Y=3.00 ≥ 3.0" in evidence[0]
+
+
+def test_regime_baa_spread_below_the_stress_floors_stays_benign() -> None:
+    """2.99 must not fire either credit branch (thresholds are inclusive floors)."""
+    regime, _ = regime_mod.infer_regime({"vix": 22.0, "baa10y_spread": 2.99})
+    assert regime not in ("crisis", "liquidity_stress")
 
 
 def test_intraday_refresh_compares_risk_with_the_previous_day(tmp_path, monkeypatch) -> None:
@@ -167,7 +187,7 @@ def test_risk_off_evidence_contains_only_triggered_conditions(context, expected)
 
 def test_regime_goldilocks() -> None:
     # low vol + positive momentum + healthy breadth + non-extreme curve → goldilocks
-    regime, _ = regime_mod.infer_regime({"vix": 12.0, "hy_oas": 2.5, "yield_curve_10y2y": 0.3, "breadth_above_ma200": 0.7, "momentum_3m": 8.0})
+    regime, _ = regime_mod.infer_regime({"vix": 12.0, "baa10y_spread": 2.5, "yield_curve_10y2y": 0.3, "breadth_above_ma200": 0.7, "momentum_3m": 8.0})
     assert regime in ("goldilocks", "risk_on")
 
 
@@ -196,7 +216,7 @@ def _macro_with_rates(*, value: float | None = None) -> MacroDataset:
                 make_macro_indicator(key="dgs2", label="2Y", value=3.8, source="FRED"),
                 make_macro_indicator(key="dfii10", label="Real", value=1.9, source="FRED"),
             ],
-            credit=[make_macro_indicator(key="bamlh0a0hym2", label="HY", value=4.5, source="FRED")],
+            credit=[make_macro_indicator(key="baa10y", label="Baa-10Y", value=2.5, source="FRED")],
             volatility=[make_macro_indicator(key="vixcls", label="VIX", value=25.0, unit="index", source="FRED")],
             fx=[],
         )
@@ -230,10 +250,10 @@ def test_risk_model_produces_valid_result() -> None:
 
 def test_golden_score_preserves_current_outputs() -> None:
     result = RiskModel().score(_synthetic_context())
-    assert result.total_score == 56.52
+    assert result.total_score == 57.74
     assert result.risk_level == "caution"
     assert [driver.indicator_key for driver in result.top_drivers] == [
-        "hy_oas", "cross_asset_confirmation", "real_rate_dfii10", "vix", "yield_curve_10y2y"
+        "baa10y_spread", "cross_asset_confirmation", "real_rate_dfii10", "vix", "yield_curve_10y2y"
     ]
 
 
@@ -273,7 +293,7 @@ def test_complete_evidence_collapses_bounds_to_point_estimate(monkeypatch) -> No
             make_macro_indicator(key="dfii10", label="Real", value=1.9, source="FRED"),
         ],
         credit=[
-            make_macro_indicator(key="bamlh0a0hym2", label="HY", value=4.5, source="FRED"),
+            make_macro_indicator(key="baa10y", label="Baa-10Y", value=2.5, source="FRED"),
             make_macro_indicator(key="bamlc0a0cm", label="IG", value=1.2, source="FRED"),
         ],
         volatility=[make_macro_indicator(key="vixcls", label="VIX", value=25.0, unit="index", source="FRED")],
@@ -442,7 +462,13 @@ def test_cross_asset_signals_are_null_aware_and_new_proxies_are_diagnostic_only(
         prev_total_score=None,
         prev_dim_scores=None,
         risk_history=[],
-        series_history={},
+        # The Baa signal fires on its 5Y percentile, so it is only observable with history.
+        series_history={
+            "baa10y": [
+                {"date": f"2026-11-0{day}", "value": value}
+                for day, value in enumerate([2.0, 2.1, 2.2, 2.3, 2.4], start=1)
+            ]
+        },
         market_provenance={"provider": "yfinance", "used_fallback": True},
     )
 
@@ -461,6 +487,39 @@ def test_cross_asset_signals_are_null_aware_and_new_proxies_are_diagnostic_only(
     new_signal = next(signal for signal in result.cross_asset_signals if signal.key == "hy_treasury_relative")
     assert new_signal.is_proxy is True
     assert new_signal.production_scoring is False
+
+
+def test_baa_spread_signal_requires_a_top_decile_five_year_percentile() -> None:
+    """Baa-10Y uses the 5Y percentile, not a fixed level: 2.5 is only a hit when it is
+    at or above the 90th percentile of its own history, and unobservable without history."""
+    from pipeline.run import _build_risk_context
+
+    empty = SimpleNamespace(payload=SimpleNamespace(assets=[]))
+
+    def baa_signal(history_values: list[float]) -> dict:
+        context = _build_risk_context(
+            macro=SimpleNamespace(payload=_macro_with_rates()),  # credit baa10y = 2.5
+            equities=empty,
+            crypto=empty,
+            commodities=empty,
+            histories={},
+            qualities=[1.0],
+            prev_total_score=None,
+            prev_dim_scores=None,
+            risk_history=[],
+            series_history={
+                "baa10y": [
+                    {"date": f"2026-{index // 28 + 1:02d}-{index % 28 + 1:02d}", "value": value}
+                    for index, value in enumerate(history_values)
+                ]
+            },
+            market_provenance={"provider": "yfinance"},
+        )
+        return {row["key"]: row for row in context["cross_asset"]["signals"]}["baa_spread_widening"]
+
+    assert baa_signal([1.0] * 60)["triggered"] is True  # 100th percentile
+    assert baa_signal([1.0] * 30 + [4.0] * 30)["triggered"] is False  # 50th percentile
+    assert baa_signal([])["triggered"] is None  # no history → not observable
 
 
 def test_cross_asset_missing_inputs_do_not_count_as_benign() -> None:
@@ -681,16 +740,16 @@ def test_inverted_curve_scores_high_risk() -> None:
     )
 
 
-def test_hy_oas_counted_once_in_a_scored_result() -> None:
-    """hy_oas appears in exactly one dimension of a scored result, at weight 10.0."""
+def test_baa10y_spread_counted_once_in_a_scored_result() -> None:
+    """baa10y_spread appears in exactly one dimension of a scored result, at weight 10.0."""
     result = _risk_result()
     sites = [
         (dim.key, ind.weight)
         for dim in result.dimensions
         for ind in dim.indicators
-        if ind.key == "hy_oas"
+        if ind.key == "baa10y_spread"
     ]
-    assert sites == [("liquidity_credit", 10.0)], f"hy_oas must be scored once at 10.0, found {sites}"
+    assert sites == [("liquidity_credit", 10.0)], f"baa10y_spread must be scored once at 10.0, found {sites}"
 
 
 def test_ig_oas_is_scored_under_liquidity_credit() -> None:
@@ -722,8 +781,8 @@ def test_macro_dimension_has_exactly_five_indicators() -> None:
 
 def _liquidity_only_context() -> dict:
     """A synthetic context where the ONLY available indicators live in liquidity_credit:
-    hy_oas (weight 10.0) and fed_balance_sheet (weight 5.0), both scoring exactly 50
-    (hy_oas heuristic maps 3.8 -> 50; fed_balance_sheet has no heuristic and falls back).
+    baa10y_spread (weight 10.0) and fed_balance_sheet (weight 5.0), both scoring ~50
+    (the Baa heuristic maps 2.122 -> 50; fed_balance_sheet has no heuristic and falls back).
     The old computation credited both with the dimension's whole weight, making them
     indistinguishable in the driver list.
     """
@@ -732,7 +791,7 @@ def _liquidity_only_context() -> dict:
 
     payload = make_macro_payload(
         rates=[],
-        credit=[make_macro_indicator(key="bamlh0a0hym2", label="HY", value=3.8, source="FRED")],
+        credit=[make_macro_indicator(key="baa10y", label="Baa-10Y", value=2.122, source="FRED")],
         liquidity=[make_macro_indicator(key="walcl", label="Fed Balance Sheet", value=8.2e6, source="FRED")],
         fx=[],
     )
@@ -762,24 +821,25 @@ def test_driver_contribution_uses_indicator_weight() -> None:
 
     hy = next(d for d in result.dimensions if d.key == "liquidity_credit")
     scores = {i.key: i.risk_score for i in hy.indicators if i.value is not None}
-    assert scores["hy_oas"] == scores["fed_balance_sheet"] == 50.0
+    assert scores["baa10y_spread"] == pytest.approx(50.0, abs=0.2)
+    assert scores["fed_balance_sheet"] == 50.0
 
     expected = _expected_contributions(result)
     # Both liquidity indicators land in the published top-5 (they are the only drivers).
-    assert drivers["hy_oas"] == pytest.approx(expected["hy_oas"], rel=1e-3)
+    assert drivers["baa10y_spread"] == pytest.approx(expected["baa10y_spread"], rel=1e-3)
     assert drivers["fed_balance_sheet"] == pytest.approx(expected["fed_balance_sheet"], rel=1e-3)
-    # hy_oas (10.0) outranks fed_balance_sheet (5.0) by exactly the weight ratio.
-    assert drivers["hy_oas"] > drivers["fed_balance_sheet"]
-    assert abs(drivers["hy_oas"] / drivers["fed_balance_sheet"] - 2.0) < 1e-3
+    # baa10y_spread (10.0) outranks fed_balance_sheet (5.0) by exactly the weight ratio.
+    assert drivers["baa10y_spread"] > drivers["fed_balance_sheet"]
+    assert abs(drivers["baa10y_spread"] / drivers["fed_balance_sheet"] - 2.0) < 1e-3
 
 
 def test_same_dimension_different_weights_differ() -> None:
     """The specific defect: same dimension, same score, different weight -> different
-    contribution. hy_oas (10.0) and fed_balance_sheet (5.0) are no longer identical."""
+    contribution. baa10y_spread (10.0) and fed_balance_sheet (5.0) are no longer identical."""
     result = RiskModel().score(_liquidity_only_context())
     drivers = {d.indicator_key: d.contribution for d in result.top_drivers}
-    assert drivers["hy_oas"] != drivers["fed_balance_sheet"]
-    assert drivers["hy_oas"] == pytest.approx(2.0 * drivers["fed_balance_sheet"], rel=1e-3)
+    assert drivers["baa10y_spread"] != drivers["fed_balance_sheet"]
+    assert drivers["baa10y_spread"] == pytest.approx(2.0 * drivers["fed_balance_sheet"], rel=1e-3)
 
 
 def test_contributions_reconcile_with_composite() -> None:
@@ -810,7 +870,7 @@ def test_driver_ordering_is_pinned() -> None:
     result = RiskModel().score(_synthetic_context())
     keys = [d.indicator_key for d in result.top_drivers]
     # The pinned ordering after #68 (indicator-share contributions, sorted descending).
-    assert keys == ["hy_oas", "cross_asset_confirmation", "real_rate_dfii10", "vix", "yield_curve_10y2y"], (
+    assert keys == ["baa10y_spread", "cross_asset_confirmation", "real_rate_dfii10", "vix", "yield_curve_10y2y"], (
         f"top-driver ordering drifted: {keys}"
     )
     assert all(
@@ -980,7 +1040,7 @@ def test_dollar_index_removal_changes_no_regime() -> None:
             make_macro_indicator(key="dgs2", label="2Y", value=3.8, source="FRED"),
             make_macro_indicator(key="dfii10", label="Real", value=1.9, source="FRED"),
         ],
-        credit=[make_macro_indicator(key="bamlh0a0hym2", label="HY", value=4.5, source="FRED")],
+        credit=[make_macro_indicator(key="baa10y", label="Baa-10Y", value=2.5, source="FRED")],
         volatility=[make_macro_indicator(key="vixcls", label="VIX", value=25.0, unit="index", source="FRED")],
         fx=[make_macro_indicator(key="dtwexbgs", label="Dollar", value=98.0, source="FRED")],
     )

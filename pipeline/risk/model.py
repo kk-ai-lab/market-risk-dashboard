@@ -63,7 +63,7 @@ MACRO_OBSERVATIONS = {
     "sahm_style_labor_stress": (("labor", "unrate"),),
     "fed_balance_sheet": (("liquidity", "walcl"),),
     "reverse_repo": (("liquidity", "rrpontsyd"),),
-    "hy_oas": (("credit", "bamlh0a0hym2"),),
+    "baa10y_spread": (("credit", "baa10y"),),
     "ig_oas": (("credit", "bamlc0a0cm"),),
     "vix": (("volatility", "vixcls"),),
 }
@@ -91,7 +91,7 @@ DEFAULT_DISCLAIMER = "This indicator is a modeled estimate of market stress base
 INDICATOR_HISTORY_SERIES: dict[str, str | tuple[str, str]] = {
     "real_rate_dfii10": "dfii10",
     "yield_curve_10y2y": ("dgs10", "dgs2"),
-    "hy_oas": "bamlh0a0hym2",
+    "baa10y_spread": "baa10y",
     "ig_oas": "bamlc0a0cm",
     "dollar_index": "dtwexbgs",
     "dgs10": "dgs10",
@@ -338,8 +338,8 @@ class RiskModel:
                  history=self._indicator_history(ctx, "fed_balance_sheet")),
             _ind("reverse_repo", "Reverse Repo", rr.value if rr else None, "neutral", "FRED", self._indicator_weight("liquidity_credit", "reverse_repo"),
                  history=self._indicator_history(ctx, "reverse_repo")),
-            _ind("hy_oas", "HY OAS", _first_value(ctx, "credit", "bamlh0a0hym2"), "higher_is_riskier", "FRED", self._indicator_weight("liquidity_credit", "hy_oas"),
-                 history=self._indicator_history(ctx, "hy_oas")),
+            _ind("baa10y_spread", "Baa-10Y Spread", _first_value(ctx, "credit", "baa10y"), "higher_is_riskier", "FRED", self._indicator_weight("liquidity_credit", "baa10y_spread"),
+                 history=self._indicator_history(ctx, "baa10y_spread")),
             _ind("ig_oas", "IG OAS", _first_value(ctx, "credit", "bamlc0a0cm"), "higher_is_riskier", "FRED", self._indicator_weight("liquidity_credit", "ig_oas"),
                  history=self._indicator_history(ctx, "ig_oas")),
         ]
@@ -430,7 +430,7 @@ class RiskModel:
         # Regime
         regime_ctx = {
             "vix": _series_value(ctx, "vixcls"),
-            "hy_oas": _first_value(ctx, "credit", "bamlh0a0hym2"),
+            "baa10y_spread": _first_value(ctx, "credit", "baa10y"),
             "yield_curve_10y2y": _curve_value(ctx),
             "breadth_above_ma200": ctx.get("breadth", {}).get("breadth_above_ma200"),
             "cross_asset_confirmation": ctx.get("cross_asset", {}).get("confirmation"),

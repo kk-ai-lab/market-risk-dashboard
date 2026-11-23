@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from pipeline.collectors.news import NewsCollector
+from pipeline.collectors.news import NewsCollector, canonical_link
 from pipeline.config.models import NewsSource
+from pipeline.providers._util import declared_user_agent
 from pipeline.providers.base import ProviderError
 from pipeline.providers.rss_news import RssNewsProvider
 from pipeline.settings import Settings
-
 
 ENTRY = {
     "title": "Fed keeps rates steady",
@@ -97,6 +97,160 @@ def test_missing_date_is_rejected_instead_of_using_now(tmp_path, monkeypatch) ->
     )
     with pytest.raises(ProviderError, match="no valid entries"):
         provider.fetch_news()
+
+
+def test_official_source_policy_skips_sec_without_contact_and_keeps_fed(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    settings = Settings(
+        _env_file=None,
+        approved_sources_only=True,
+        config_dir=Settings(_env_file=None).config_dir,
+        artifacts_dir=tmp_path,
+    )
+    plan = settings.load_public_source_policy().collection_plan()
+    provider = RssNewsProvider(settings, collection_plan=plan)
+    requests: list[str] = []
+
+    def fetch(url: str):
+        requests.append(url)
+        return ([ENTRY], None)
+
+    monkeypatch.setattr(provider, "_fetch_feed", fetch)
+
+    items = provider.fetch_news()
+
+    assert [source.id for source in provider.sources] == ["fed", "sec_press"]
+    assert requests == ["https://www.federalreserve.gov/feeds/press_all.xml"]
+    assert len(items) == 1
+    assert provider.source_status["fed"]["ok"] is True
+    assert provider.source_status["sec_press"]["state"] == "not_configured"
+    assert "no request was sent" in provider.source_status["sec_press"]["detail"]
+
+
+def test_sec_feed_uses_declared_contact_user_agent(tmp_path, monkeypatch) -> None:
+    contact = "risk-dashboard@example.com"
+    settings = Settings(
+        _env_file=None,
+        approved_sources_only=True,
+        sec_contact_email=contact,
+        config_dir=Settings(_env_file=None).config_dir,
+        artifacts_dir=tmp_path,
+    )
+    plan = settings.load_public_source_policy().collection_plan()
+    provider = RssNewsProvider(settings, collection_plan=plan)
+    requests: list[tuple[str, str | None]] = []
+
+    def fetch(url: str, *, user_agent: str | None = None):
+        requests.append((url, user_agent))
+        return ([ENTRY], None)
+
+    monkeypatch.setattr(provider, "_fetch_feed", fetch)
+
+    provider.fetch_news()
+
+    assert requests == [
+        ("https://www.federalreserve.gov/feeds/press_all.xml", None),
+        (
+            "https://www.sec.gov/news/pressreleases.rss",
+            declared_user_agent(contact),
+        ),
+    ]
+
+
+def test_sec_contact_email_rejects_invalid_values() -> None:
+    with pytest.raises(ValueError, match="DATA_SEC_CONTACT_EMAIL"):
+        Settings(_env_file=None, sec_contact_email="invalid-contact")
+
+
+class _ItemRegistry:
+    def __init__(self, items: list[dict[str, str]]) -> None:
+        self.items = items
+        self.degraded_domains: set[str] = set()
+
+    def providers_for(self, _domain: str):
+        return []
+
+    def call(self, *_args, **_kwargs):
+        return {
+            "result": self.items,
+            "meta": {"provider": "rss_news", "used_fallback": False, "from_cache": False},
+        }
+
+
+def _raw_news_item(*, feed: str, guid: str, title: str, url: str) -> dict[str, str]:
+    return {
+        "title": title,
+        "source": feed,
+        "source_id": feed,
+        "guid": guid,
+        "url": url,
+        "published_at": "2026-08-03T10:00:00Z",
+        "lang": "en",
+        "summary": "Official announcement.",
+    }
+
+
+def test_news_identity_updates_edited_guid_entry(tmp_path) -> None:
+    items = [
+        _raw_news_item(
+            feed="fed",
+            guid="release-1",
+            title="Federal Reserve releases minutes",
+            url="https://www.federalreserve.gov/releases/1.htm",
+        ),
+        _raw_news_item(
+            feed="fed",
+            guid="release-1",
+            title="Federal Reserve releases corrected minutes",
+            url="https://www.federalreserve.gov/releases/1.htm",
+        ),
+    ]
+    collector = NewsCollector(
+        _ItemRegistry(items),
+        Settings(_env_file=None, artifacts_dir=tmp_path),
+    )
+
+    news, _ = collector.collect()
+
+    assert len(news.items) == 1
+    assert news.items[0].title == "Federal Reserve releases corrected minutes"
+    assert news.items[0].source_id == "fed"
+
+
+def test_canonical_link_removes_tracking_and_fragment_components() -> None:
+    assert canonical_link("HTTPS://Example.com/releases/1.htm/?utm_source=feed#top") == (
+        "https://example.com/releases/1.htm"
+    )
+
+
+def test_news_identity_keeps_first_feed_for_same_canonical_link(tmp_path) -> None:
+    items = [
+        _raw_news_item(
+            feed="fed",
+            guid="release-1",
+            title="Federal Reserve releases minutes",
+            url="https://www.federalreserve.gov/releases/1.htm?utm_source=feed",
+        ),
+        _raw_news_item(
+            feed="sec_press",
+            guid="release-copy",
+            title="Federal Reserve minutes are available",
+            url="https://www.federalreserve.gov/releases/1.htm",
+        ),
+    ]
+    collector = NewsCollector(
+        _ItemRegistry(items),
+        Settings(_env_file=None, artifacts_dir=tmp_path),
+    )
+
+    news, _ = collector.collect()
+
+    assert len(news.items) == 1
+    assert news.items[0].source == "fed"
+    assert news.items[0].source_id == "fed"
+    assert news.items[0].url == "https://www.federalreserve.gov/releases/1.htm"
 
 
 def test_asset_aliases_require_ascii_boundaries() -> None:

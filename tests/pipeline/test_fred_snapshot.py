@@ -7,7 +7,7 @@ import pytest
 from pipeline.collectors.macro import FREQ_SPEC, MacroCollector
 from pipeline.providers.base import ProviderError
 from pipeline.settings import Settings
-from pipeline.storage.cloud_fred import CloudFredRefreshError, refresh_cloud_fred_snapshot
+from pipeline.storage.cloud_fred import refresh_cloud_fred_snapshot
 from pipeline.storage.fred_snapshot import (
     FREQUENCY_NEXT_DAYS,
     FredObservation,
@@ -225,7 +225,7 @@ def test_macro_serves_snapshot_rows_without_a_request(tmp_path):
     assert registry.calls == []
     assert indicators["VIXCLS"].value == 21.0
     assert indicators["VIXCLS"].source == "FRED"
-    assert indicators["VIXCLS"].observation_date is None
+    assert indicators["VIXCLS"].observation_date == "2026-11-20"
     assert meta["provider_status"]["fred"]["failed_series"] == []
 
 
@@ -273,7 +273,7 @@ def test_macro_only_wires_the_snapshot_into_the_collector(tmp_path, monkeypatch)
     path, series_ids, retry_minutes = calls[0]
     assert path == configured.artifacts_dir / "fred" / "snapshot.json"
     assert set(series_ids) == {
-        "VIXCLS", "DFII10", "DFF", "PCEPILFE", "T5YIFR", "T10YIE", "ICSA", "CCSA",
+        "BAA10Y", "VIXCLS", "BAMLH0A0HYM2", "BAMLC0A0CM", "DFII10", "DFF", "PCEPILFE", "T5YIFR", "T10YIE", "ICSA", "CCSA",
         "CIVPART", "WALCL", "WRESBAL", "WTREGEN", "RRPONTSYD", "SOFR", "DTWEXBGS",
         "DTWEXAFEGS", "DEXUSEU", "DEXJPUS", "DEXCHUS",
     }

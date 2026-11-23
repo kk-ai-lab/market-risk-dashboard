@@ -51,7 +51,12 @@ export const RISK_EVIDENCE_KEYS: Record<RiskEvidenceState, string> = {
   insufficient_evidence: "evidence.insufficient",
 };
 
+const LEGACY_RISK_INDICATOR_KEYS: Record<string, string> = {
+  hy_oas: "indicatorNames.hyOas",
+};
+
 export const RISK_INDICATOR_KEYS: Record<string, string> = {
+  ...LEGACY_RISK_INDICATOR_KEYS,
   real_rate_dfii10: "indicatorNames.realRate",
   yield_curve_10y2y: "indicatorNames.yieldCurve",
   dollar_index: "indicatorNames.dollarIndex",
@@ -59,7 +64,7 @@ export const RISK_INDICATOR_KEYS: Record<string, string> = {
   sahm_style_labor_stress: "indicatorNames.sahmStyleLaborStress",
   fed_balance_sheet: "indicatorNames.fedBalanceSheet",
   reverse_repo: "indicatorNames.reverseRepo",
-  hy_oas: "indicatorNames.hyOas",
+  baa10y_spread: "indicatorNames.baa10ySpread",
   ig_oas: "indicatorNames.igOas",
   breadth_above_ma200: "indicatorNames.breadthAboveMa200",
   new_highs_ratio: "indicatorNames.newHighsRatio",

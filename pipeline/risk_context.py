@@ -32,6 +32,8 @@ def build_risk_context(
     """Assemble the collected results into the context required by RiskModel.score."""
     from pipeline.indicators.breadth import breadth_snapshot
     from pipeline.indicators.trend import trend_snapshot
+    # Local import: ``pipeline.risk`` imports this module through calibration.
+    from pipeline.risk.scoring import percentile_rank
 
     breadth = breadth_snapshot(histories)
     trend = trend_snapshot(histories)
@@ -41,7 +43,19 @@ def build_risk_context(
     # as diagnostics (#143), but remain outside the production aggregate while the
     # calibration policy gates cross-asset refitting. Missing inputs are null, never benign.
     vix = _macro_value(macro, "volatility", "vixcls")
-    hy = _macro_value(macro, "credit", "bamlh0a0hym2")
+    baa_spread = _macro_value(macro, "credit", "baa10y")
+    baa_history = [
+        float(row["value"])
+        for row in (series_history.get("baa10y") or [])
+        if isinstance(row.get("value"), (int, float))
+        and not isinstance(row.get("value"), bool)
+        and isfinite(float(row["value"]))
+    ]
+    baa_percentile = (
+        percentile_rank(baa_spread, baa_history)
+        if baa_spread is not None and baa_history
+        else None
+    )
     dxy = _macro_value(macro, "fx", "dtwexbgs")
     real_rate = _macro_value(macro, "rates", "dfii10")
     spy_change = _latest_change(histories.get("SPY"))
@@ -61,9 +75,13 @@ def build_risk_context(
         _cross_asset_signal("spy_down", spy_change, spy_change < 0 if spy_change is not None else None,
                             source="market_quotes", provider=market_provenance, unit="percentage_points",
                             transformation="one_day_return_below_zero", history=histories.get("SPY")),
-        _cross_asset_signal("hy_oas_widening", hy, hy > 4.0 if hy is not None else None,
-                            source="fred_macro", provider=macro_provenance, unit="index_points",
-                            transformation="level_above_4", history=None),
+        # A fixed level is wrong for an investment-grade spread (BAA > 2.5 held 42.9% of
+        # days since 2000); the 5Y percentile adapts to level drift.
+        _cross_asset_signal("baa_spread_widening", baa_spread,
+                            baa_percentile >= 90.0 if baa_percentile is not None else None,
+                            source="fred_macro", provider=macro_provenance, unit="percentage_points",
+                            transformation="five_year_percentile_at_least_90",
+                            history=series_history.get("baa10y")),
         _cross_asset_signal("dollar_strength", dxy, dxy > 105 if dxy is not None else None,
                             source="fred_macro", provider=macro_provenance, unit="index_points",
                             transformation="level_above_105", history=None),

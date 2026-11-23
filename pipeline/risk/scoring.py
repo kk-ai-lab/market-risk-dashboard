@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Sequence
+from typing import Sequence
 
 # Shared curve for relative-strength measurements.
 _RELATIVE_STRENGTH_RULE: list[tuple[float, float]] = [
@@ -20,7 +20,9 @@ _RELATIVE_STRENGTH_RULE: list[tuple[float, float]] = [
 # Heuristic mapping table: key → [(threshold, score)], interpolated by value ascending
 HEURISTIC_RULES: dict[str, list[tuple[float, float]]] = {
     "vix": [(10, 5), (15, 20), (20, 40), (25, 60), (30, 75), (40, 90), (50, 98)],
-    "hy_oas": [(2.0, 10), (3.0, 30), (4.0, 55), (5.0, 70), (6.0, 85), (8.0, 95)],
+    # Baa-10Y full-history quantiles mapped onto the same 0-100 points as the table it
+    # replaces. The level is an investment-grade spread: 1.56 is calm, 3.32 is a crisis.
+    "baa10y_spread": [(1.56, 10), (1.81, 30), (2.20, 55), (2.53, 70), (2.91, 85), (3.32, 95)],
     "ig_oas": [(0.8, 10), (1.2, 30), (1.6, 50), (2.0, 70), (2.5, 85), (3.5, 95)],
     "dgs10": [(2.0, 40), (3.0, 45), (4.0, 50), (4.5, 60), (5.0, 70), (6.0, 85)],
     "real_rate_dfii10": [(0.0, 20), (0.5, 35), (1.0, 50), (1.5, 65), (2.0, 80), (2.5, 90)],

@@ -579,7 +579,7 @@ def make_risk_payload(**overrides: Any) -> dict[str, Any]:
                     label="Liquidity & Credit",
                     score=52.0,
                     indicators=[
-                        make_risk_indicator(key="hy_oas", label="HY OAS", risk_score=55.0),
+                        make_risk_indicator(key="baa10y_spread", label="Baa-10Y Spread", risk_score=55.0),
                         make_risk_indicator(key="ig_oas", label="IG OAS", risk_score=45.0),
                         make_risk_indicator(key="fed_balance_sheet", label="Fed Balance Sheet", risk_score=50.0, direction="neutral"),
                         make_risk_indicator(key="reverse_repo", label="Reverse Repo", risk_score=50.0, direction="neutral"),

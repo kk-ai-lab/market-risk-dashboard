@@ -86,6 +86,7 @@ def test_policy_loads_licensed_sources_and_builds_only_approved_providers(tmp_pa
     providers = build_default_providers(settings)
     assert [(provider.name, provider.domain) for provider in providers] == [
         ("coinmetrics", "crypto"),
+        ("rss_news", "news"),
         ("eia", "energy"),
         ("bea_calendar", "bea_calendar"),
     ]
@@ -96,6 +97,29 @@ def test_policy_loads_licensed_sources_and_builds_only_approved_providers(tmp_pa
     assert policy.sources["coinmetrics"].market_symbols == [
         "BTC", "ETH", "SOL", "ADA", "XRP", "DOGE", "BNB", "LINK", "LTC", "AVAX",
     ]
+
+
+def test_baa10y_is_in_the_accepted_personal_use_grant(tmp_path):
+    plan = public_settings(tmp_path).load_public_source_policy().collection_plan()
+
+    assert plan.macro_grant_for("BAA10Y").source_id == "fred"
+    assert plan.macro_grant_for("VIXCLS") is not None
+    assert plan.macro_grant_for("BAMLH0A0HYM2").source_id == "fred_ice"
+    assert plan.macro_grant_for("BAMLC0A0CM").source_id == "fred_ice"
+    assert len(plan.grants_for("fred", "macro")) == 2
+
+
+def test_provider_factory_builds_fred_once_for_disjoint_grants():
+    settings = Settings(
+        _env_file=None,
+        approved_sources_only=True,
+        fred_api_key="test",
+        config_dir=Settings(_env_file=None).config_dir,
+    )
+
+    fred_providers = [provider for provider in build_default_providers(settings) if provider.name == "fred"]
+
+    assert len(fred_providers) == 1
 
 
 def test_policy_plan_and_provider_factory_keep_the_selected_market_targets(tmp_path):
@@ -224,7 +248,7 @@ def test_macro_without_fred_key_publishes_missing_without_requests(tmp_path):
     assert meta["error_code"] == "provider_auth_failed"
     assert "DATA_FRED_API_KEY is not configured; no request was sent" in meta["detail"]
     assert meta["provider_status"]["fred"]["error"] == "not_configured"
-    assert meta["degraded"]
+    assert meta["data_quality"] < 1.0
 
 
 def test_market_policy_collects_crypto_without_other_market_requests(tmp_path, monkeypatch):
@@ -304,12 +328,15 @@ def test_market_collector_rejects_unapproved_coinmetrics_asset(tmp_path, monkeyp
 def test_news_and_calendar_mark_unlicensed_data_missing_without_registry_calls(tmp_path):
     registry = NoNetworkRegistry()
     settings = public_settings(tmp_path)
-
-    news, news_meta = NewsCollector(registry, settings).collect()
     policy = settings.load_public_source_policy()
+    policy.sources.pop("fed_press")
+    policy.sources.pop("sec_press")
     policy.sources.pop("bea_calendar")
+    plan = policy.collection_plan()
+
+    news, news_meta = NewsCollector(registry, settings, collection_plan=plan).collect()
     calendar, calendar_meta = CalendarCollector(
-        registry, settings, collection_plan=policy.collection_plan(),
+        registry, settings, collection_plan=plan,
     ).collect()
 
     assert news.items == [] and news.total == 0
@@ -327,6 +354,7 @@ def test_macro_policy_exclusions_have_an_explicit_reason_code(tmp_path):
     settings = public_settings(tmp_path)
     policy = settings.load_public_source_policy()
     policy.sources.pop("fred")
+    policy.sources.pop("fred_ice")
 
     _, meta = MacroCollector(
         registry,
@@ -413,6 +441,7 @@ def test_macro_only_persists_policy_reason_and_full_history_roster(monkeypatch, 
     settings = public_settings(tmp_path)
     policy = settings.load_public_source_policy()
     policy.sources.pop("fred")
+    policy.sources.pop("fred_ice")
     macro, meta = MacroCollector(
         NoNetworkRegistry(),
         settings,
@@ -578,6 +607,7 @@ def test_index_series_grants_equities_without_instrument_symbols(tmp_path):
     policy = PublicSourcePolicy.model_validate(raw)
     assert policy.collection_plan().grant_for_rung("fred", "SP500").source_id == "fred_index"
 
+    raw["sources"].pop("fred_ice")
     raw["sources"]["fred_index"].update(datasets=["macro"], macro_series=["BAMLH0A0HYM2"])
     with pytest.raises(ValueError, match="index_series outside the equities dataset"):
         PublicSourcePolicy.model_validate(raw)

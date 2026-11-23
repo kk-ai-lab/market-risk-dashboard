@@ -58,6 +58,7 @@ function makeItem(overrides: Partial<NewsItem> = {}): NewsItem {
     summary_zh: null,
     impact_window: null,
     ...overrides,
+    source_id: overrides.source_id ?? null,
   };
 }
 

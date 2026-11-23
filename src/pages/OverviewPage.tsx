@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { ArrowUpRight, CalendarClock, Layers, Minus, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowUpRight, CalendarClock, Info, Layers, Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { useDataset } from "@/hooks/useDataset";
 import { hasRiskEvidence } from "@/lib/riskEvidence";
+import { isOfficialAnnouncement } from "@/lib/officialAnnouncements";
 import { SnapshotTimestamp } from "@/components/dashboard/SnapshotTimestamp";
 import { RiskTrendSlice } from "@/schemas/history";
 import type { DashboardEnvelope, MacroEnvelope, NewsEnvelope } from "@/schemas";
@@ -24,7 +25,7 @@ import type { HeatmapCell } from "@/charts/AssetHeatmap";
 
 /**
  * OverviewPage: dark-first terminal layout (spec #23 ticket #28 — reference implementation).
- * - KPI strip of 4 small cards
+ * - Risk KPI strip plus a separate credit-indicator row
  * - Charts live in open chart regions (surface-0 + section header + hairline, no card chrome)
  * - Drivers/catalysts/sectors/news are hairline-divided sections with tabular numerals
  * - Page footer: mono status line (generation time + freshness)
@@ -57,7 +58,9 @@ export default function OverviewPage() {
   const catalysts = dashboard?.catalysts ?? [];
   const sectorBaskets = dashboard?.sector_performance ?? [];
 
-  const topNews = newsQ.data ? [...newsQ.data.payload.items].sort((a, b) => b.importance - a.importance).slice(0, 4) : [];
+  const topNews = newsQ.data
+    ? newsQ.data.payload.items.filter(isOfficialAnnouncement).sort((a, b) => b.importance - a.importance).slice(0, 4)
+    : [];
 
   const riskAvailable = risk ? hasRiskEvidence(risk) : false;
   const riskTone = risk && riskAvailable ? riskLevelTone(risk.risk_level) : "na";
@@ -70,9 +73,10 @@ export default function OverviewPage() {
         : TrendingDown;
   const topDrivers = dashboard?.top_drivers ?? [];
 
-  // HY OAS (spec #28 KPI set): high-yield credit spread from the macro dataset when available
-  const hyOas =
-    macroQ.data?.payload.credit.find((ind) => ind.key === "bamlh0a0hym2" || /high yield oas/i.test(ind.label)) ?? null;
+  const creditIndicators = macroQ.data?.payload.credit ?? [];
+  const baaSpread = creditIndicators.find((indicator) => indicator.key === "baa10y") ?? null;
+  const hyOas = creditIndicators.find((indicator) => indicator.key === "bamlh0a0hym2") ?? null;
+  const igOas = creditIndicators.find((indicator) => indicator.key === "bamlc0a0cm") ?? null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -92,16 +96,15 @@ export default function OverviewPage() {
       <SnapshotTimestamp generatedAt={dashboardQ.data?.generated_at} />
 
       {/* KPI strip: the only cards on this page (card policy) */}
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4" data-testid="risk-conclusion">
+      <section className="grid grid-cols-1 gap-3 md:grid-cols-3" data-testid="risk-conclusion">
         {dashboardQ.isLoading ? (
           <>
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
           </>
         ) : dashboardQ.isError ? (
-          <ErrorState onRetry={dashboardQ.refetch} className="md:col-span-2 xl:col-span-4" />
+          <ErrorState onRetry={dashboardQ.refetch} className="md:col-span-3" />
         ) : risk && dashboardQ.data ? (
           <>
             <KpiCard
@@ -148,29 +151,69 @@ export default function OverviewPage() {
               </span>
             </KpiCard>
 
-            <KpiCard
-              label={t("kpi.hyOas")}
-              footer={
-                hyOas?.change_1m === null || hyOas?.change_1m === undefined
-                  ? undefined
-                  : `${t("kpi.oneMonth")} ${formatPctPoints(hyOas.change_1m, locale)}`
-              }
-            >
-              {hyOas ? (
-                <span
-                  className={`text-2xl font-semibold tabular-nums ${dirClasses(dirTone(hyOas.change_1m)).text}`}
-                >
-                  {formatNumber(hyOas.value, locale)}
-                  <span className="text-sm font-medium text-muted-foreground">%</span>
-                </span>
-              ) : (
-                <span className="text-base text-muted-foreground">{t("common:data.na")}</span>
-              )}
-            </KpiCard>
           </>
         ) : (
-          <EmptyState className="md:col-span-2 xl:col-span-4" />
+          <EmptyState className="md:col-span-3" />
         )}
+      </section>
+
+      <section className="grid grid-cols-1 gap-3 md:grid-cols-3" data-testid="credit-indicators">
+        <KpiCard
+          label={t("kpi.baaSpread")}
+          footer={
+            <span className="flex flex-wrap items-center gap-x-1">
+              <span>{baaSpread?.attribution ?? t("kpi.baaAttribution")}</span>
+              <span>· {t("kpi.baaSpreadNote")}</span>
+              {baaSpread?.observation_date ? <span>· {t("kpi.observed")} {baaSpread.observation_date}</span> : null}
+            </span>
+          }
+          data-testid="credit-baa10y"
+        >
+          {baaSpread?.value !== null && baaSpread?.value !== undefined ? (
+            <span className={`text-2xl font-semibold tabular-nums ${dirClasses(dirTone(baaSpread.change_1m)).text}`}>
+              {formatNumber(baaSpread.value, locale)}<span className="text-sm font-medium text-muted-foreground">%</span>
+            </span>
+          ) : <span className="text-base text-muted-foreground">{t("kpi.notConfigured")}</span>}
+        </KpiCard>
+        <KpiCard
+          label={t("kpi.hyOas")}
+          footer={
+            <span className="flex flex-wrap items-center gap-x-1">
+              <span>{hyOas?.attribution ?? t("kpi.iceNote")}</span>
+              <span role="img" title={t("kpi.hyCitation")} aria-label={t("kpi.fullCitation")}>
+                <Info className="h-3 w-3" aria-hidden />
+              </span>
+              {hyOas?.observation_date ? <span>· {t("kpi.observed")} {hyOas.observation_date}</span> : null}
+              <span>· {t("kpi.displayOnlyNote")}</span>
+            </span>
+          }
+          data-testid="credit-hy-oas"
+        >
+          {hyOas?.value !== null && hyOas?.value !== undefined ? (
+            <span className={`text-2xl font-semibold tabular-nums ${dirClasses(dirTone(hyOas.change_1m)).text}`}>
+              {formatNumber(hyOas.value, locale)}<span className="text-sm font-medium text-muted-foreground">%</span>
+            </span>
+          ) : <span className="text-base text-muted-foreground">{t("kpi.notConfigured")}</span>}
+        </KpiCard>
+        <KpiCard
+          label={t("kpi.igOas")}
+          footer={
+            <span className="flex flex-wrap items-center gap-x-1">
+              <span>{igOas?.attribution ?? t("kpi.iceNote")}</span>
+              <span role="img" title={t("kpi.igCitation")} aria-label={t("kpi.fullCitation")}>
+                <Info className="h-3 w-3" aria-hidden />
+              </span>
+              {igOas?.observation_date ? <span>· {t("kpi.observed")} {igOas.observation_date}</span> : null}
+            </span>
+          }
+          data-testid="credit-ig-oas"
+        >
+          {igOas?.value !== null && igOas?.value !== undefined ? (
+            <span className={`text-2xl font-semibold tabular-nums ${dirClasses(dirTone(igOas.change_1m)).text}`}>
+              {formatNumber(igOas.value, locale)}<span className="text-sm font-medium text-muted-foreground">%</span>
+            </span>
+          ) : <span className="text-base text-muted-foreground">{t("kpi.notConfigured")}</span>}
+        </KpiCard>
       </section>
 
       {risk && dashboardQ.data ? (
@@ -326,10 +369,13 @@ export default function OverviewPage() {
         </div>
 
         <div>
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
-            <ArrowUpRight className="h-4 w-4 text-muted-foreground" aria-hidden />
-            {t("news.title")}
-          </h2>
+          <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+              {t("news.title")}
+            </h2>
+            <span className="text-xs text-muted-foreground">{t("news.attribution")}</span>
+          </div>
           {newsQ.isLoading ? (
             <Skeleton className="h-40 w-full" />
           ) : newsQ.isError ? (
