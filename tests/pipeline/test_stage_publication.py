@@ -136,6 +136,40 @@ def test_node_validation_failure_has_fixed_code_and_preserves_pointer(
     assert read_current(store) == first
 
 
+def test_node_rejection_emits_only_safe_validation_families(
+    make_data_dir, monkeypatch, tmp_path, capsys
+):
+    source = candidate(make_data_dir)
+    store = tmp_path / "store"
+    first = stage(source, store)
+    monkeypatch.setattr(
+        staging.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=1,
+            stdout=(
+                "  [ERROR] history/macro/index.json: BAA10Y has value 123.45\n"
+                "  [ERROR] metadata/sources.json: source detail contains private text\n"
+            ),
+            stderr="provider response with private text",
+        ),
+    )
+
+    with pytest.raises(CandidateStageError) as error:
+        stage(source, store, first["generation_id"])
+
+    assert error.value.code is CandidateStageCode.NODE_VALIDATION_REJECTED
+    diagnostic = json.loads(capsys.readouterr().err)
+    assert diagnostic == {
+        "event": "candidate_validation.failure",
+        "validator": "node",
+        "families": ["macro_history", "metadata_projection"],
+    }
+    assert "123.45" not in json.dumps(diagnostic)
+    assert "private" not in json.dumps(diagnostic)
+    assert read_current(store) == first
+
+
 def test_source_load_failure_has_fixed_code(tmp_path):
     with pytest.raises(CandidateStageError) as error:
         stage(tmp_path / "missing", tmp_path / "store")
