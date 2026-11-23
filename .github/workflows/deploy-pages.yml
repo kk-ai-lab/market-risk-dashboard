@@ -236,6 +236,29 @@ jobs:
           path: dist
           retention-days: 5
 
+      - name: Wait for the newly uploaded Pages artifact to be visible
+        if: steps.preflight.outputs.resume != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.pages-artifact.outputs.artifact_id }}
+        run: |
+          if [[ ! "$ARTIFACT_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error title=Invalid Pages artifact ID::The upload action did not return a numeric artifact ID."
+            exit 1
+          fi
+          for attempt in {1..30}; do
+            indexed_id="$(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
+              --jq ".artifacts[]? | select(.id == $ARTIFACT_ID) | .id" 2>/dev/null || true)"
+            if [[ "$indexed_id" == "$ARTIFACT_ID" ]]; then
+              echo "Uploaded Pages artifact is visible to this run."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error title=Pages artifact not visible::Uploaded artifact did not appear in this run's artifact list within 30 seconds."
+          exit 1
+
       - name: Download the exact Pages artifact
         if: steps.preflight.outputs.resume == 'true'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
