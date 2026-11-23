@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -234,7 +235,16 @@ def test_full_run_receipt_matches_cloud_refresh_expected_outputs(tmp_path, monke
         artifacts_dir=artifacts_dir,
     )
     monkeypatch.setattr(run_module, "settings", settings)
-    energy = EnergyCollector(object(), settings).collect()
+    class EnergyRegistry:
+        @staticmethod
+        def call(*_args, **_kwargs):
+            day = datetime.now(UTC).date().isoformat()
+            return {
+                "result": [{"date": day, "release_date": day, "value": 420_000.0}],
+                "meta": {"provider": "eia", "from_cache": False, "degraded": False},
+            }
+
+    energy = EnergyCollector(EnergyRegistry(), settings).collect()
     results = _full_run_results(
         energy=energy["payload"],
         energy_meta=energy,

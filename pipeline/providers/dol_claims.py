@@ -1,14 +1,14 @@
-"""U.S. Department of Labor non-embargoed weekly UI claims series."""
-
 from __future__ import annotations
 
 import math
 import re
 import time
 from datetime import UTC, date, datetime, timedelta
+from datetime import time as day_time
 from io import BytesIO
 from typing import Any
 from xml.etree import ElementTree as ET
+from zoneinfo import ZoneInfo
 
 import httpx
 from pypdf import PdfReader
@@ -25,6 +25,15 @@ from pipeline.utils import now_utc
 DOL_CLAIMS_URL = "https://oui.doleta.gov/unemploy/wkclaims/report.asp"
 DOL_ADVANCE_CLAIMS_URL = "https://www.dol.gov/ui/data.pdf"
 SERIES_PATHS = {"ICSA": ("InitialClaims", "SA"), "CCSA": ("ContinuedClaims", "SA")}
+RELEASE_TIME_ET = day_time(8, 30)
+RELEASE_SAFETY_DELAY = timedelta(minutes=1)
+EASTERN = ZoneInfo("America/New_York")
+
+
+def _is_report_public(release_date: date, fetched_at: str) -> bool:
+    fetched = datetime.fromisoformat(fetched_at.replace("Z", "+00:00")).astimezone(UTC)
+    release_deadline = datetime.combine(release_date, RELEASE_TIME_ET, tzinfo=EASTERN)
+    return fetched >= release_deadline.astimezone(UTC) + RELEASE_SAFETY_DELAY
 
 
 def _release_week_end(token: str, release_date: date) -> date:
@@ -146,6 +155,8 @@ class DolClaimsProvider(BaseProvider):
                 raise ValueError("unexpected ETA 539 report root")
             release_date = datetime.strptime(root.attrib["rundate"], "%m/%d/%Y").date().isoformat()
             fetched_at = now_utc()
+            if not _is_report_public(date.fromisoformat(release_date), fetched_at):
+                raise ProviderError("DOL UI claims: report is not yet publicly released")
             output: dict[str, list[dict[str, Any]]] = {series: [] for series in SERIES_PATHS}
             seen: set[str] = set()
             for week in root.findall("week"):
@@ -208,6 +219,9 @@ class DolClaimsProvider(BaseProvider):
             reader = PdfReader(BytesIO(response.content), strict=True)
             text = "\n".join(page.extract_text() or "" for page in reader.pages[:2])
             parsed = parse_advance_claims_text(text, fetched_at=now_utc())
+            release_day = date.fromisoformat(parsed["ICSA"][0]["released_on"])
+            if not _is_report_public(release_day, parsed["ICSA"][0]["fetched_at"]):
+                parsed = {series_id: [] for series_id in SERIES_PATHS}
             self._advance_cache = parsed
             return parsed
         except ProviderError:

@@ -24,6 +24,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, FiniteFloat, m
 
 from pipeline.providers.base import ProviderError
 from pipeline.providers.treasury import (
+    DEFAULT_CURVE_SERIES,
     NOMINAL_SERIES,
     REAL_SERIES,
     SERIES,
@@ -59,8 +60,12 @@ class TreasuryYear(BaseModel):
             raise ValueError("checked_at must include a timezone")
         if not self.series or not set(self.series).issubset(SERIES):
             raise ValueError("Treasury snapshot must contain approved maturities")
-        has_nominal = bool(set(self.series) & NOMINAL_SERIES) or "T10YIE" in self.series
-        has_real = bool(set(self.series) & REAL_SERIES) or "T10YIE" in self.series
+        has_nominal = bool(set(self.series) & NOMINAL_SERIES) or bool(
+            set(self.series) & {"T5YIFR", "T10YIE"}
+        )
+        has_real = bool(set(self.series) & REAL_SERIES) or bool(
+            set(self.series) & {"T5YIFR", "T10YIE"}
+        )
 
         def validate_source(source: str, *, real: bool) -> None:
             url, official = urlsplit(source), urlsplit(TREASURY_XML)
@@ -185,7 +190,7 @@ def refresh_treasury_snapshot(directory: Path, provider: YearProvider, *, now: d
     """
     if type(refresh_interval_minutes) is not int or refresh_interval_minutes < 1:
         raise ValueError("refresh_interval_minutes must be a positive integer")
-    selected = set(SERIES if series_ids is None else series_ids)
+    selected = set(DEFAULT_CURVE_SERIES if series_ids is None else series_ids)
     if not selected.issubset(SERIES):
         raise SnapshotError("Treasury selection contains an unsupported series")
     try:
@@ -301,7 +306,11 @@ def refresh_treasury_snapshot(directory: Path, provider: YearProvider, *, now: d
                 if year < now.year:
                     history_rechecked = True
                 request_start = now + timedelta(seconds=time.monotonic() - started)
-                result = provider.get_yield_curve(year=year, series_ids=sorted(selected))
+                result = (
+                    provider.get_yield_curve(year=year)
+                    if selected == set(DEFAULT_CURVE_SERIES)
+                    else provider.get_yield_curve(year=year, series_ids=sorted(selected))
+                )
                 request_end = now + timedelta(seconds=time.monotonic() - started)
                 candidate = TreasuryYear.model_validate({key: result[key] for key in ("year", "source", "real_source", "checked_at", "date_semantics", "series") if key in result})
                 if candidate.year != year:

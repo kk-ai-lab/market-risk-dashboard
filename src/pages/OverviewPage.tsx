@@ -63,6 +63,7 @@ export default function OverviewPage() {
             retrievedAt: null,
             isProxy: false,
             proxyOf: null,
+            availabilityReason: null,
           })),
           ...dashboard.index_performance.map((asset) => ({
             asset: asset.symbol,
@@ -73,6 +74,7 @@ export default function OverviewPage() {
             retrievedAt: asset.retrieved_at,
             isProxy: asset.is_proxy,
             proxyOf: asset.proxy_of,
+            availabilityReason: asset.availability_reason,
           })),
           ...dashboard.sector_etfs.map((asset) => ({
             asset: asset.symbol,
@@ -83,6 +85,7 @@ export default function OverviewPage() {
             retrievedAt: asset.retrieved_at,
             isProxy: asset.is_proxy,
             proxyOf: asset.proxy_of,
+            availabilityReason: asset.availability_reason,
           })),
         ]
       : [];

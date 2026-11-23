@@ -24,6 +24,7 @@
     "freshnessUnavailable": "Source freshness unavailable for this legacy record",
     "name": "Indicator",
     "change1m": "MoM",
+    "latestYoyPeriodUnavailable": "The {{period}} year-over-year CPI change is unavailable from BLS; latest reported period is {{observed}}.",
     "value": "Value",
     "unit": "Unit"
   },
@@ -33,7 +34,7 @@
     "New York Fed": "Federal Reserve Bank of New York",
     "Federal Reserve Board": "Federal Reserve Board",
     "Bureau of Economic Analysis": "Bureau of Economic Analysis",
-    "U.S. Department of Labor": "U.S. Department of Labor",
+    "departmentOfLabor": "U.S. Department of Labor",
     "FRED": "FRED"
   },
   "fedwatch": {

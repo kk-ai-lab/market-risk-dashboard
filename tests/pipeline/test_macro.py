@@ -40,6 +40,13 @@ class _FakeRegistry:
 
     def call(self, domain: str, method: str, key: str, args=(), kwargs=None):
         kwargs = kwargs or {}
+        if domain == "energy":
+            today = date.today().isoformat()
+            self.calls.append((domain, method, key, kwargs))
+            return {
+                "result": [{"date": today, "release_date": today, "value": 420_000.0}],
+                "meta": {"provider": "eia", "from_cache": False, "degraded": False},
+            }
         if domain == "fedwatch":
             self.calls.append((domain, method, key, kwargs))
             code = str(args[0][0])
@@ -52,6 +59,18 @@ class _FakeRegistry:
         if series_id in self._fail:
             raise ProviderError(f"FRED {series_id}: HTTP 500")
         return {"result": self._rows.get(series_id, []), "meta": {"provider": "fred", "used_fallback": False, "from_cache": False}}
+
+    def call_provider(self, domain, provider_name, method, key, args=(), kwargs=None, **_options):
+        kwargs = kwargs or {}
+        series_id = str(args[0]) if args else key.removeprefix(f"{provider_name}_")
+        self.calls.append((domain, method, series_id, kwargs))
+        return {
+            "result": self._rows.get(series_id, []),
+            "meta": {"provider": provider_name, "from_cache": False, "degraded": False},
+        }
+
+    def providers_for(self, _domain):
+        return []
 
 
 def _all_series_rows() -> dict[str, list[dict]]:
@@ -69,7 +88,7 @@ class TestRoster:
     def test_default_series_is_derived_from_groups(self) -> None:
         """#84 §0 root cause: two lists drifted apart. One list now — the fetch loop
         iterates the grouping table, so the mismatch is structurally impossible."""
-        assert DEFAULT_SERIES == [s for group in SERIES_GROUPS.values() for s in group]
+        assert [s for group in SERIES_GROUPS.values() for s in group] == DEFAULT_SERIES
         assert len(DEFAULT_SERIES) == 28
         assert len(set(DEFAULT_SERIES)) == 28  # no duplicates
 
@@ -77,7 +96,7 @@ class TestRoster:
         """Every catalog series except the EFFR anchor is in the roster, and the roster
         contains no dead ids (NAPM/MOVE/GOLDPMGBD228NLBM were FRED 400s, #84 §6c)."""
         roster = set(DEFAULT_SERIES)
-        assert roster == set(SERIES_CATALOG) - {"EFFR"}
+        assert roster == set(SERIES_CATALOG) - {"EFFR", "DGS5", "DFII5"}
         assert "NAPM" not in roster and "MOVE" not in roster
 
     def test_groups_match_84(self) -> None:

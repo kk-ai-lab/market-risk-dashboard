@@ -46,6 +46,8 @@ sources:
     license_url: https://catalog.data.gov/dataset/interest-rate-statistics-daily-treasury-yield-curve-rates
     attribution: "U.S. Department of the Treasury, Daily Treasury Par Yield and Par Real Yield Curve Rates. T10YIE is calculated as the same-date nominal 10-year par yield minus the 10-year real par yield."
     series_attribution:
+      DGS2: "U.S. Department of the Treasury, Daily Treasury Par Yield Curve Rates, 2-year par yield. CC0."
+      DGS10: "U.S. Department of the Treasury, Daily Treasury Par Yield Curve Rates, 10-year par yield. CC0."
       DGS5: "U.S. Department of the Treasury, Daily Treasury Par Yield Curve Rates, 5-year par yield. CC0."
       DFII5: "U.S. Department of the Treasury, Daily Treasury Real Yield Curve Rates, 5-year real par yield. CC0."
       DFII10: "U.S. Department of the Treasury, Daily Treasury Real Yield Curve Rates. CC0."
@@ -63,9 +65,9 @@ sources:
     license_url: https://www.newyorkfed.org/privacy/termsofuse
     attribution: "Federal Reserve Bank of New York. Reference-rate data are subject to the NY Fed Terms of Use and their required publication disclaimer."
     series_attribution:
-      DFF: "Source: Federal Reserve Bank of New York, Effective Federal Funds Rate. Subject to https://www.newyorkfed.org/privacy/termsofuse. The New York Fed is not responsible for publication of this data by kk-ai-lab, does not sanction or endorse this republication, and has no liability for your use."
-      SOFR: "Source: Federal Reserve Bank of New York, Secured Overnight Financing Rate. Subject to https://www.newyorkfed.org/privacy/termsofuse. The New York Fed is not responsible for publication of this data by kk-ai-lab, does not sanction or endorse this republication, and has no liability for your use."
-      RRPONTSYD: "Source: Federal Reserve Bank of New York, Overnight Reverse Repo Operation Results. © 2026 Federal Reserve Bank of New York. Content subject to https://www.newyorkfed.org/privacy/termsofuse. This dashboard aggregates accepted overnight reverse-repo amounts in USD billions."
+      DFF: "The Effective Federal Funds Rate is subject to the Terms of Use posted at newyorkfed.org. The New York Fed is not responsible for publication of the Effective Federal Funds Rate by kk-ai-lab, does not sanction or endorse any particular republication, and has no liability for your use."
+      SOFR: "The Secured Overnight Financing Rate is subject to the Terms of Use posted at newyorkfed.org. The New York Fed is not responsible for publication of the Secured Overnight Financing Rate by kk-ai-lab, does not sanction or endorse any particular republication, and has no liability for your use."
+      RRPONTSYD: "© {year} Federal Reserve Bank of New York. Content from the New York Fed subject to the Terms of Use at newyorkfed.org. This dashboard aggregates accepted overnight reverse-repo amounts in USD billions."
     permitted_use: public-redistribution
     cadence_minutes: 1440
   bea_nipa:
@@ -85,7 +87,7 @@ sources:
     macro_series: [ICSA, CCSA]
     license_id: US-Government-public-domain
     license_url: https://beta.dol.gov/about/notices/website-content-and-publication-practices
-    attribution: "U.S. Department of Labor, Employment and Training Administration, ETA 539 revised weekly UI claims history and weekly non-embargoed advance claims release. Seasonally adjusted national values in thousands."
+    attribution: "U.S. Department of Labor, Employment and Training Administration, ETA 539 revised weekly UI claims history and latest released ETA 538 advance claims report. Seasonally adjusted national values in thousands."
     series_attribution:
       ICSA: "U.S. Department of Labor, Employment and Training Administration, ETA 539 history with the latest ETA 538 advance weekly claims release. Values may be revised in a later release."
       CCSA: "U.S. Department of Labor, Employment and Training Administration, ETA 539 history with the latest ETA 538 advance weekly claims release. Values may be revised in a later release."

@@ -1,5 +1,3 @@
-"""Official BLS release calendar iCalendar feed."""
-
 from __future__ import annotations
 
 import hashlib
@@ -25,7 +23,7 @@ def _unescape_ics(value: str) -> str:
 
 
 def parse_bls_calendar(body: str, start: date, end: date) -> list[dict[str, Any]]:
-    """Parse dated timed release events; all-day holidays are not release events."""
+    """Parse timestamped release events from the iCalendar feed."""
     if start > end or "BEGIN:VCALENDAR" not in body or "END:VCALENDAR" not in body:
         raise ProviderError("BLS calendar: invalid iCalendar document")
     unfolded = re.sub(r"\r?\n[ \t]", "", body)

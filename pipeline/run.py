@@ -38,6 +38,7 @@ from pipeline.collectors import (
 )
 from pipeline.collectors.news import (
     news_translation_coverage,
+    retain_exact_translations,
     translation_sidecar_matches_news_batch,
 )
 from pipeline.factlayer import FactLayerBuilder
@@ -71,6 +72,7 @@ from pipeline.schemas import (
     EquitiesEnvelope,
     MacroDataset,
     MacroEnvelope,
+    NewsDataset,
     NewsEnvelope,
     NewsTranslationsDataset,
     RiskEnvelope,
@@ -841,6 +843,7 @@ def _run_collection(command: str) -> dict[str, Any]:
         news, news_meta = ncc.collect()
         translation_status = "missing"
         translation_reason = "news translation sidecar not found"
+        translation_source_file = "news.zh-translations.json"
         stale_translation_sidecar = False
         try:
             translations = StorageWriter(settings.data_dir).read_latest("news.zh-translations")
@@ -864,6 +867,23 @@ def _run_collection(command: str) -> dict[str, Any]:
                 translation_status = "skipped"
                 translation_reason = "news translation sidecar is invalid"
         covered, total = news_translation_coverage(news)
+        if total and covered < total:
+            try:
+                previous = StorageWriter(settings.data_dir).read_latest("news")
+                previous_payload = previous.get("payload", previous) if previous is not None else None
+                prior_news = NewsDataset.model_validate(previous_payload) if previous_payload is not None else None
+            except (CorruptDataError, TypeError, ValueError):
+                prior_news = None
+            if prior_news is not None:
+                news, reused_items = retain_exact_translations(news, prior_news)
+                covered, total = news_translation_coverage(news)
+                if reused_items:
+                    translation_status = "reused"
+                    translation_reason = f"retained {reused_items} exact-match translations from the prior news snapshot"
+                    translation_source_file = "news.json"
+                    if covered == total:
+                        stale_translation_sidecar = False
+        covered, total = news_translation_coverage(news)
         translation_degraded = bool(total and covered < total) or stale_translation_sidecar
         if translation_degraded:
             if not stale_translation_sidecar:
@@ -882,6 +902,7 @@ def _run_collection(command: str) -> dict[str, Any]:
             "status": translation_status,
             "merged_items": covered,
             "reason": translation_reason,
+            "source_file": translation_source_file,
         }
         results["news"] = news
         results["news_meta"] = news_meta

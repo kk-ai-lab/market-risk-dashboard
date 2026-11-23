@@ -366,6 +366,7 @@ export const DashboardInstrument = z
     retrieved_at: utcDateTime.nullable().default(null),
     is_proxy: z.boolean().default(false),
     proxy_of: z.string().nullable().default(null),
+    availability_reason: z.enum(["public_source_unlicensed", "provider_unavailable"]).nullable().default(null),
   })
   .passthrough();
 export type DashboardInstrument = z.infer<typeof DashboardInstrument>;
@@ -702,6 +703,8 @@ export const MacroIndicator = z
     fetched_at: utcDateTime.nullable().default(null),
     status: FreshnessStatus.default("fresh"),
     freshness_policy: MacroFreshnessPolicy.nullable().default(null),
+    availability_reason: z.string().nullable().default(null),
+    availability_period: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])$")).nullable().default(null),
   })
   .passthrough();
 export type MacroIndicator = z.infer<typeof MacroIndicator>;

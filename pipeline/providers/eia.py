@@ -39,7 +39,6 @@ class EiaProvider(BaseProvider):
             return ProviderHealth(provider=self.name, ok=False, error=str(exc))
 
     def get_weekly_inventory(self) -> list[dict[str, Any]]:
-        """Read official WPSR CSV; never return its source-specific envelope or other series."""
         try:
             response = self._client.get(EIA_WEEKLY_INVENTORY_CSV)
         except httpx.TimeoutException as exc:

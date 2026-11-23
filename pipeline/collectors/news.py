@@ -93,6 +93,36 @@ def news_translation_coverage(news: NewsDataset) -> tuple[int, int]:
     return complete, len(news.items)
 
 
+def retain_exact_translations(news: NewsDataset, previous: NewsDataset) -> tuple[NewsDataset, int]:
+    previous_by_id = {item.id: item for item in previous.items}
+    retained = 0
+    items: list[NewsItem] = []
+    for item in news.items:
+        prior = previous_by_id.get(item.id)
+        if (
+            prior is not None
+            and prior.source_id == item.source_id
+            and prior.lang == item.lang
+            and prior.title == item.title
+            and prior.summary == item.summary
+            and canonical_link(prior.url) == canonical_link(item.url)
+            and item.lang == "en"
+        ):
+            updates = {
+                key: value
+                for key, value in (
+                    ("title_zh", prior.title_zh),
+                    ("summary_zh", prior.summary_zh),
+                )
+                if value and not getattr(item, key)
+            }
+            if updates:
+                item = item.model_copy(update=updates)
+                retained += 1
+        items.append(item)
+    return news.model_copy(update={"items": items}), retained
+
+
 def translation_sidecar_matches_news_batch(
     news: NewsDataset,
     translations: NewsTranslationsDataset,

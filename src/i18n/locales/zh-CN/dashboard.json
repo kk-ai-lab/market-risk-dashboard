@@ -22,6 +22,10 @@
     "catSectors": "板块",
     "catIndices": "指数",
     "catSectorEtfs": "板块交易型基金",
+    "unavailableReason": {
+      "public_source_unlicensed": "尚无获准公开再分发的数据源。",
+      "provider_unavailable": "本次快照没有数据提供方返回报价。"
+    },
     "source": "来源 / 提供方",
     "retrievedAt": "拉取时间：{{time}}",
     "proxyDisclosure": "{{symbol}} 的代理指标"

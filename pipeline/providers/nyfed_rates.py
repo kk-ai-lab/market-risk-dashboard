@@ -1,5 +1,3 @@
-"""New York Fed reference-rate observations for approved EFFR and SOFR series."""
-
 from __future__ import annotations
 
 import json

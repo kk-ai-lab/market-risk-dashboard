@@ -7,7 +7,7 @@ This does not license unrelated Treasury or third-party material. CMTs are daily
 interpolated par yields in percent, not tradable intraday quotes. NEW_DATE is an
 observation date, never a release timestamp; no publication-time guarantee is made.
 Treasury changed to a monotone convex spline method on December 6, 2021:
-https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/treasury-yield-curve-methodology
+https://home.treasury.gov/policy-issues/financing-the-government/interest-rate-statistics/treasury-yield-curve-methodology
 Historical comparisons spanning that change need methodological care.
 """
 
@@ -37,6 +37,7 @@ SERIES = {
     "DGS2": "BC_2YEAR", "DGS5": "BC_5YEAR", "DGS10": "BC_10YEAR",
     "DFII5": "TC_5YEAR", "DFII10": "TC_10YEAR", "T5YIFR": None, "T10YIE": None,
 }
+DEFAULT_CURVE_SERIES = ("DGS2", "DGS10")
 NOMINAL_SERIES = {"DGS2", "DGS5", "DGS10"}
 REAL_SERIES = {"DFII5", "DFII10"}
 ATOM = "{http://www.w3.org/2005/Atom}"
@@ -116,7 +117,7 @@ class TreasuryProvider(BaseProvider):
         year. Errors or nonempty feeds with unusable data never trigger fallback.
         """
         now = datetime.now(UTC)
-        selected = list(dict.fromkeys(sorted(NOMINAL_SERIES) if series_ids is None else series_ids))
+        selected = list(dict.fromkeys(DEFAULT_CURVE_SERIES if series_ids is None else series_ids))
         if not selected or any(series_id not in SERIES for series_id in selected):
             raise ProviderError("Treasury: unsupported or empty series selection")
         default_year = year is None

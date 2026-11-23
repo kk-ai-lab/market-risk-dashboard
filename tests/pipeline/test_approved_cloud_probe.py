@@ -19,12 +19,14 @@ CRYPTO = json.dumps({"data": [
     {"asset": "btc", "ReferenceRateUSD": "95000", "time": "2026-11-15T11:59:00Z"},
     {"asset": "eth", "ReferenceRateUSD": "3000", "time": "2026-11-15T11:59:00Z"},
 ]}).encode()
-XML = b'''<feed xmlns="http://www.w3.org/2005/Atom"
+XML = f'''<feed xmlns="http://www.w3.org/2005/Atom"
 xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata"
 xmlns:d="http://schemas.microsoft.com/ado/2007/08/dataservices">
+<id>{FEED_ID}</id><title>{FEED_TITLE}</title><updated>2026-11-14T18:00:00Z</updated>
+<link rel="self" title="{FEED_TITLE}" href="{FEED_TITLE}" />
 <entry><content><m:properties><d:NEW_DATE>2026-11-13T00:00:00</d:NEW_DATE>
 <d:BC_2YEAR>3.5</d:BC_2YEAR><d:BC_10YEAR>4.1</d:BC_10YEAR>
-</m:properties></content></entry></feed>'''
+</m:properties></content></entry></feed>'''.encode()
 
 
 class ApprovedCloudProbeTests(unittest.TestCase):

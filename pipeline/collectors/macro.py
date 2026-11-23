@@ -229,10 +229,7 @@ class MacroCollector:
                         self.degraded.append(f"No approved public observation for {series_id}")
                     groups[_group_of(series_id)].append(MacroIndicator(
                         key=series_id.lower(), label=catalog["label"], source=source_label, status="missing",
-                        attribution=(
-                            grant.series_attribution.get(series_id, grant.attribution)
-                            if grant is not None else None
-                        ),
+                        attribution=_series_attribution(grant, series_id),
                         unit=_unit(catalog.get("unit", "level")),
                     ))
                 elif bls is not None or treasury is not None:
@@ -249,6 +246,7 @@ class MacroCollector:
                 and series_id in {"DTWEXBGS", "DTWEXAFEGS", "DEXUSEU", "DEXJPUS", "DEXCHUS"}
                 else catalog.get("frequency", "daily")
             )
+            latest_yoy_period_gap = _latest_yoy_period_gap(series_id, rows, bls)
             indicator = MacroIndicator(
                 key=series_id.lower(),
                 label=catalog["label"],
@@ -263,10 +261,7 @@ class MacroCollector:
                     else _approved_source_label(grant.provider) if grant is not None and grant.provider in {"nyfed_rates", "federal_reserve_data", "bea_nipa", "dol_claims"}
                     else "FRED"
                 ),
-                attribution=(
-                    grant.series_attribution.get(series_id, grant.attribution)
-                    if grant is not None else None
-                ),
+                attribution=_series_attribution(grant, series_id),
                 updated_at=None if bls is not None or treasury is not None else _utc_from_date(rows[-1]["date"]),
                 observation_date=rows[-1]["date"],
                 observation_period=rows[-1]["date"][:7] if frequency == "monthly" else None,
@@ -276,10 +271,14 @@ class MacroCollector:
                     if bls is not None and bls.fetched_at is not None else None
                 ),
                 freshness_policy=_freshness_policy(frequency),
+                availability_reason=(
+                    "latest_yoy_period_unavailable" if latest_yoy_period_gap else None
+                ),
+                availability_period=latest_yoy_period_gap,
                 # #84 §6b: per-indicator status is judged against the series' own cadence
                 # (a monthly series unchanged for 30 days is fresh; a daily series 10 days
                 # behind is stale), not a row count.
-                status="degraded" if (treasury is not None and treasury.degraded) or (bls is not None and bls.status == "degraded") else _series_status(rows[-1]["date"], frequency),
+                status="degraded" if (treasury is not None and treasury.degraded) or (bls is not None and bls.status == "degraded") or latest_yoy_period_gap else _series_status(rows[-1]["date"], frequency),
             )
             group = _group_of(series_id)
             groups[group].append(indicator)
@@ -507,6 +506,23 @@ def _approved_source_label(provider: str) -> str:
         "bea_nipa": "Bureau of Economic Analysis",
         "dol_claims": "U.S. Department of Labor",
     }.get(provider, provider)
+
+
+def _series_attribution(grant: Any, series_id: str) -> str | None:
+    if grant is None:
+        return None
+    attribution = grant.series_attribution.get(series_id, grant.attribution)
+    return attribution.replace("{year}", str(datetime.now(UTC).year))
+
+
+def _latest_yoy_period_gap(series_id: str, rows: list[dict], bls: Any) -> str | None:
+    if not rows or series_id not in {"CPIAUCSL", "CPILFESL"} or bls is None or bls.status != "fresh":
+        return None
+    now = datetime.now(UTC)
+    if now.day < 20:
+        return None
+    latest_completed_period = (now.date().replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
+    return latest_completed_period if rows[-1]["date"][:7] < latest_completed_period else None
 
 
 def _change(rows: list[dict], lookback: int) -> float | None:

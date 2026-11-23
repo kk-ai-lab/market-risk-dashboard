@@ -16,6 +16,7 @@ export interface HeatmapCell {
   retrievedAt?: string | null;
   isProxy?: boolean;
   proxyOf?: string | null;
+  availabilityReason?: "public_source_unlicensed" | "provider_unavailable" | null;
 }
 
 export interface AssetHeatmapProps {
@@ -88,6 +89,9 @@ export function AssetHeatmap({ cells }: AssetHeatmapProps) {
                 const state = stateFor(cell.change1d);
                 const asset = cell.asset.trim() || t("common:empty.translationUnavailable");
                 const change = state === "unavailable" ? t("heatmap.state.unavailable") : formatChange(cell.change1d, locale);
+                const unavailableReason = cell.availabilityReason
+                  ? t(`heatmap.unavailableReason.${cell.availabilityReason}`)
+                  : null;
                 return (
                   <div
                     key={`${category}-${cell.asset}-${cellIndex}`}
@@ -99,6 +103,7 @@ export function AssetHeatmap({ cells }: AssetHeatmapProps) {
                     <span className="break-words font-mono text-xs font-semibold text-foreground">{asset}</span>
                     <span className={`mt-2 text-sm font-semibold tabular-nums ${STATE_TEXT_CLASSES[state]}`}>{change}</span>
                     <span className="mt-0.5 text-xs text-muted-foreground">{t(`heatmap.state.${state}`)}</span>
+                    {unavailableReason ? <span className="mt-1 text-xs text-muted-foreground">{unavailableReason}</span> : null}
                     {cell.source || cell.provider ? (
                       <span className="mt-1 break-words text-xs text-muted-foreground">
                         {[cell.source, cell.provider].filter(Boolean).join(" · ")}

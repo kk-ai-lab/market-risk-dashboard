@@ -24,6 +24,7 @@
     "freshnessUnavailable": "此旧记录未提供来源时效规则",
     "name": "指标",
     "change1m": "月环比",
+    "latestYoyPeriodUnavailable": "BLS 尚未提供 {{period}} 的 CPI 同比值；当前显示最近一期 {{observed}}。",
     "value": "数值",
     "unit": "单位"
   },
@@ -33,7 +34,7 @@
     "New York Fed": "纽约联邦储备银行",
     "Federal Reserve Board": "美国联邦储备委员会",
     "Bureau of Economic Analysis": "美国经济分析局",
-    "U.S. Department of Labor": "美国劳工部",
+    "departmentOfLabor": "美国劳工部",
     "FRED": "FRED"
   },
   "fedwatch": {

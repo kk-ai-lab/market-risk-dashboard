@@ -1,5 +1,3 @@
-"""World Bank Pink Sheet monthly commodity price provider."""
-
 from __future__ import annotations
 
 import io
@@ -58,7 +56,6 @@ def _period(value: Any) -> tuple[str, datetime] | None:
 
 
 def parse_monthly_workbook(data: bytes, symbols: list[str]) -> dict[str, list[dict[str, Any]]]:
-    """Extract the latest two monthly averages for each explicitly approved series."""
     if not symbols or len(symbols) != len(set(symbols)) or not set(symbols).issubset(WORKBOOK_COLUMNS):
         raise ProviderError("World Bank Pink Sheet: unsupported or duplicate commodity target")
     try:

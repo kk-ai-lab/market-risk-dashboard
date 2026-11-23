@@ -1,5 +1,3 @@
-"""Official Federal Reserve Board H.4.1 and H.10 macro observations."""
-
 from __future__ import annotations
 
 import csv

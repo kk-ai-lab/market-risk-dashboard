@@ -77,16 +77,7 @@ def _macro_coverage(data_dir: Path, settings: Settings) -> dict[str, Any]:
                 "missing_reason": missing_reason,
             }
     public_series = set(series_grants)
-    unauthorized_history = []
-    for series_id in DEFAULT_SERIES:
-        if series_id in public_series:
-            continue
-        history_path = data_dir / "history" / "macro" / series_id.lower() / "daily.json"
-        if not history_path.is_file():
-            continue
-        history_rows = json.loads(history_path.read_text(encoding="utf-8"))
-        if isinstance(history_rows, list) and history_rows:
-            unauthorized_history.append(series_id)
+    unauthorized_history = _unauthorized_macro_history(data_dir, set(DEFAULT_SERIES) - public_series)
     missing = sorted(key for key, item in series.items() if item["value"] is None)
     missing_attributions = sorted(
         key for key, item in series.items()
@@ -101,6 +92,31 @@ def _macro_coverage(data_dir: Path, settings: Settings) -> dict[str, Any]:
         "unauthorized_history": sorted(unauthorized_history),
         "missing_attributions": missing_attributions,
     }
+
+
+def _unauthorized_macro_history(data_dir: Path, unauthorized_series: set[str]) -> list[str]:
+    macro_history = data_dir / "history" / "macro"
+    found: set[str] = set()
+    for archive_path in macro_history.rglob("daily.json"):
+        series_id = archive_path.parent.name.upper()
+        if series_id not in unauthorized_series:
+            continue
+        rows = json.loads(archive_path.read_text(encoding="utf-8"))
+        if isinstance(rows, list) and rows:
+            found.add(series_id)
+
+    for bundle_path in (*macro_history.glob("*.30d.json"), *macro_history.glob("*.90d.json")):
+        bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+        if not isinstance(bundle, dict):
+            continue
+        for series_id, rows in bundle.items():
+            normalized_id = str(series_id).upper()
+            if normalized_id not in unauthorized_series or not isinstance(rows, dict):
+                continue
+            if rows.get("d") or rows.get("v"):
+                found.add(normalized_id)
+
+    return sorted(found)
 
 
 def audit(data_dir: Path, settings: Settings) -> dict[str, Any]:

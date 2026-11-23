@@ -87,24 +87,21 @@ def test_eia_provider_returns_only_sanitized_observations_even_when_response_ech
 
     class Response:
         status_code = 200
+        text = (
+            "Release_Date,Date,Sourcekey,Value,Suppression_Flag,RequestEcho\n"
+            f"2026-11-12,2026-11-06,WCESTUS1,417000,,{api_key}\n"
+            "2026-11-12,2026-11-06,WCESTUS2,500000,,ignored\n"
+        )
 
-        @staticmethod
-        def json():
-            return {
-                "response": {"data": [{"period": "2026-11-06", "value": "417000"}]},
-                "request": {"params": {"api_key": api_key}},
-            }
-
-    def fake_get(url, *, params):
-        captured.update(url=url, params=params)
+    def fake_get(url):
+        captured.update(url=url)
         return Response()
 
     provider._client.get = fake_get
     rows = provider.get_weekly_inventory()
 
-    assert captured["url"] == "https://api.eia.gov/v2/seriesid/PET.WCESTUS1.W"
-    assert captured["params"]["api_key"] == api_key
-    assert rows == [{"date": "2026-11-06", "value": 417000.0}]
+    assert captured["url"] == "https://ir.eia.gov/wpsr/psw00.csv"
+    assert rows == [{"date": "2026-11-06", "release_date": "2026-11-12", "value": 417000.0}]
     assert api_key not in repr(rows)
 
 
@@ -124,35 +121,48 @@ def test_eia_provider_does_not_put_key_or_response_body_in_provider_error(tmp_pa
     assert "response" not in str(error.value).lower()
 
 
-def test_eia_provider_without_api_key_raises_and_sends_no_request(tmp_path, monkeypatch):
+def test_eia_provider_without_api_key_uses_the_public_csv(tmp_path, monkeypatch):
     sent = []
 
     def send(self, request, **kwargs):
         sent.append(request)
-        return httpx.Response(200, json={"response": {"data": []}}, request=request)
+        return httpx.Response(
+            200,
+            text="Release_Date,Date,Sourcekey,Value,Suppression_Flag\n2026-11-12,2026-11-06,WCESTUS1,417000,\n",
+            request=request,
+        )
 
     monkeypatch.setattr(httpx.Client, "send", send)
     provider = EiaProvider(settings_at(tmp_path, api_key=None))
-    with pytest.raises(ProviderError, match="EIA weekly inventory is not configured"):
-        provider.get_weekly_inventory()
-    assert sent == []
+    rows = provider.get_weekly_inventory()
+    assert len(sent) == 1
+    assert str(sent[0].url) == "https://ir.eia.gov/wpsr/psw00.csv"
+    assert rows[0]["value"] == 417000.0
 
 
-def test_missing_key_publishes_not_configured_without_provider_request(tmp_path):
-    registry = StubRegistry()
+def test_missing_key_still_collects_the_public_csv(tmp_path):
+    today = date.today().isoformat()
+    registry = StubRegistry(response={
+        "result": [{"date": today, "release_date": today, "value": 420_000}],
+        "meta": {"provider": "eia", "from_cache": False, "degraded": False},
+    })
     result = EnergyCollector(registry, settings_at(tmp_path, api_key=None)).collect(attempted_at=now_utc())
 
-    assert result["payload"].collection_status == "not_configured"
+    assert result["payload"].collection_status == "available"
     assert result["payload"].last_attempt_at
-    assert result["payload"].last_successful_fetch_at is None
-    assert result["payload"].observations == []
-    assert registry.calls == []
+    assert result["payload"].last_successful_fetch_at == result["payload"].last_attempt_at
+    assert result["payload"].observations
+    assert registry.calls == [("energy", "get_weekly_inventory", "weekly_inventory")]
 
 
 def test_collector_caps_history_sorts_weeks_and_keeps_attempt_times_distinct(tmp_path):
     today = date.today()
     rows = [
-        {"date": (today - timedelta(weeks=index)).isoformat(), "value": 500_000 - index}
+        {
+            "date": (today - timedelta(weeks=index)).isoformat(),
+            "release_date": (today - timedelta(weeks=index)).isoformat(),
+            "value": 500_000 - index,
+        }
         for index in range(265)
     ]
     registry = StubRegistry(

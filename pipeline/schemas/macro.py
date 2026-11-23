@@ -37,6 +37,8 @@ class MacroIndicator(ContractModel):
     fetched_at: UTCDateTime | None = None
     status: FreshnessStatus = "fresh"
     freshness_policy: MacroFreshnessPolicy | None = None
+    availability_reason: Literal["latest_yoy_period_unavailable"] | None = None
+    availability_period: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
 
 
 class FedWatchRateProb(ContractModel):

@@ -1,5 +1,3 @@
-"""Official BEA monthly NIPA flat-file adapter for public macro series."""
-
 from __future__ import annotations
 
 import csv

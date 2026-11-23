@@ -490,12 +490,6 @@ class MarketCollector:
     # ---- Commodities (metals + oil, universe.yaml) ----
 
     def _collect_commodities(self) -> CommoditiesDataset:
-        """Collect approved monthly public benchmarks or the legacy quote route.
-
-        In public-source mode, the World Bank Pink Sheet supplies monthly averages, not
-        futures quotes. Keep their observation period and units explicit and leave daily and
-        weekly changes unavailable. The unscoped legacy route remains unchanged.
-        """
         targets = [*self.universe.metals, *self.universe.oil]
         commodity_grant = (
             self.collection_plan.grant_for("world_bank_commodities", "commodities")
@@ -673,7 +667,11 @@ class MarketCollector:
             target = sector_etfs if instrument.kind == "sector_etf" else indices
             row: DashboardInstrument | None = None
             if self.collection_plan is not None and not self.collection_plan.allows_dataset(dataset):
-                target.append(DashboardInstrument(key=key, symbol=instrument.chain[0].symbol))
+                target.append(DashboardInstrument(
+                    key=key,
+                    symbol=instrument.chain[0].symbol,
+                    availability_reason="public_source_unlicensed",
+                ))
                 continue
             previous = previous_rows.get(key)
             if previous is not None and self._overview_row_is_within_cadence(previous, instrument, policy_plan):
@@ -719,7 +717,11 @@ class MarketCollector:
                 break
             if row is None:
                 first = instrument.chain[0]
-                row = DashboardInstrument(key=key, symbol=first.symbol)
+                row = DashboardInstrument(
+                    key=key,
+                    symbol=first.symbol,
+                    availability_reason="provider_unavailable",
+                )
                 if errors:
                     self.provider_status.setdefault("overview_instruments", {})[key] = errors[-1]
             target.append(row)
@@ -948,14 +950,12 @@ class MarketCollector:
             "crypto": (
                 oldest_source_timestamp(asset.updated_at for asset in crypto.assets)
                 if (
-                    (
-                        (self.settings.coinmetrics_enabled and len(crypto.assets) == 2)
-                        or (
-                            self.collection_plan is not None
-                            and self.collection_plan.allows_dataset("crypto")
-                            and len(crypto.assets) == len(
-                                self.collection_plan.grant_for_dataset("crypto").market_symbols
-                            )
+                    (self.settings.coinmetrics_enabled and len(crypto.assets) == 2)
+                    or (
+                        self.collection_plan is not None
+                        and self.collection_plan.allows_dataset("crypto")
+                        and len(crypto.assets) == len(
+                            self.collection_plan.grant_for_dataset("crypto").market_symbols
                         )
                     )
                 )

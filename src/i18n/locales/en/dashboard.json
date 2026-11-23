@@ -22,6 +22,10 @@
     "catSectors": "Sectors",
     "catIndices": "Indices",
     "catSectorEtfs": "SPDR sector ETFs",
+    "unavailableReason": {
+      "public_source_unlicensed": "No approved public redistribution source is available.",
+      "provider_unavailable": "No provider returned a quote for this snapshot."
+    },
     "source": "Source / provider",
     "retrievedAt": "Retrieved {{time}}",
     "proxyDisclosure": "Proxy for {{symbol}}"

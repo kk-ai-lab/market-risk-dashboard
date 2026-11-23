@@ -67,9 +67,9 @@ def test_absent_key_publishes_not_configured(tmp_path, monkeypatch):
         for indicator in getattr(macro, group)
     }
 
-    assert fred_series  # the grant is live
+    assert fred_series
     for key in fred_series:
-        assert indicators[key].source == "FRED"
+        assert indicators[key].source == "unavailable"
         assert indicators[key].status == "missing"
         assert indicators[key].value is None
     assert meta["error_code"] == "provider_auth_failed"
