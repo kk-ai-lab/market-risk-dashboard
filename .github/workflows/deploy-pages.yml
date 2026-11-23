@@ -251,6 +251,7 @@ jobs:
               "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
               --jq ".artifacts[]? | select(.id == $ARTIFACT_ID) | .id" 2>/dev/null || true)"
             if [[ "$indexed_id" == "$ARTIFACT_ID" ]]; then
+              sleep 5
               echo "Uploaded Pages artifact is visible to this run."
               exit 0
             fi
