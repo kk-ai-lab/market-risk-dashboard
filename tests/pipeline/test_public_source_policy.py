@@ -242,7 +242,7 @@ def test_policy_rejects_unapproved_provider_and_legacy_cache_fallback(tmp_path, 
     assert not (registry.cache_dir / "crypto__coinmetrics__crypto_market.json").exists()
 
 
-def test_macro_without_fred_key_publishes_missing_without_requests(tmp_path):
+def test_macro_without_public_fred_grants_publishes_missing_without_requests(tmp_path):
     registry = NoNetworkRegistry()
     bls, treasury = snapshots()
     settings = public_settings(tmp_path)
@@ -263,8 +263,8 @@ def test_macro_without_fred_key_publishes_missing_without_requests(tmp_path):
     assert by_key["VIXCLS"].status == "missing"
     assert macro.fedwatch is None
     assert registry.calls == []
-    assert meta["error_code"] == "provider_auth_failed"
-    assert "DATA_FRED_API_KEY is not configured; no request was sent" in meta["detail"]
+    assert meta["error_code"] == "source_policy_excluded"
+    assert "No approved public source configured for" in meta["detail"]
     assert meta["provider_status"]["fred"]["error"] == "not_configured"
     assert meta["data_quality"] < 1.0
 
