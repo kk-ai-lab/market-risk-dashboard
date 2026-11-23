@@ -44,6 +44,49 @@ def _publish_production_metadata(root: Path) -> None:
     run_mod._publish_metadata(run_mod.StorageWriter(root), outcomes, {})
 
 
+@pytest.mark.parametrize(
+    ("domain", "datasets", "degraded", "status", "expected_code", "expected_error"),
+    [
+        ("fred", [], True, "missing", 0, None),
+        ("macro", ["macro"], True, "degraded", 1, "degraded true disagrees with freshness.json"),
+        ("fred", "macro", True, "missing", 1, "metadata/sources.json[fred].datasets: must be an array"),
+    ],
+)
+def test_node_cross_checks_only_domains_with_dataset_projections(
+    make_data_dir,
+    domain: str,
+    datasets: object,
+    degraded: bool,
+    status: str,
+    expected_code: int,
+    expected_error: str | None,
+) -> None:
+    root = make_data_dir()
+    _publish_production_metadata(root)
+    sources_path = root / "metadata" / "sources.json"
+    sources = json.loads(sources_path.read_text(encoding="utf-8"))
+    sources["domains"][domain] = {
+        "degraded": degraded,
+        "status": status,
+        "reason": {"code": "provider_auth_failed", "detail": "not_configured"},
+        "datasets": datasets,
+        "provider": domain,
+        "providers": [],
+    }
+    sources_path.write_text(json.dumps(sources), encoding="utf-8")
+
+    node = subprocess.run(
+        ["node", "scripts/validate-json.mjs", "--data-dir", str(root)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert node.returncode == expected_code, node.stdout + node.stderr
+    if expected_error:
+        assert expected_error in node.stdout
+
+
 def test_legacy_ai_command_is_not_available() -> None:
     with pytest.raises(SystemExit) as error:
         run_mod.build_parser().parse_args(["--analysis-only"])
