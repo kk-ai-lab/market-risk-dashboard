@@ -67,11 +67,38 @@ def _node_validation_families(output: str) -> list[str]:
     for line in output.splitlines():
         if "[ERROR]" not in line:
             continue
-        location = line.split("[ERROR]", 1)[1].strip().split(":", 1)[0]
+        detail = line.split("[ERROR]", 1)[1].strip()
+        location, _, message = detail.partition(":")
         if location == "latest/macro.json" or location.startswith("history/macro/"):
             families.add("macro_history")
-        elif location.startswith("metadata/"):
-            families.add("metadata_projection")
+        elif location.startswith("metadata/freshness.json"):
+            if "not a registered dataset key" in message:
+                families.add("metadata_freshness_dataset_registry")
+            elif "registered dataset" in message:
+                families.add("metadata_freshness_roster")
+            elif "status" in message:
+                families.add("metadata_freshness_status")
+            elif "reason" in message:
+                families.add("metadata_freshness_reason")
+            else:
+                families.add("metadata_freshness_contract")
+        elif location.startswith("metadata/sources.json"):
+            if "disagrees with freshness.json" in message:
+                families.add("metadata_sources_freshness_projection")
+            elif "status is fresh but degraded is true" in message:
+                families.add("metadata_sources_status_degraded_consistency")
+            elif ".datasets" in location or "datasets:" in message:
+                families.add("metadata_sources_dataset_registry")
+            elif "invalid status" in message:
+                families.add("metadata_sources_status")
+            elif "degraded must be a boolean" in message:
+                families.add("metadata_sources_degraded_shape")
+            elif "degraded" in message:
+                families.add("metadata_sources_degraded_consistency")
+            elif "reason" in message:
+                families.add("metadata_sources_reason")
+            else:
+                families.add("metadata_sources_contract")
         elif location == "news.json":
             families.add("news_integrity")
         elif location.startswith("history/"):
