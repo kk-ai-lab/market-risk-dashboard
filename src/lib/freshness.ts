@@ -35,18 +35,22 @@ export function macroObservationFreshness(
   return currentSourceFreshness(status, ageStatus);
 }
 
-export function macroObservationTimestamp(
+export function macroPeriodEndAwareTimestamp(
   observationDate?: string | null,
   observationPeriod?: string | null,
   updatedAt?: string | null,
 ): string | null {
-  if (observationDate) return `${observationDate}T00:00:00Z`;
   if (observationPeriod) {
-    const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(observationPeriod);
-    if (!match) return null;
-    return new Date(Date.UTC(Number(match[1]), Number(match[2]), 0, 23, 59, 59, 999)).toISOString();
+    return monthEndTimestamp(observationPeriod);
   }
+  if (observationDate) return `${observationDate}T00:00:00Z`;
   return updatedAt ?? null;
+}
+
+function monthEndTimestamp(period: string): string | null {
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(period);
+  if (!match) return null;
+  return new Date(Date.UTC(Number(match[1]), Number(match[2]), 0, 23, 59, 59, 999)).toISOString();
 }
 
 export function elapsedFreshness(dataset: string, generatedAt: string, now = Date.now(), expectedMinutes?: number): "fresh" | "delayed" | "stale" {

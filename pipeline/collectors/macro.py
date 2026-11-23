@@ -13,6 +13,7 @@ size, not rate limits, was the constraint (#84 §4).
 
 from __future__ import annotations
 
+from calendar import monthrange
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
@@ -76,14 +77,15 @@ MACRO_LOOKBACK_DAYS = 5 * 365
 
 
 class MacroCollector:
-    def __init__(self, registry: ProviderRegistry, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None, bls_snapshot: BlsSnapshot | None = None, treasury_snapshot: TreasurySnapshot | None = None, fred_snapshot: FredSnapshot | None = None, source_errors: dict[str, str] | None = None) -> None:
+    def __init__(self, registry: ProviderRegistry, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None, bls_snapshot: BlsSnapshot | None = None, treasury_snapshot: TreasurySnapshot | None = None, fred_snapshot: FredSnapshot | None = None, source_series: dict[str, list[dict[str, Any]]] | None = None, source_errors: dict[str, str] | None = None) -> None:
         self.registry = registry
         self.settings = settings or Settings()
         self.fred_access = fred_access(self.settings)
         self._fred_not_configured = isinstance(self.fred_access, NotConfigured)
         self.fred_snapshot = fred_snapshot
+        self.source_series = source_series or {}
         self.collection_plan = collection_plan or (
-            self.settings.load_public_source_policy().collection_plan()
+            self.settings.load_public_source_policy().collection_plan(public_output=True)
             if self.settings.approved_sources_only else None
         )
         self.bls_snapshot = bls_snapshot
@@ -199,6 +201,9 @@ class MacroCollector:
                     rows = []
                 if self._fred_not_configured:
                     self._degraded_sources.add("fred")
+            elif grant is not None and grant.provider in {"nyfed_rates", "federal_reserve_data", "bea_nipa", "dol_claims"}:
+                rows = self.source_series.get(series_id, [])
+                self.series_history[series_id.lower()] = rows
             elif self.collection_plan is not None and bls is None:
                 rows = []
             else:
@@ -215,6 +220,7 @@ class MacroCollector:
                         "FRED" if grant is not None and grant.provider == "fred"
                         else "BLS" if grant is not None and grant.provider == "bls"
                         else "Treasury" if grant is not None and grant.provider == "treasury"
+                        else _approved_source_label(grant.provider) if grant is not None and grant.provider in {"nyfed_rates", "federal_reserve_data", "bea_nipa", "dol_claims"}
                         else "unavailable"
                     )
                     self.series_history[series_id.lower()] = []
@@ -223,7 +229,7 @@ class MacroCollector:
                         self.degraded.append(f"No approved public observation for {series_id}")
                     groups[_group_of(series_id)].append(MacroIndicator(
                         key=series_id.lower(), label=catalog["label"], source=source_label, status="missing",
-                        attribution=grant.series_attribution.get(series_id) if grant is not None else None,
+                        attribution=_series_attribution(grant, series_id),
                         unit=_unit(catalog.get("unit", "level")),
                     ))
                 elif bls is not None or treasury is not None:
@@ -234,7 +240,13 @@ class MacroCollector:
                     ))
                 continue
             catalog = SERIES_CATALOG.get(series_id, {**DEFAULT_SERIES_META, "label": series_id})
-            frequency = catalog.get("frequency", "daily")
+            frequency = (
+                "monthly"
+                if grant is not None and grant.provider == "federal_reserve_data"
+                and series_id in {"DTWEXBGS", "DTWEXAFEGS", "DEXUSEU", "DEXJPUS", "DEXCHUS"}
+                else catalog.get("frequency", "daily")
+            )
+            latest_yoy_period_gap = _latest_yoy_period_gap(series_id, rows, bls)
             indicator = MacroIndicator(
                 key=series_id.lower(),
                 label=catalog["label"],
@@ -244,17 +256,29 @@ class MacroCollector:
                 # rows is one month only for daily series.
                 change_1m=_change(rows, FREQ_SPEC.get(frequency, FREQ_SPEC["daily"])["lookback"]),
                 unit=_unit(catalog.get("unit", "level")),
-                source="Treasury" if treasury is not None else "BLS" if bls is not None else "FRED",
-                attribution=grant.series_attribution.get(series_id) if grant is not None else None,
+                source=(
+                    "Treasury" if treasury is not None else "BLS" if bls is not None
+                    else _approved_source_label(grant.provider) if grant is not None and grant.provider in {"nyfed_rates", "federal_reserve_data", "bea_nipa", "dol_claims"}
+                    else "FRED"
+                ),
+                attribution=_series_attribution(grant, series_id),
                 updated_at=None if bls is not None or treasury is not None else _utc_from_date(rows[-1]["date"]),
                 observation_date=rows[-1]["date"],
                 observation_period=rows[-1]["date"][:7] if frequency == "monthly" else None,
-                fetched_at=rows[-1]["fetched_at"] if treasury is not None else bls.fetched_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ") if bls is not None and bls.fetched_at is not None else None,
+                fetched_at=(
+                    rows[-1].get("fetched_at") if treasury is not None or grant is not None and grant.provider in {"nyfed_rates", "federal_reserve_data", "bea_nipa", "dol_claims"}
+                    else bls.fetched_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    if bls is not None and bls.fetched_at is not None else None
+                ),
                 freshness_policy=_freshness_policy(frequency),
+                availability_reason=(
+                    "latest_yoy_period_unavailable" if latest_yoy_period_gap else None
+                ),
+                availability_period=latest_yoy_period_gap,
                 # #84 §6b: per-indicator status is judged against the series' own cadence
                 # (a monthly series unchanged for 30 days is fresh; a daily series 10 days
                 # behind is stale), not a row count.
-                status="degraded" if (treasury is not None and treasury.degraded) or (bls is not None and bls.status == "degraded") else _series_status(rows[-1]["date"], frequency),
+                status="degraded" if (treasury is not None and treasury.degraded) or (bls is not None and bls.status == "degraded") or latest_yoy_period_gap else _series_status(rows[-1]["date"], frequency),
             )
             group = _group_of(series_id)
             groups[group].append(indicator)
@@ -364,7 +388,10 @@ class MacroCollector:
 
         FRED partial failure counts as one source, FedWatch failure counts as one.
         """
-        sources = ["fred", "fedwatch", "bls", "treasury"]
+        sources = [
+            "fred", "fedwatch", "bls", "treasury", "nyfed_rates",
+            "federal_reserve_data", "bea_nipa", "dol_claims",
+        ]
         if self.collection_plan is not None:
             sources.append("public_source_policy")
         return quality_for_outcomes(
@@ -445,7 +472,17 @@ class MacroCollector:
             "degraded": self.degraded,
             "provider_status": self.provider_status,
             "series_history": self.series_history,
-            "series_sources": {**({key.lower(): "BLS" for key in BLS_SERIES} if self.bls_snapshot is not None else {}), **({key.lower(): "Treasury" for key in TREASURY_SERIES} if self.treasury_snapshot is not None else {})},
+            "series_sources": {
+                **({key.lower(): "BLS" for key in BLS_SERIES} if self.bls_snapshot is not None else {}),
+                **({key.lower(): "Treasury" for key in TREASURY_SERIES} if self.treasury_snapshot is not None else {}),
+                **{
+                    key.lower(): _approved_source_label(grant.provider)
+                    for key in self.source_series
+                    if self.collection_plan is not None
+                    and (grant := self.collection_plan.macro_grant_for(key)) is not None
+                    and grant.provider in {"nyfed_rates", "federal_reserve_data", "bea_nipa", "dol_claims"}
+                },
+            },
             "data_quality": round(quality, 3),
             "source_updated_at": source_updated_at,
             "detail": "; ".join(detail_parts)[:200],
@@ -460,6 +497,32 @@ class MacroCollector:
                 "from_cache": from_cache,
             },
         }
+
+
+def _approved_source_label(provider: str) -> str:
+    return {
+        "nyfed_rates": "New York Fed",
+        "federal_reserve_data": "Federal Reserve Board",
+        "bea_nipa": "Bureau of Economic Analysis",
+        "dol_claims": "U.S. Department of Labor",
+    }.get(provider, provider)
+
+
+def _series_attribution(grant: Any, series_id: str) -> str | None:
+    if grant is None:
+        return None
+    attribution = grant.series_attribution.get(series_id, grant.attribution)
+    return attribution.replace("{year}", str(datetime.now(UTC).year))
+
+
+def _latest_yoy_period_gap(series_id: str, rows: list[dict], bls: Any) -> str | None:
+    if not rows or series_id not in {"CPIAUCSL", "CPILFESL"} or bls is None or bls.status != "fresh":
+        return None
+    now = datetime.now(UTC)
+    if now.day < 20:
+        return None
+    latest_completed_period = (now.date().replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
+    return latest_completed_period if rows[-1]["date"][:7] < latest_completed_period else None
 
 
 def _change(rows: list[dict], lookback: int) -> float | None:
@@ -504,7 +567,12 @@ def _series_status(last_date: str, frequency: str) -> str:
     """
     try:
         # §8.2: compare against UTC, not the host's local date.
-        age_days = (datetime.now(UTC).date() - date.fromisoformat(last_date)).days
+        observation_date = date.fromisoformat(last_date)
+        if frequency == "monthly":
+            observation_date = observation_date.replace(
+                day=monthrange(observation_date.year, observation_date.month)[1]
+            )
+        age_days = (datetime.now(UTC).date() - observation_date).days
     except ValueError:
         return "stale"
     threshold = FREQ_SPEC.get(frequency, FREQ_SPEC["daily"])["stale_days"]

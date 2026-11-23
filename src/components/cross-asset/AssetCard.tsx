@@ -12,11 +12,12 @@ export interface AssetCardProps {
   /** Primary value (price / index). */
   value?: number | null;
   change1d?: number | null;
+  showChange?: boolean;
   sub?: string | null;
   className?: string;
 }
 
-export function AssetCard({ symbol, name, value, change1d, sub, className }: AssetCardProps) {
+export function AssetCard({ symbol, name, value, change1d, showChange = true, sub, className }: AssetCardProps) {
   const { i18n } = useTranslation();
   const locale = i18n.language;
   const tone = dirTone(change1d);
@@ -34,12 +35,16 @@ export function AssetCard({ symbol, name, value, change1d, sub, className }: Ass
         ) : null}
       </div>
       {name ? <p className="truncate text-xs text-muted-foreground">{name}</p> : null}
-      <div className="mt-1 flex items-center justify-between gap-2">
-        <span className={cn("text-sm font-semibold tabular-nums", classes.text)}>
-          {change1d === null || change1d === undefined ? "—" : formatChange(change1d, locale)}
-        </span>
-        {sub ? <span className="min-w-0 text-right text-xs tabular-nums text-muted-foreground">{sub}</span> : null}
-      </div>
+      {showChange ? (
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <span className={cn("text-sm font-semibold tabular-nums", classes.text)}>
+            {change1d === null || change1d === undefined ? "—" : formatChange(change1d, locale)}
+          </span>
+          {sub ? <span className="min-w-0 text-right text-xs tabular-nums text-muted-foreground">{sub}</span> : null}
+        </div>
+      ) : sub ? (
+        <p className="mt-1 text-xs tabular-nums text-muted-foreground">{sub}</p>
+      ) : null}
     </div>
   );
 }

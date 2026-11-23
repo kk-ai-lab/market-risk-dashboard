@@ -32,9 +32,15 @@
     "degradedDesc": "Some providers degraded/fell back; model confidence has been reduced",
     "cacheReplay": "Cache replay",
     "cacheReplayDesc": "Served from the last-good cache, not fetched live; treat as stale",
-    "snapshotAge": { "delayed": "Snapshot delayed", "stale": "Snapshot stale" },
+    "snapshotAge": {
+      "delayed": "Snapshot delayed",
+      "stale": "Snapshot stale"
+    },
     "snapshotAgeDesc": "Age of the published snapshot, not the source observation.",
-    "sourceAge": { "delayed": "Source delayed", "stale": "Source stale" },
+    "sourceAge": {
+      "delayed": "Source delayed",
+      "stale": "Source stale"
+    },
     "sourceAgeDesc": "Age of the oldest underlying source observation."
   },
   "error": {
@@ -92,7 +98,14 @@
       "noEvents": "No events in the requested window",
       "connectionInterrupted": "Provider connection interrupted",
       "generic": "Provider detail unavailable",
-      "unknown": "Reason unavailable"
+      "unknown": "Reason unavailable",
+      "publicEquities": "No free, publicly redistributable feed is configured for U.S. equities or mainland China shares.",
+      "publicSectors": "No free sector data source with public redistribution rights is configured.",
+      "publicMacroSeries": "No public redistribution grant covers these macro series:",
+      "secContactEmail": "SEC news was skipped because its required contact email is not configured.",
+      "blsCalendar403": "The BLS release calendar returned HTTP 403.",
+      "riskInputsRights": "The risk score is hidden because macro and equity inputs lack public data rights.",
+      "inputsMissingPublicMarketData": "Dashboard data is incomplete because equity and sector sources lack public redistribution rights."
     },
     "cryptoNames": {
       "bitcoin": "Bitcoin",

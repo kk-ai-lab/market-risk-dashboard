@@ -53,7 +53,7 @@ def test_absent_key_sends_no_request(tmp_path, monkeypatch, key):
         provider.get_series("VIXCLS")
 
 
-def test_absent_key_publishes_not_configured(tmp_path, monkeypatch):
+def test_absent_key_does_not_bypass_public_source_policy(tmp_path, monkeypatch):
     monkeypatch.delenv("DATA_FRED_API_KEY", raising=False)
     settings = settings_without_key(tmp_path)
     policy = settings.load_public_source_policy()
@@ -67,13 +67,13 @@ def test_absent_key_publishes_not_configured(tmp_path, monkeypatch):
         for indicator in getattr(macro, group)
     }
 
-    assert fred_series  # the grant is live
+    assert fred_series
     for key in fred_series:
-        assert indicators[key].source == "FRED"
+        assert indicators[key].source == "unavailable"
         assert indicators[key].status == "missing"
         assert indicators[key].value is None
-    assert meta["error_code"] == "provider_auth_failed"
-    assert "DATA_FRED_API_KEY is not configured; no request was sent" in meta["detail"]
+    assert meta["error_code"] == "source_policy_excluded"
+    assert "No approved public source configured for" in meta["detail"]
     assert meta["provider_status"]["fred"]["error"] == "not_configured"
     assert registry.calls == []
 

@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -246,10 +245,16 @@ class StorageWriter:
         """
         self.write_json(self.metadata_dir / "freshness.json", payload)
 
-    def record_translations(self, status: str, merged_items: int = 0, reason: str = "") -> None:
+    def record_translations(
+        self,
+        status: str,
+        merged_items: int = 0,
+        reason: str = "",
+        source_file: str = "news.zh-translations.json",
+    ) -> None:
         """Chinese translation merge record (architecture §2 L320 metadata/translations.json, P1-6).
 
-        status: "merged" | "skipped" | "missing"; the merge time is recorded as well.
+        status: "merged" | "reused" | "skipped" | "missing"; the merge time is recorded as well.
         The schema version comes from ONE module constant (#191; the T1 review flagged
         two restated literals here that would drift on the next version bump).
         """
@@ -261,7 +266,7 @@ class StorageWriter:
             "status": status,
             "merged_items": int(merged_items),
             "reason": reason,
-            "source_file": "news.zh-translations.json",
+            "source_file": source_file,
             "merged_at": now_utc(),
         }
         self.write_json(path, data)

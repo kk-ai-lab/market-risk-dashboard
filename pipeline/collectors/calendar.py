@@ -16,6 +16,7 @@ _FEEDS: tuple[tuple[CalendarSource, str, str], ...] = (
     ("earnings", "calendar", "get_earnings_calendar"),
     ("economic", "economic", "get_economic_calendar"),
     ("bea_calendar", "bea_calendar", "get_economic_calendar"),
+    ("bls_calendar", "bls_calendar", "get_economic_calendar"),
 )
 _ECONOMIC_CACHE_VERSION = 2
 
@@ -52,7 +53,7 @@ class CalendarCollector:
         self.registry = registry
         self.settings = settings or Settings()
         self.collection_plan = collection_plan or (
-            self.settings.load_public_source_policy().collection_plan()
+            self.settings.load_public_source_policy().collection_plan(public_output=True)
             if self.settings.approved_sources_only else None
         )
         self.degraded: list[str] = []
@@ -177,6 +178,9 @@ class CalendarCollector:
             "used_fallback": any(bool(item.get("used_fallback")) for item in outcomes.values()),
             "from_cache": any(bool(item.get("from_cache")) for item in outcomes.values()),
         }
+        detail = "; ".join(self.degraded)[:200]
+        failed_provider = any(item.get("error") for item in outcomes.values())
+        error_code = "provider_http_error" if failed_provider else "provider_parse_error" if malformed else None
         return CalendarDataset(events=unique, source_status=source_status, updated_at=now_utc()), {
             "degraded": self.degraded,
             "provider_status": self.provider_status,
@@ -184,6 +188,8 @@ class CalendarCollector:
             "provider_outcomes": outcomes,
             "data_quality": round(self._quality(outcomes), 3),
             "source_updated_at": None,
+            "detail": detail,
+            "error_code": error_code,
             "deduped": len(events) - len(unique),
             "malformed": malformed,
         }

@@ -14,6 +14,7 @@ class EnergyObservation(ContractModel):
     """One reported weekly U.S. crude inventory observation."""
 
     week_ending: date
+    released_on: date | None = Field(default=None, description="EIA WPSR publication date for this row")
     value: float = Field(ge=0.0, description="thousand barrels")
 
 

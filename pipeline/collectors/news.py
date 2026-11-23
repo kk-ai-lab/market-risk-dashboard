@@ -93,6 +93,36 @@ def news_translation_coverage(news: NewsDataset) -> tuple[int, int]:
     return complete, len(news.items)
 
 
+def retain_exact_translations(news: NewsDataset, previous: NewsDataset) -> tuple[NewsDataset, int]:
+    previous_by_id = {item.id: item for item in previous.items}
+    retained = 0
+    items: list[NewsItem] = []
+    for item in news.items:
+        prior = previous_by_id.get(item.id)
+        if (
+            prior is not None
+            and prior.source_id == item.source_id
+            and prior.lang == item.lang
+            and prior.title == item.title
+            and prior.summary == item.summary
+            and canonical_link(prior.url) == canonical_link(item.url)
+            and item.lang == "en"
+        ):
+            updates = {
+                key: value
+                for key, value in (
+                    ("title_zh", prior.title_zh),
+                    ("summary_zh", prior.summary_zh),
+                )
+                if value and not getattr(item, key)
+            }
+            if updates:
+                item = item.model_copy(update=updates)
+                retained += 1
+        items.append(item)
+    return news.model_copy(update={"items": items}), retained
+
+
 def translation_sidecar_matches_news_batch(
     news: NewsDataset,
     translations: NewsTranslationsDataset,
@@ -109,7 +139,7 @@ class NewsCollector:
         self.registry = registry
         self.settings = settings or Settings()
         self.collection_plan = collection_plan or (
-            self.settings.load_public_source_policy().collection_plan()
+            self.settings.load_public_source_policy().collection_plan(public_output=True)
             if self.settings.approved_sources_only else None
         )
         # #102: importance rules come from the VALIDATED news_sources config (single shape,
@@ -233,6 +263,16 @@ class NewsCollector:
         source_failures = [source_id for source_id, status in source_status.items() if not status.get("ok", False)]
         if source_failures:
             self.degraded.append("RSS sources degraded: " + ", ".join(sorted(source_failures)))
+        source_details = [
+            f"{source_id}: {source_status[source_id].get('detail') or source_status[source_id].get('error')}"
+            for source_id in sorted(source_failures)
+            if source_status[source_id].get("detail") or source_status[source_id].get("error")
+        ]
+        source_error_code = next(
+            (str(source_status[source_id]["error_code"]) for source_id in sorted(source_failures)
+             if source_status[source_id].get("error_code")),
+            None,
+        )
 
         now = datetime.now(UTC)
         items: list[NewsItem] = []
@@ -289,6 +329,8 @@ class NewsCollector:
             "source_status": source_status,
             "provider_outcome": outcome,
             "data_quality": round(quality, 3),
+            "detail": "; ".join(source_details or self.degraded)[:200],
+            "error_code": source_error_code,
             # RSS exposes entry publication times but no trustworthy feed-level update time;
             # fetch timestamps are adapter observations and must not become provenance.
             "source_updated_at": None,

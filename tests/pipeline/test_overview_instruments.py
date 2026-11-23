@@ -7,7 +7,7 @@ import pytest
 
 from pipeline.collectors.market import MarketCollector
 from pipeline.providers import build_registry
-from pipeline.providers.base import ProviderError, QuoteResult
+from pipeline.providers.base import ProviderError
 from pipeline.run import _build_dashboard
 from pipeline.schemas.risk import RiskModelResult
 from pipeline.settings import Settings
@@ -108,7 +108,7 @@ def test_overview_rows_within_source_cadence_are_reused_without_requests() -> No
     assert all(row.change_1d == 0.5 and row.retrieved_at == retrieved_at for row in [*indices, *sector_etfs])
 
 
-def test_overview_quote_does_not_replay_last_good_before_proxy_fallback(tmp_path, monkeypatch) -> None:
+def test_public_output_does_not_register_personal_use_quote_provider(tmp_path) -> None:
     settings = Settings(
         _env_file=None,
         approved_sources_only=True,
@@ -117,23 +117,12 @@ def test_overview_quote_does_not_replay_last_good_before_proxy_fallback(tmp_path
         data_dir=tmp_path / "data",
     )
     registry = build_registry(settings)
-    provider = registry.providers_for("quotes")[0]
-    monkeypatch.setattr(
-        provider,
-        "get_quote",
-        lambda symbol: QuoteResult(
-            symbol=symbol, price=100.0, change_1d=1.0, source="yahoo", provider="yfinance",
-            updated_at="2026-11-23T12:00:00Z",
-        ),
-    )
-    monkeypatch.setattr(registry, "_load_last_good", lambda *args, **kwargs: pytest.fail("overview used stale cache"))
-
-    out = registry.call_provider(
-        "quotes", "yfinance", "get_quote", "overview-sp500-primary", args=("^GSPC",),
-        authorization_dataset="overview", use_cache=False,
-    )
-
-    assert out["result"].symbol == "^GSPC"
+    assert registry.providers_for("quotes") == []
+    with pytest.raises(ProviderError):
+        registry.call_provider(
+            "quotes", "yfinance", "get_quote", "overview-sp500-primary", args=("^GSPC",),
+            authorization_dataset="overview", use_cache=False,
+        )
 
 
 def test_missing_quotes_stay_null_for_every_configured_row() -> None:

@@ -30,6 +30,7 @@ def store():
 
 
 def refresh(state, provider, when=NOW, **kwargs):
+    kwargs.setdefault("series_ids", ("DGS2", "DGS10"))
     return refresh_cloud_treasury_snapshot(
         state, "treasury/ledger.json", provider, now=when, **kwargs
     )

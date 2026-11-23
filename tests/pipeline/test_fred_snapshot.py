@@ -31,9 +31,9 @@ def _state(rows=(), last_attempt=None):
 
 
 def test_frequency_table_matches_macro_spec():
-    assert FREQUENCY_NEXT_DAYS == {
+    assert {
         name: FREQ_SPEC[name]["next_days"] for name in FREQUENCY_NEXT_DAYS
-    }
+    } == FREQUENCY_NEXT_DAYS
 
 
 def test_next_publish_after_skips_weekend():
@@ -194,6 +194,16 @@ class NoNetworkRegistry:
         self.calls.append((domain, method, key))
         raise AssertionError(f"unexpected provider call: {domain}.{method}")
 
+    def call_provider(self, domain, provider_name, method, key, args=(), kwargs=None, **_options):
+        self.calls.append((domain, method, key))
+        return {
+            "result": [],
+            "meta": {"provider": provider_name, "from_cache": False, "degraded": False},
+        }
+
+    def providers_for(self, _domain):
+        return []
+
     def resolved_provider(self, domain):
         return None
 
@@ -223,13 +233,13 @@ def test_macro_serves_snapshot_rows_without_a_request(tmp_path):
     }
 
     assert registry.calls == []
-    assert indicators["VIXCLS"].value == 21.0
-    assert indicators["VIXCLS"].source == "FRED"
-    assert indicators["VIXCLS"].observation_date == "2026-11-20"
+    assert indicators["VIXCLS"].value is None
+    assert indicators["VIXCLS"].source == "unavailable"
+    assert indicators["VIXCLS"].status == "missing"
     assert meta["provider_status"]["fred"]["failed_series"] == []
 
 
-def test_macro_only_wires_the_snapshot_into_the_collector(tmp_path, monkeypatch):
+def test_macro_only_does_not_publish_personal_use_snapshot_rows(tmp_path, monkeypatch):
     from pipeline import run
     from pipeline.storage import bls_snapshot as bls_module
     from pipeline.storage import fred_snapshot as fred_module
@@ -269,14 +279,6 @@ def test_macro_only_wires_the_snapshot_into_the_collector(tmp_path, monkeypatch)
 
     results = run._run_collection("macro-only")
 
-    assert len(calls) == 1
-    path, series_ids, retry_minutes = calls[0]
-    assert path == configured.artifacts_dir / "fred" / "snapshot.json"
-    assert set(series_ids) == {
-        "BAA10Y", "VIXCLS", "BAMLH0A0HYM2", "BAMLC0A0CM", "DFII10", "DFF", "PCEPILFE", "T5YIFR", "T10YIE", "ICSA", "CCSA",
-        "CIVPART", "WALCL", "WRESBAL", "WTREGEN", "RRPONTSYD", "SOFR", "DTWEXBGS",
-        "DTWEXAFEGS", "DEXUSEU", "DEXJPUS", "DEXCHUS",
-    }
-    assert retry_minutes == 60
-    assert results["macro"].volatility[0].value == 21.0
-    assert registry.calls == []
+    assert calls == []
+    assert results["macro"].volatility[0].value is None
+    assert all(not key.startswith("fred_") for _, _, key in registry.calls)

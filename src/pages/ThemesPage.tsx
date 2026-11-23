@@ -162,14 +162,22 @@ export default function ThemesPage() {
                 symbol={c.symbol}
                 name={displayLocalizedValue(c.name, c.name_zh, locale)}
                 value={c.price}
-                change1d={c.change_1d}
-                sub={`${t("period.oneWeek")}: ${c.change_1w === null ? t("common:data.na") : formatChange(c.change_1w, locale)} · ${t("period.oneMonth")}: ${c.change_1m === null ? t("common:data.na") : formatChange(c.change_1m, locale)}`}
+                change1d={c.frequency === "monthly" ? null : c.change_1d}
+                showChange={c.frequency !== "monthly"}
+                sub={c.frequency === "monthly"
+                  ? `${t("commodities.monthlyAverage")} · ${c.observation_period ?? t("common:data.na")} · ${c.price_unit ?? "USD"}${c.change_1m === null ? "" : ` · ${t("commodities.monthChange")}: ${formatChange(c.change_1m, locale)}`}`
+                  : `${t("period.oneWeek")}: ${c.change_1w === null ? t("common:data.na") : formatChange(c.change_1w, locale)} · ${t("period.oneMonth")}: ${c.change_1m === null ? t("common:data.na") : formatChange(c.change_1m, locale)}`}
               />
             ))}
           </div>
         ) : (
           <EmptyState title={t("commodities.na")} message={t("commodities.naHint")} />
         )}
+        {commodityAssets.some((asset) => asset.frequency === "monthly") ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t("commodities.monthlyDisclosure")} <a className="underline underline-offset-2 hover:text-foreground" href="https://datacatalog.worldbank.org/search/dataset/0038238/commodity-prices-history-and-projections" target="_blank" rel="noreferrer">World Bank Pink Sheet · CC BY 4.0</a>.
+          </p>
+        ) : null}
       </section>
 
       <section className="border-t border-hairline pt-4" data-testid="section-energy">

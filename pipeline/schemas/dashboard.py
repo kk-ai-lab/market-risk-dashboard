@@ -7,6 +7,8 @@ Isomorphic to the frontend src/schemas/dashboard.ts (Zod):
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from .calendar import CalendarEvent
@@ -41,6 +43,7 @@ class DashboardInstrument(ContractModel):
     retrieved_at: UTCDateTime | None = None
     is_proxy: bool = False
     proxy_of: str | None = None
+    availability_reason: Literal["public_source_unlicensed", "provider_unavailable"] | None = None
 
 
 class DashboardPayload(ContractModel):

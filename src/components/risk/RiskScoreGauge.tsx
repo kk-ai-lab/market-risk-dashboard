@@ -13,8 +13,8 @@ import type { RiskEvidenceState, RiskLevel } from "@/schemas";
  * Risk conclusion prioritized on the initial screen (PRD §22.3).
  */
 export interface RiskScoreGaugeProps {
-  score: number;
-  level: RiskLevel;
+  score: number | null;
+  level: RiskLevel | null;
   trend1d: number | null;
   trend1w: number | null;
   trend1m: number | null;
@@ -26,13 +26,14 @@ export interface RiskScoreGaugeProps {
 export function RiskScoreGauge({ score, level, trend1d, trend1w, trend1m, confidence, hasEvidence, evidenceState }: RiskScoreGaugeProps) {
   const { t, i18n } = useTranslation("risk");
   const locale = i18n.language;
-  const tone = hasEvidence ? riskLevelTone(level) : "na";
+  const scoreAvailable = hasEvidence && score !== null && level !== null;
+  const tone = scoreAvailable ? riskLevelTone(level) : "na";
   const classes = toneClasses(tone);
-  const trendTone = hasEvidence ? riskTrendTone(trend1d) : "na";
+  const trendTone = scoreAvailable ? riskTrendTone(trend1d) : "na";
   const trendClasses = toneClasses(trendTone);
 
   const TrendIcon =
-    !hasEvidence || trend1d === null || trend1d === undefined || trend1d === 0
+    !scoreAvailable || trend1d === null || trend1d === undefined || trend1d === 0
       ? Minus
       : trend1d > 0
         ? TrendingUp
@@ -47,21 +48,21 @@ export function RiskScoreGauge({ score, level, trend1d, trend1w, trend1m, confid
         <div className="flex items-end justify-between gap-2">
           <div className="flex items-baseline gap-2">
             <span className={`text-5xl font-bold tabular-nums ${classes.text}`} data-testid="risk-score">
-              {hasEvidence ? formatNumber(score, locale) : t("common:data.na")}
+              {scoreAvailable ? formatNumber(score, locale) : t("common:data.na")}
             </span>
             <span className="text-xs text-muted-foreground">/ 100</span>
           </div>
           <Badge variant={tone} data-testid="risk-level">
-            {hasEvidence ? t(RISK_LEVEL_KEYS[level]) : t(evidenceState === null ? "evidence.unknown" : "evidence.insufficient")}
+            {scoreAvailable ? t(RISK_LEVEL_KEYS[level]) : t(evidenceState === null ? "evidence.unknown" : "evidence.insufficient")}
           </Badge>
         </div>
 
-        {hasEvidence ? <Progress value={score} barClassName={classes.bg} /> : null}
+        {scoreAvailable ? <Progress value={score} barClassName={classes.bg} /> : null}
 
         <div className={`flex items-center gap-2 text-sm font-medium ${trendClasses.text}`}>
           <TrendIcon className="h-4 w-4" aria-hidden />
           <span data-testid="risk-trend">
-            {!hasEvidence || trend1d === null || trend1d === undefined
+            {!scoreAvailable || trend1d === null || trend1d === undefined
               ? t("common:data.na")
               : `${t("common:direction.dayChange")} ${formatPctPoints(trend1d, locale)}`}
           </span>
@@ -78,7 +79,7 @@ export function RiskScoreGauge({ score, level, trend1d, trend1w, trend1m, confid
             <div key={label} className="rounded-md bg-muted/60 px-2 py-1.5">
               <dt className="text-xs uppercase tracking-wide text-muted-foreground">{t(label)}</dt>
               <dd className="text-sm font-semibold tabular-nums text-foreground">
-                {(!hasEvidence && label !== "score.confidenceShort") || value === null || value === undefined
+                {(!scoreAvailable && label !== "score.confidenceShort") || value === null || value === undefined
                   ? t("common:data.na")
                   : label === "score.confidenceShort"
                     ? formatRatio(value, locale)

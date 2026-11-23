@@ -40,7 +40,7 @@ class RiskIndicator(ContractModel):
     value: float | None = None
     percentile: float | None = Field(default=None, ge=0.0, le=100.0, description="5Y historical percentile 0-100")
     z_score: float | None = None
-    risk_score: float = Field(ge=0.0, le=100.0, description="mapped sub-indicator risk score")
+    risk_score: float | None = Field(default=None, ge=0.0, le=100.0, description="mapped sub-indicator risk score")
     score_included: bool = Field(default=True, description="whether the observed value contributes to scores and evidence coverage")
     direction: RiskDirection = "neutral"
     weight: float = Field(default=0.0, ge=0.0)
@@ -83,7 +83,7 @@ class RiskDimension(ContractModel):
     label: str = Field(min_length=1)
     weight: float = Field(ge=0.0, description="configured weight (config/risk_model.yaml)")
     effective_weight: float = Field(ge=0.0, description="weight after renormalization (redistributed when dimensions are missing)")
-    score: float = Field(ge=0.0, le=100.0)
+    score: float | None = Field(default=None, ge=0.0, le=100.0)
     indicators: list[RiskIndicator] = Field(default_factory=list)
     coverage: float = Field(ge=0.0, le=1.0, description="share of configured indicators with data")
     effective_coverage: float | None = Field(
@@ -141,8 +141,8 @@ class RiskModelResult(ContractModel):
 
     model_version: str = Field(min_length=1)
     generated_at: UTCDateTime
-    total_score: float = Field(ge=0.0, le=100.0)
-    risk_level: RiskLevel
+    total_score: float | None = Field(default=None, ge=0.0, le=100.0)
+    risk_level: RiskLevel | None = None
     trend_1d: float | None = None
     trend_1w: float | None = None
     trend_1m: float | None = None

@@ -20,15 +20,21 @@
     "observationPeriod": "观测月份",
     "observationDate": "观测日期",
     "fetchedAt": "采集时间",
+    "terms": "来源使用条款",
     "freshnessUnavailable": "此旧记录未提供来源时效规则",
     "name": "指标",
     "change1m": "月环比",
+    "latestYoyPeriodUnavailable": "BLS 尚未提供 {{period}} 的 CPI 同比值；当前显示最近一期 {{observed}}。",
     "value": "数值",
     "unit": "单位"
   },
   "sources": {
     "BLS": "美国劳工统计局（BLS）",
     "Treasury": "美国财政部（Treasury）",
+    "New York Fed": "纽约联邦储备银行",
+    "Federal Reserve Board": "美国联邦储备委员会",
+    "Bureau of Economic Analysis": "美国经济分析局",
+    "departmentOfLabor": "美国劳工部",
     "FRED": "FRED"
   },
   "fedwatch": {
@@ -49,7 +55,9 @@
   "indicatorNames": {
     "dgs10": "十年期国债收益率",
     "dgs2": "两年期国债收益率",
+    "dgs5": "五年期国债收益率",
     "dfii10": "十年期实际收益率",
+    "dfii5": "五年期实际收益率",
     "dff": "有效联邦基金利率",
     "baa10y": "Baa级公司债利差（对10年期美债）",
     "bamlh0a0hym2": "美国高收益债利差",

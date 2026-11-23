@@ -25,7 +25,7 @@ import traceback
 from collections.abc import Collection
 from contextlib import suppress
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from pipeline import __version__
@@ -38,6 +38,7 @@ from pipeline.collectors import (
 )
 from pipeline.collectors.news import (
     news_translation_coverage,
+    retain_exact_translations,
     translation_sidecar_matches_news_batch,
 )
 from pipeline.factlayer import FactLayerBuilder
@@ -45,6 +46,7 @@ from pipeline.fred_access import Configured, fred_access
 from pipeline.indicators.derived_series import derive_report
 from pipeline.metadata import oldest_source_timestamp, row_count_for
 from pipeline.providers import build_registry
+from pipeline.providers.base import ProviderError
 from pipeline.report import (
     RiskInputDiagnostics,
     RunFailureCode,
@@ -70,6 +72,7 @@ from pipeline.schemas import (
     EquitiesEnvelope,
     MacroDataset,
     MacroEnvelope,
+    NewsDataset,
     NewsEnvelope,
     NewsTranslationsDataset,
     RiskEnvelope,
@@ -535,7 +538,7 @@ def _run_collection(command: str) -> dict[str, Any]:
     """Run collection according to the command, returning collected results and durations."""
     started = time.monotonic()
     collection_plan = (
-        settings.load_public_source_policy().collection_plan()
+        settings.load_public_source_policy().collection_plan(public_output=True)
         if settings.approved_sources_only else None
     )
     registry = (
@@ -714,6 +717,33 @@ def _run_collection(command: str) -> dict[str, Any]:
                     source_errors["bls"] = "BLS local snapshot unavailable"
             macro_options["bls_snapshot"] = bls_snapshot
         if collection_plan is not None:
+            macro_source_series: dict[str, list[dict[str, Any]]] = {}
+            collection_now = datetime.now(UTC).date()
+            start = (collection_now - timedelta(days=5 * 365)).isoformat()
+            end = collection_now.isoformat()
+            for provider_name in ("nyfed_rates", "federal_reserve_data", "bea_nipa", "dol_claims"):
+                grants = collection_plan.grants_for(provider_name, "macro")
+                series_ids = tuple(dict.fromkeys(
+                    series_id for grant in grants for series_id in grant.macro_series
+                ))
+                if not series_ids:
+                    continue
+                errors: list[str] = []
+                for series_id in series_ids:
+                    try:
+                        response = registry.call_provider(
+                            "macro", provider_name, "get_series", f"{provider_name}_{series_id}",
+                            args=(series_id,), kwargs={"start": start, "end": end},
+                            authorization_dataset="macro", use_cache=False,
+                        )
+                        macro_source_series[series_id] = response["result"]
+                    except ProviderError:
+                        macro_source_series[series_id] = []
+                        errors.append(series_id)
+                if errors:
+                    source_errors[provider_name] = f"No approved observation for {', '.join(errors)}"
+            macro_options["source_series"] = macro_source_series
+        if collection_plan is not None:
             fred_grants = collection_plan.grants_for("fred", "macro")
             fred_series = tuple(dict.fromkeys(
                 series_id for grant in fred_grants for series_id in grant.macro_series
@@ -813,6 +843,7 @@ def _run_collection(command: str) -> dict[str, Any]:
         news, news_meta = ncc.collect()
         translation_status = "missing"
         translation_reason = "news translation sidecar not found"
+        translation_source_file = "news.zh-translations.json"
         stale_translation_sidecar = False
         try:
             translations = StorageWriter(settings.data_dir).read_latest("news.zh-translations")
@@ -836,6 +867,23 @@ def _run_collection(command: str) -> dict[str, Any]:
                 translation_status = "skipped"
                 translation_reason = "news translation sidecar is invalid"
         covered, total = news_translation_coverage(news)
+        if total and covered < total:
+            try:
+                previous = StorageWriter(settings.data_dir).read_latest("news")
+                previous_payload = previous.get("payload", previous) if previous is not None else None
+                prior_news = NewsDataset.model_validate(previous_payload) if previous_payload is not None else None
+            except (CorruptDataError, TypeError, ValueError):
+                prior_news = None
+            if prior_news is not None:
+                news, reused_items = retain_exact_translations(news, prior_news)
+                covered, total = news_translation_coverage(news)
+                if reused_items:
+                    translation_status = "reused"
+                    translation_reason = f"retained {reused_items} exact-match translations from the prior news snapshot"
+                    translation_source_file = "news.json"
+                    if covered == total:
+                        stale_translation_sidecar = False
+        covered, total = news_translation_coverage(news)
         translation_degraded = bool(total and covered < total) or stale_translation_sidecar
         if translation_degraded:
             if not stale_translation_sidecar:
@@ -847,11 +895,14 @@ def _run_collection(command: str) -> dict[str, Any]:
                 translation_reason = coverage_detail
             news_meta["degraded"].append(translation_reason)
             news_meta["error_code"] = "news_translation_incomplete"
-            news_meta["detail"] = translation_reason
+            news_meta["detail"] = "; ".join(
+                value for value in (news_meta.get("detail"), translation_reason) if value
+            )[:200]
         news_meta["translation_record"] = {
             "status": translation_status,
             "merged_items": covered,
             "reason": translation_reason,
+            "source_file": translation_source_file,
         }
         results["news"] = news
         results["news_meta"] = news_meta
@@ -995,6 +1046,7 @@ def _run_risk_and_write(
                 from_cache=bool(energy_meta.get("from_cache", False)),
                 data_quality=0.0 if energy_meta.get("degraded") else 1.0,
                 generated_at=results["energy"].last_attempt_at,
+                source_updated_at=energy_meta.get("source_updated_at"),
                 error_code=energy_meta.get("error_code"),
                 detail=energy_meta.get("detail", ""),
             )
@@ -1056,10 +1108,27 @@ def _run_risk_and_write(
                 commodities.envelope.source_updated_at,
             ]
         )
-        risk_env = _assemble("risk", risk_result, risk_input_degraded,
+        risk_input_reasons: list[str] = []
+        if macro_degraded:
+            risk_input_reasons.append(f"macro: {macro_meta.get('detail') or 'source data is incomplete'}")
+        market_details = market_meta.get("degraded_detail_by_dataset", {})
+        for name in ("equities", "crypto", "commodities"):
+            if market_degraded_by_dataset.get(name, market_degraded):
+                risk_input_reasons.append(
+                    f"{name}: {market_details.get(name) or 'source data is incomplete'}"
+                )
+        if risk_history_degraded:
+            risk_input_reasons.append("risk history is incomplete")
+        risk_detail = (
+            "risk inputs degraded; " + "; ".join(risk_input_reasons)
+        )[:200] if risk_input_degraded else ""
+        public_risk_result = _public_risk_result(risk_result)
+        risk_env = _assemble("risk", public_risk_result, risk_input_degraded,
                              provider="risk_model",
                              data_quality=ctx["data_quality"],
-                             source_updated_at=risk_source_updated_at)
+                             source_updated_at=risk_source_updated_at,
+                             error_code="input_dataset_unhealthy" if risk_input_degraded else None,
+                             detail=risk_detail)
 
         builder = FactLayerBuilder()
         facts = builder.build(
@@ -1092,6 +1161,7 @@ def _run_risk_and_write(
             series_sources=macro_meta.get("series_sources"),
             percentile_window_years=risk_model.percentile_window_years,
             as_of_date=date.fromisoformat(today),
+            authorized_series=_authorized_macro_series(),
         )
         macro = _write_finalized(writer, "macro", macro, outcomes)
         market_envelopes = _write_market_datasets(
@@ -1197,14 +1267,14 @@ def _run_risk_and_write(
         # History slices
         risk_row = {
             "date": today,
-            "model_version": risk_result.model_version,
-            "total_score": risk_result.total_score,
-            "risk_level": risk_result.risk_level,
-            "regime": risk_result.regime,
-            "confidence": risk_result.confidence,
-            "evidence_state": risk_result.evidence_state,
-            "dim_scores": {d.key: d.score for d in risk_result.dimensions if d.evidence_state in {"partial", "complete"}},
-            "dim_evidence_states": {d.key: d.evidence_state for d in risk_result.dimensions},
+            "model_version": public_risk_result.model_version,
+            "total_score": public_risk_result.total_score,
+            "risk_level": public_risk_result.risk_level,
+            "regime": public_risk_result.regime,
+            "confidence": public_risk_result.confidence,
+            "evidence_state": public_risk_result.evidence_state,
+            "dim_scores": {d.key: d.score for d in public_risk_result.dimensions if d.score is not None},
+            "dim_evidence_states": {d.key: d.evidence_state for d in public_risk_result.dimensions},
             # Per-indicator scores: a dimension score is a weighted average, so the published
             # history could only ever attribute a move to a *dimension*, never to the input
             # that caused it — which makes any weight/contribution validation impossible after
@@ -1212,7 +1282,7 @@ def _run_risk_and_write(
             # row narrow; keys appear as they are scored, so the shape grows with the model.
             "indicator_scores": {
                 indicator.key: indicator.risk_score
-                for dimension in risk_result.dimensions
+                for dimension in public_risk_result.dimensions
                 for indicator in dimension.indicators
             },
         }
@@ -1370,6 +1440,48 @@ def _risk_evidence_summary(results: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _public_risk_result(result: RiskModelResult) -> RiskModelResult:
+    dimensions = []
+    for dimension in result.dimensions:
+        indicators = [
+            indicator.model_copy(
+                update={
+                    "risk_score": indicator.risk_score if indicator.value is not None and indicator.score_included else None,
+                    "score_included": indicator.value is not None and indicator.score_included,
+                }
+            )
+            for indicator in dimension.indicators
+        ]
+        dimension_has_evidence = dimension.evidence_state in {"partial", "complete"}
+        dimensions.append(
+            dimension.model_copy(
+                update={
+                    "score": dimension.score if dimension_has_evidence else None,
+                    "indicators": indicators,
+                }
+            )
+        )
+
+    updates: dict[str, Any] = {"dimensions": dimensions}
+    if result.evidence_state == "insufficient_evidence":
+        updates.update(
+            total_score=None,
+            risk_level=None,
+            trend_1d=None,
+            trend_1w=None,
+            trend_1m=None,
+            top_drivers=[],
+        )
+    return result.model_copy(update=updates)
+
+
+def _authorized_macro_series() -> set[str] | None:
+    if not settings.approved_sources_only:
+        return None
+    plan = settings.load_public_source_policy().collection_plan(public_output=True)
+    return {series.upper() for grant in plan.grants for series in grant.macro_series}
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     command = _resolve_command(args)
@@ -1479,6 +1591,7 @@ def main(argv: list[str] | None = None) -> int:
                     series_sources=macro_meta.get("series_sources"),
                     percentile_window_years=risk_model.percentile_window_years,
                     as_of_date=date.fromisoformat(now_utc()[:10]),
+                    authorized_series=_authorized_macro_series(),
                 )
                 _finalize_and_write(writer, "macro", results["macro"], bool(macro_meta.get("degraded")), outcomes,
                                     **_provider_kwargs(macro_meta, None, default="fred"),

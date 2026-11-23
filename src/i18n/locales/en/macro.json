@@ -20,15 +20,21 @@
     "observationPeriod": "Observation month",
     "observationDate": "Observation date",
     "fetchedAt": "Fetched",
+    "terms": "Source terms",
     "freshnessUnavailable": "Source freshness unavailable for this legacy record",
     "name": "Indicator",
     "change1m": "MoM",
+    "latestYoyPeriodUnavailable": "The {{period}} year-over-year CPI change is unavailable from BLS; latest reported period is {{observed}}.",
     "value": "Value",
     "unit": "Unit"
   },
   "sources": {
     "BLS": "BLS",
     "Treasury": "U.S. Treasury",
+    "New York Fed": "Federal Reserve Bank of New York",
+    "Federal Reserve Board": "Federal Reserve Board",
+    "Bureau of Economic Analysis": "Bureau of Economic Analysis",
+    "departmentOfLabor": "U.S. Department of Labor",
     "FRED": "FRED"
   },
   "fedwatch": {
@@ -49,7 +55,9 @@
   "indicatorNames": {
     "dgs10": "10-Year Treasury Yield",
     "dgs2": "2-Year Treasury Yield",
+    "dgs5": "5-Year Treasury Yield",
     "dfii10": "10-Year Real Yield",
+    "dfii5": "5-Year Real Yield",
     "dff": "Effective Federal Funds Rate",
     "baa10y": "Baa Corporate Spread vs 10Y Treasury",
     "bamlh0a0hym2": "US High-Yield OAS",

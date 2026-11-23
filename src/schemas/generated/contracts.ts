@@ -21,7 +21,7 @@ export const isoDate = z.iso.date();
 export const AnalysisLanguage = z.enum(["zh-CN", "en"]);
 export type AnalysisLanguage = z.infer<typeof AnalysisLanguage>;
 
-export const CalendarSource = z.enum(["earnings", "economic", "bea_calendar"]);
+export const CalendarSource = z.enum(["earnings", "economic", "bea_calendar", "bls_calendar"]);
 export type CalendarSource = z.infer<typeof CalendarSource>;
 
 export const CalendarSourceState = z.enum(["fresh", "empty", "degraded", "not_configured"]);
@@ -255,6 +255,9 @@ export const CommodityAsset = z
     change_1m: z.number().finite().nullable().default(null),
     source: z.string().min(1),
     updated_at: utcDateTime,
+    frequency: z.enum(["daily", "monthly"]).default("daily"),
+    observation_period: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])$")).nullable().default(null),
+    price_unit: z.string().nullable().default(null),
   })
   .passthrough();
 export type CommodityAsset = z.infer<typeof CommodityAsset>;
@@ -363,6 +366,7 @@ export const DashboardInstrument = z
     retrieved_at: utcDateTime.nullable().default(null),
     is_proxy: z.boolean().default(false),
     proxy_of: z.string().nullable().default(null),
+    availability_reason: z.enum(["public_source_unlicensed", "provider_unavailable"]).nullable().default(null),
   })
   .passthrough();
 export type DashboardInstrument = z.infer<typeof DashboardInstrument>;
@@ -399,7 +403,7 @@ export const RiskIndicator = z
     value: z.number().finite().nullable().default(null),
     percentile: z.number().finite().min(0).max(100).nullable().default(null),
     z_score: z.number().finite().nullable().default(null),
-    risk_score: z.number().finite().min(0).max(100),
+    risk_score: z.number().finite().min(0).max(100).nullable().default(null),
     score_included: z.boolean().default(true),
     direction: RiskDirection.default("neutral"),
     weight: z.number().finite().min(0).default(0.0),
@@ -421,7 +425,7 @@ export const RiskDimension = z
     label: z.string().min(1),
     weight: z.number().finite().min(0),
     effective_weight: z.number().finite().min(0),
-    score: z.number().finite().min(0).max(100),
+    score: z.number().finite().min(0).max(100).nullable().default(null),
     indicators: z.array(RiskIndicator).default([]),
     coverage: z.number().finite().min(0).max(1),
     effective_coverage: z.number().finite().min(0).max(1).nullable().default(null),
@@ -437,8 +441,8 @@ export const RiskModelResult = z
   .object({
     model_version: z.string().min(1),
     generated_at: utcDateTime,
-    total_score: z.number().finite().min(0).max(100),
-    risk_level: RiskLevel,
+    total_score: z.number().finite().min(0).max(100).nullable().default(null),
+    risk_level: RiskLevel.nullable().default(null),
     trend_1d: z.number().finite().nullable().default(null),
     trend_1w: z.number().finite().nullable().default(null),
     trend_1m: z.number().finite().nullable().default(null),
@@ -538,6 +542,7 @@ export type DomainStatus = z.infer<typeof DomainStatus>;
 export const EnergyObservation = z
   .object({
     week_ending: isoDate,
+    released_on: isoDate.nullable().default(null),
     value: z.number().finite().min(0),
   })
   .passthrough();
@@ -698,6 +703,8 @@ export const MacroIndicator = z
     fetched_at: utcDateTime.nullable().default(null),
     status: FreshnessStatus.default("fresh"),
     freshness_policy: MacroFreshnessPolicy.nullable().default(null),
+    availability_reason: z.string().nullable().default(null),
+    availability_period: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])$")).nullable().default(null),
   })
   .passthrough();
 export type MacroIndicator = z.infer<typeof MacroIndicator>;

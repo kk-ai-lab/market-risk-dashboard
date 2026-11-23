@@ -39,6 +39,8 @@ SERIES_CATALOG: dict[str, dict[str, str]] = {
     # rates
     "DGS10": {"label": "10-Year Treasury Yield", "unit": "pct", "frequency": "daily", "scale": "pct"},
     "DGS2": {"label": "2-Year Treasury Yield", "unit": "pct", "frequency": "daily", "scale": "pct"},
+    "DGS5": {"label": "5-Year Treasury Yield", "unit": "pct", "frequency": "daily", "scale": "pct"},
+    "DFII5": {"label": "5-Year Real Yield", "unit": "pct", "frequency": "daily", "scale": "pct"},
     "DFII10": {"label": "10-Year Real Yield", "unit": "pct", "frequency": "daily", "scale": "pct"},
     "DFF": {"label": "Effective Federal Funds Rate", "unit": "pct", "frequency": "daily", "scale": "pct"},
     # credit

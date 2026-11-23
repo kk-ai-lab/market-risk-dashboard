@@ -104,12 +104,25 @@ def _collection_config_digest(settings: Settings) -> str:
         config[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
     if not config:
         raise CloudRefreshError("Collection configuration is missing")
+    repository = Path(__file__).resolve().parent.parent
+    code_paths = sorted(repository.joinpath("pipeline").rglob("*.py"))
+    code_paths.extend(
+        path for path in (
+            repository / "scripts" / "stage_publication.py",
+            repository / "scripts" / "validate-json.mjs",
+        )
+        if path.is_file()
+    )
+    code = {
+        path.relative_to(repository).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(set(code_paths))
+    }
     credentials = {
         "fred": bool(settings.fred_api_key and settings.fred_api_key.get_secret_value().strip()),
         "eia": bool(settings.eia_api_key and settings.eia_api_key.get_secret_value().strip()),
         "sec": bool(settings.sec_contact_email),
     }
-    return hashlib.sha256(canonical_json({"config": config, "credentials": credentials})).hexdigest()
+    return hashlib.sha256(canonical_json({"config": config, "code": code, "credentials": credentials})).hexdigest()
 
 
 def _valid_latest_output_path(value: str) -> bool:

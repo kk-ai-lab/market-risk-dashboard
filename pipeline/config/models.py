@@ -33,12 +33,20 @@ FRED_MACRO_SERIES = frozenset({
     "DTWEXBGS", "DTWEXAFEGS", "DEXUSEU", "DEXJPUS", "DEXCHUS",
 })
 FRED_ICE_SERIES = frozenset({"BAMLH0A0HYM2", "BAMLC0A0CM"})
+FEDERAL_RESERVE_BOARD_SERIES = frozenset({
+    "WALCL", "WRESBAL", "WTREGEN", "DTWEXBGS", "DTWEXAFEGS", "DEXUSEU", "DEXJPUS", "DEXCHUS",
+})
 SUPPORTED_TARGETS: dict[str, dict[str, frozenset[str]]] = {
-    "bls": {"macro_series": frozenset({"CPIAUCSL", "CPILFESL", "PAYEMS", "UNRATE"})},
-    "treasury": {"macro_series": frozenset({"DGS2", "DGS10"})},
+    "bls": {"macro_series": frozenset({"CPIAUCSL", "CPILFESL", "PAYEMS", "UNRATE", "CIVPART"})},
+    "treasury": {"macro_series": frozenset({"DGS2", "DGS5", "DGS10", "DFII5", "DFII10", "T5YIFR", "T10YIE"})},
+    "nyfed_rates": {"macro_series": frozenset({"DFF", "RRPONTSYD", "SOFR"})},
+    "bea_nipa": {"macro_series": frozenset({"PCEPILFE"})},
+    "dol_claims": {"macro_series": frozenset({"ICSA", "CCSA"})},
+    "federal_reserve_data": {"macro_series": FEDERAL_RESERVE_BOARD_SERIES},
     "fred": {"macro_series": FRED_MACRO_SERIES | FRED_ICE_SERIES},
     "coinmetrics": {"market_symbols": COINMETRICS_ASSET_SYMBOLS},
     "eia": {"energy_series": frozenset({"WCESTUS1"})},
+    "world_bank_commodities": {"commodity_series": frozenset({"GC=F", "SI=F", "HG=F", "CL=F"})},
 }
 TARGET_FIELDS: dict[str, tuple[str, ...]] = {
     "macro": ("macro_series",),
@@ -50,9 +58,10 @@ TARGET_FIELDS: dict[str, tuple[str, ...]] = {
     "crypto": ("market_symbols",),
     "overview": ("instrument_symbols",),
     "energy": ("energy_series",),
+    "commodities": ("commodity_series",),
 }
 PUBLIC_DATASETS = frozenset({"calendar", "commodities", "crypto", "energy", "equities", "macro", "news", "overview", "sectors"})
-PermittedUse = Literal["public-domain", "noncommercial", "personal-use"]
+PermittedUse = Literal["public-domain", "public-redistribution", "noncommercial", "personal-use"]
 
 
 #: Everything config-related that #102 can raise. Loaders use it so a bad config fails the
@@ -134,6 +143,7 @@ class PublicDataSource(BaseModel):
     datasets: list[str] = Field(default_factory=list)
     methods: list[Literal["get_quote", "get_history"]] = Field(default_factory=list)
     macro_series: list[str] = Field(default_factory=list)
+    commodity_series: list[str] = Field(default_factory=list)
     market_symbols: list[str] = Field(default_factory=list)
     energy_series: list[str] = Field(default_factory=list)
     news_feeds: list[str] = Field(default_factory=list)
@@ -148,7 +158,7 @@ class PublicDataSource(BaseModel):
     accepted_on: date | None = None
     cadence_minutes: int = Field(ge=1)
 
-    @field_validator("macro_series", "market_symbols", "energy_series", mode="before")
+    @field_validator("macro_series", "market_symbols", "energy_series", "commodity_series", mode="before")
     @classmethod
     def _canonical_targets(cls, values: object) -> object:
         if not isinstance(values, list):
@@ -164,6 +174,7 @@ class SourceGrant:
     datasets: frozenset[str]
     methods: frozenset[str]
     macro_series: frozenset[str]
+    commodity_series: frozenset[str]
     market_symbols: frozenset[str]
     energy_series: frozenset[str]
     news_feeds: frozenset[str]
@@ -184,6 +195,7 @@ class SourceGrant:
             self.macro_series
             | self.market_symbols
             | self.energy_series
+            | self.commodity_series
             | self.news_feeds
             | self.index_series
             | self.instrument_symbols
@@ -284,7 +296,13 @@ class PublicSourcePolicy(BaseModel):
     schema_version: str = Field(min_length=1)
     sources: dict[str, PublicDataSource]
 
-    def collection_plan(self) -> ApprovedCollectionPlan:
+    def collection_plan(self, *, public_output: bool = False) -> ApprovedCollectionPlan:
+        """Build a grant plan, optionally excluding personal-use-only data from publication.
+
+        ``approved_sources_only`` writes an isolated generation intended for public
+        distribution. Personal-use grants remain available to non-public, local collection
+        flows, but must not authorize data written to that generation.
+        """
         return ApprovedCollectionPlan(tuple(
             SourceGrant(
                 source_id=source_id,
@@ -293,6 +311,7 @@ class PublicSourcePolicy(BaseModel):
                 datasets=frozenset(source.datasets),
                 methods=frozenset(source.methods),
                 macro_series=frozenset(source.macro_series),
+                commodity_series=frozenset(source.commodity_series),
                 market_symbols=frozenset(source.market_symbols),
                 energy_series=frozenset(source.energy_series),
                 news_feeds=frozenset(source.news_feeds),
@@ -308,6 +327,7 @@ class PublicSourcePolicy(BaseModel):
                 cadence_minutes=source.cadence_minutes,
             )
             for source_id, source in self.sources.items()
+            if not (public_output and source.permitted_use == "personal-use")
         ))
 
     def validate_instrument_chains(self, config: InstrumentsConfig) -> None:
@@ -342,7 +362,7 @@ class PublicSourcePolicy(BaseModel):
         provider_domains: dict[str, str | None] = {}
         provider_targets: dict[tuple[str, str], set[str]] = {}
         target_fields = (
-            "macro_series", "market_symbols", "energy_series",
+            "macro_series", "market_symbols", "energy_series", "commodity_series",
             "news_feeds", "index_series", "instrument_symbols",
         )
         for source_id, source in self.sources.items():
@@ -379,6 +399,8 @@ class PublicSourcePolicy(BaseModel):
                 raise ValueError(f"{source_id} configures market symbols outside the crypto dataset")
             if source.energy_series and "energy" not in source.datasets:
                 raise ValueError(f"{source_id} configures energy_series outside the energy dataset")
+            if source.commodity_series and "commodities" not in source.datasets:
+                raise ValueError(f"{source_id} configures commodity_series outside the commodities dataset")
             if source.news_feeds and "news" not in source.datasets:
                 raise ValueError(f"{source_id} configures news_feeds outside the news dataset")
             if source.instrument_symbols and not ({"equities", "overview", "sectors"} & set(source.datasets)):
@@ -399,7 +421,7 @@ class PublicSourcePolicy(BaseModel):
             if any(not value.strip() for value in source.series_attribution.values()):
                 raise ValueError(f"{source_id} has an empty series attribution")
             supported = SUPPORTED_TARGETS.get(source.provider, {})
-            for field in ("macro_series", "market_symbols", "energy_series"):
+            for field in ("macro_series", "market_symbols", "energy_series", "commodity_series"):
                 allowed = supported.get(field, frozenset())
                 if not set(getattr(source, field)).issubset(allowed):
                     label = field.replace("_", " ")

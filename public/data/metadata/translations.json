@@ -1,1 +1,1 @@
-{"schema_version":"1.0.0","last_merge":{"status":"merged","merged_items":50,"reason":"news.zh-translations.json merged into news.json","source_file":"news.zh-translations.json","merged_at":"2026-11-14T12:54:45Z"},"updated_at":"2026-11-14T12:54:45Z"}
+{"schema_version":"1.0.0","last_merge":{"status":"reused","merged_items":20,"reason":"retained 20 exact-match translations from the prior news snapshot","source_file":"news.json","merged_at":"2026-11-23T21:19:11Z"},"updated_at":"2026-11-23T21:19:11Z"}

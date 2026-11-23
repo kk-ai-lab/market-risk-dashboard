@@ -95,7 +95,7 @@ class MarketCollector:
         self.instruments = self.settings.load_instruments_config()
         self.source_policy = self.settings.load_public_source_policy()
         self.collection_plan = collection_plan or (
-            self.source_policy.collection_plan()
+            self.source_policy.collection_plan(public_output=True)
             if self.settings.approved_sources_only else None
         )
         # #102 (C-1): the sector/theme taxonomy lives in config/themes.yaml, not in this
@@ -490,13 +490,73 @@ class MarketCollector:
     # ---- Commodities (metals + oil, universe.yaml) ----
 
     def _collect_commodities(self) -> CommoditiesDataset:
-        """Collect the commodities universe (gold/silver/copper/oil) via the quotes domain.
-
-        Universe symbols (GC=F / SI=F / HG=F / CL=F) pass straight through Yahoo's identity
-        symbol mapper, and FMP serves the same keys as the fallback. A quote failure drops
-        the asset (degraded) — the honest shape, matching ``_fetch_equity``.
-        """
         targets = [*self.universe.metals, *self.universe.oil]
+        commodity_grant = (
+            self.collection_plan.grant_for("world_bank_commodities", "commodities")
+            if self.collection_plan is not None else None
+        )
+        if commodity_grant is not None:
+            try:
+                out = self.registry.call_provider(
+                    "commodities",
+                    "world_bank_commodities",
+                    "get_monthly_prices",
+                    "world_bank_pink_sheet_monthly",
+                    args=(sorted(commodity_grant.commodity_series),),
+                    authorization_dataset="commodities",
+                    use_cache=False,
+                )
+                prices = out["result"]
+                if not isinstance(prices, dict) or set(prices) != set(commodity_grant.commodity_series):
+                    raise ProviderError("World Bank Pink Sheet response did not match approved commodities")
+                self._record_outcome("commodities", out["meta"])
+                if out["meta"].get("degraded"):
+                    self._dataset_degraded.add("commodities")
+                assets: list[CommodityAsset] = []
+                target_by_symbol = {item.symbol: item for item in targets}
+                for symbol in sorted(commodity_grant.commodity_series):
+                    rows = prices[symbol]
+                    if (
+                        symbol not in target_by_symbol or not isinstance(rows, list)
+                        or not 1 <= len(rows) <= 2
+                    ):
+                        raise ProviderError(f"World Bank Pink Sheet response was invalid for {symbol}")
+                    latest = rows[-1]
+                    previous = rows[-2] if len(rows) == 2 else None
+                    period = str(latest["period"])
+                    value = float(latest["value"])
+                    change_1m = None
+                    if previous is not None:
+                        old_period = str(previous["period"])
+                        old_year, old_month = map(int, old_period.split("-"))
+                        year, month = map(int, period.split("-"))
+                        adjacent_month = (year * 12 + month) - (old_year * 12 + old_month) == 1
+                        old_value = float(previous["value"])
+                        if adjacent_month and old_value != 0:
+                            change_1m = (value / old_value - 1) * 100
+                    asset = target_by_symbol[symbol]
+                    assets.append(CommodityAsset(
+                        symbol=symbol,
+                        name=asset.name,
+                        name_zh=asset.name_zh,
+                        price=value,
+                        currency="USD",
+                        change_1d=None,
+                        change_1w=None,
+                        change_1m=change_1m,
+                        source="World Bank Pink Sheet",
+                        updated_at=f"{latest['date']}T00:00:00Z",
+                        frequency="monthly",
+                        observation_period=period,
+                        price_unit=str(latest["unit"]),
+                    ))
+                return CommoditiesDataset(assets=assets)
+            except (KeyError, TypeError, ValueError, OverflowError, ProviderError) as exc:
+                self.degraded.append(f"commodities: {exc}")
+                self._dataset_degraded.add("commodities")
+                self.provider_status.setdefault("commodities", {})["error"] = str(exc)
+                return CommoditiesDataset(assets=[])
+
         assets: list[CommodityAsset] = []
         for asset in targets:
             try:
@@ -586,7 +646,9 @@ class MarketCollector:
 
     def _collect_overview_instruments(self) -> tuple[list[DashboardInstrument], list[DashboardInstrument]]:
         """Resolve configured overview rows through explicitly granted source rungs."""
-        policy_plan = self.source_policy.collection_plan()
+        policy_plan = self.collection_plan or self.source_policy.collection_plan(
+            public_output=self.settings.approved_sources_only
+        )
         previous_payload = self.previous_dashboard.get("payload", {})
         previous_rows = {
             row.key: row
@@ -605,7 +667,11 @@ class MarketCollector:
             target = sector_etfs if instrument.kind == "sector_etf" else indices
             row: DashboardInstrument | None = None
             if self.collection_plan is not None and not self.collection_plan.allows_dataset(dataset):
-                target.append(DashboardInstrument(key=key, symbol=instrument.chain[0].symbol))
+                target.append(DashboardInstrument(
+                    key=key,
+                    symbol=instrument.chain[0].symbol,
+                    availability_reason="public_source_unlicensed",
+                ))
                 continue
             previous = previous_rows.get(key)
             if previous is not None and self._overview_row_is_within_cadence(previous, instrument, policy_plan):
@@ -651,7 +717,11 @@ class MarketCollector:
                 break
             if row is None:
                 first = instrument.chain[0]
-                row = DashboardInstrument(key=key, symbol=first.symbol)
+                row = DashboardInstrument(
+                    key=key,
+                    symbol=first.symbol,
+                    availability_reason="provider_unavailable",
+                )
                 if errors:
                     self.provider_status.setdefault("overview_instruments", {})[key] = errors[-1]
             target.append(row)
@@ -880,14 +950,12 @@ class MarketCollector:
             "crypto": (
                 oldest_source_timestamp(asset.updated_at for asset in crypto.assets)
                 if (
-                    (
-                        (self.settings.coinmetrics_enabled and len(crypto.assets) == 2)
-                        or (
-                            self.collection_plan is not None
-                            and self.collection_plan.allows_dataset("crypto")
-                            and len(crypto.assets) == len(
-                                self.collection_plan.grant_for_dataset("crypto").market_symbols
-                            )
+                    (self.settings.coinmetrics_enabled and len(crypto.assets) == 2)
+                    or (
+                        self.collection_plan is not None
+                        and self.collection_plan.allows_dataset("crypto")
+                        and len(crypto.assets) == len(
+                            self.collection_plan.grant_for_dataset("crypto").market_symbols
                         )
                     )
                 )
@@ -895,7 +963,11 @@ class MarketCollector:
             ),
             # Quote adapters expose local fetch time only; no upstream observation timestamp is
             # published as provenance until a provider supplies one explicitly.
-            "commodities": None,
+            "commodities": (
+                oldest_source_timestamp(asset.updated_at for asset in commodities.assets)
+                if commodities.assets and all(asset.frequency == "monthly" for asset in commodities.assets)
+                else None
+            ),
             "sectors": (
                 None
                 if "sectors" in self._dataset_degraded
@@ -952,7 +1024,7 @@ class MarketCollector:
             "providers": {
                 "equities": self._provider_for_any(("quotes", "a_share")),
                 "crypto": self._provider_for("crypto"),
-                "commodities": self._provider_for("quotes"),
+                "commodities": self._provider_for("commodities") if self.collection_plan is not None and self.collection_plan.grant_for("world_bank_commodities", "commodities") is not None else self._provider_for("quotes"),
                 "sectors": self._provider_for("quotes"),
             },
         }

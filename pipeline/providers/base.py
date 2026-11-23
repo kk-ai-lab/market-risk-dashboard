@@ -175,6 +175,7 @@ class GuardedClient(httpx.Client):
         *,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         headers: dict[str, str] | None = None,
+        max_response_bytes: int = MAX_RESPONSE_BYTES,
         relay_hosts: set[str] | None = None,
         relay_target_hosts: set[str] | None = None,
         transport: httpx.BaseTransport | None = None,
@@ -187,6 +188,9 @@ class GuardedClient(httpx.Client):
             event_hooks={"request": [self._check_request], "response": [self._check_response]},
         )
         self._allowed_hosts = set(allowed_hosts)
+        if type(max_response_bytes) is not int or max_response_bytes < 1:
+            raise ValueError("max_response_bytes must be a positive integer")
+        self._max_response_bytes = max_response_bytes
         # S-3 trust:relay — a hop redirected *from* a relay host is vouched for only when its
         # target host is explicitly configured by the source.
         self._relay_hosts = set(relay_hosts or ())
@@ -217,9 +221,9 @@ class GuardedClient(httpx.Client):
 
     def _check_response(self, response: httpx.Response) -> None:
         length = response.headers.get("Content-Length")
-        if length and length.isdigit() and int(length) > MAX_RESPONSE_BYTES:
+        if length and length.isdigit() and int(length) > self._max_response_bytes:
             response.close()
-            raise ProviderError(f"blocked: response exceeds {MAX_RESPONSE_BYTES} bytes ({response.url})")
+            raise ProviderError(f"blocked: response exceeds {self._max_response_bytes} bytes ({response.url})")
 
     def get(self, url: str, **kwargs: Any) -> httpx.Response:
         """GET with a bounded manual redirect walk (≤ MAX_REDIRECT_HOPS hops) and a hard
@@ -262,9 +266,9 @@ class GuardedClient(httpx.Client):
             body = bytearray()
             try:
                 for chunk in response.iter_bytes(chunk_size=64 * 1024):
-                    if len(body) + len(chunk) > MAX_RESPONSE_BYTES:
+                    if len(body) + len(chunk) > self._max_response_bytes:
                         raise ProviderError(
-                            f"blocked: response exceeds {MAX_RESPONSE_BYTES} bytes ({response.url})"
+                            f"blocked: response exceeds {self._max_response_bytes} bytes ({response.url})"
                         )
                     body.extend(chunk)
             finally:
@@ -292,6 +296,7 @@ def guarded_client(
     *,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
     headers: dict[str, str] | None = None,
+    max_response_bytes: int = MAX_RESPONSE_BYTES,
     relay_hosts: set[str] | None = None,
     relay_target_hosts: set[str] | None = None,
 ) -> "GuardedClient":
@@ -300,6 +305,7 @@ def guarded_client(
         allowed_hosts,
         timeout=timeout,
         headers=headers,
+        max_response_bytes=max_response_bytes,
         relay_hosts=relay_hosts,
         relay_target_hosts=relay_target_hosts,
     )
@@ -449,6 +455,9 @@ class CryptoMarketResult(BaseModel):
 class SeriesRow(BaseModel):
     date: str = Field(min_length=1)
     value: float
+    period: str | None = None
+    fetched_at: str | None = None
+    released_on: str | None = None
 
 
 class FedWatchPrices(RootModel[dict[str, float | None]]):
@@ -612,7 +621,7 @@ class ProviderRegistry:
     def __init__(self, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None) -> None:
         self.settings = settings or Settings()
         self.collection_plan = collection_plan or (
-            self.settings.load_public_source_policy().collection_plan()
+            self.settings.load_public_source_policy().collection_plan(public_output=True)
             if self.settings.approved_sources_only else None
         )
         # #102: retries/backoff/jitter and the cache directory come from the VALIDATED

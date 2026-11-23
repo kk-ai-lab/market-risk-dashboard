@@ -47,6 +47,16 @@ class NoNetworkRegistry:
         self.calls.append((domain, method, key))
         raise AssertionError(f"unexpected provider call: {domain}.{method}")
 
+    def call_provider(self, domain, provider_name, method, key, args=(), kwargs=None, **_options):
+        self.calls.append((domain, method, key))
+        return {
+            "result": [],
+            "meta": {"provider": provider_name, "from_cache": False, "degraded": False},
+        }
+
+    def providers_for(self, _domain):
+        return []
+
     def resolved_provider(self, domain):
         return None
 
@@ -64,7 +74,7 @@ def snapshots():
         attempt_status="complete",
         series={
             key: SeriesSnapshot(rows=bls_rows, fetched_at=fetched_at, status="fresh")
-            for key in ("CPIAUCSL", "CPILFESL", "PAYEMS", "UNRATE")
+            for key in ("CPIAUCSL", "CPILFESL", "PAYEMS", "UNRATE", "CIVPART")
         },
     )
     from tests.pipeline.test_treasury_macro import snapshot as treasury_snapshot
@@ -84,15 +94,14 @@ def test_policy_loads_licensed_sources_and_builds_only_approved_providers(tmp_pa
     assert policy.sources["coinmetrics"].permitted_use == "noncommercial"
 
     providers = build_default_providers(settings)
-    assert [(provider.name, provider.domain) for provider in providers] == [
-        ("yfinance", "quotes"),
-        ("coinmetrics", "crypto"),
-        ("rss_news", "news"),
-        ("eia", "energy"),
-        ("bea_calendar", "bea_calendar"),
-    ]
-    assert isinstance(providers[1], CoinMetricsProvider)
-    assert providers[1].symbols == (
+    by_name = {provider.name: provider for provider in providers}
+    assert set(by_name) == {
+        "coinmetrics", "nyfed_rates", "bea_nipa", "dol_claims", "federal_reserve_data",
+        "rss_news", "eia", "world_bank_commodities", "bls_calendar", "bea_calendar",
+    }
+    assert not {"yfinance", "fred", "fred_calendar"} & set(by_name)
+    assert isinstance(by_name["coinmetrics"], CoinMetricsProvider)
+    assert by_name["coinmetrics"].symbols == (
         "BTC", "ETH", "SOL", "ADA", "XRP", "DOGE", "BNB", "LINK", "LTC", "AVAX",
     )
     assert policy.sources["coinmetrics"].market_symbols == [
@@ -101,13 +110,15 @@ def test_policy_loads_licensed_sources_and_builds_only_approved_providers(tmp_pa
 
 
 def test_baa10y_is_in_the_accepted_personal_use_grant(tmp_path):
-    plan = public_settings(tmp_path).load_public_source_policy().collection_plan()
+    policy = public_settings(tmp_path).load_public_source_policy()
+    plan = policy.collection_plan()
 
     assert plan.macro_grant_for("BAA10Y").source_id == "fred"
     assert plan.macro_grant_for("VIXCLS") is not None
     assert plan.macro_grant_for("BAMLH0A0HYM2").source_id == "fred_ice"
     assert plan.macro_grant_for("BAMLC0A0CM").source_id == "fred_ice"
     assert len(plan.grants_for("fred", "macro")) == 2
+    assert policy.collection_plan(public_output=True).macro_grant_for("BAA10Y") is None
 
 
 def test_provider_factory_builds_fred_once_for_disjoint_grants():
@@ -120,7 +131,7 @@ def test_provider_factory_builds_fred_once_for_disjoint_grants():
 
     fred_providers = [provider for provider in build_default_providers(settings) if provider.name == "fred"]
 
-    assert len(fred_providers) == 1
+    assert fred_providers == []
 
 
 def test_policy_plan_and_provider_factory_keep_the_selected_market_targets(tmp_path):
@@ -206,7 +217,7 @@ def test_policy_rejects_unapproved_provider_and_legacy_cache_fallback(tmp_path, 
     registry.cache_dir.mkdir(parents=True)
     provider = registry.providers_for("crypto")[0]
     monkeypatch.setattr(provider, "get_crypto_market", lambda: (_ for _ in ()).throw(ProviderError("offline")))
-    monkeypatch.setattr(registry.providers_for("quotes")[0], "get_quote", lambda *_: (_ for _ in ()).throw(ProviderError("offline")))
+    assert registry.providers_for("quotes") == []
 
     with pytest.raises(ValueError, match="public source policy"):
         registry.register("crypto", CoinGeckoProvider(settings))
@@ -231,7 +242,7 @@ def test_policy_rejects_unapproved_provider_and_legacy_cache_fallback(tmp_path, 
     assert not (registry.cache_dir / "crypto__coinmetrics__crypto_market.json").exists()
 
 
-def test_macro_without_fred_key_publishes_missing_without_requests(tmp_path):
+def test_macro_without_public_fred_grants_publishes_missing_without_requests(tmp_path):
     registry = NoNetworkRegistry()
     bls, treasury = snapshots()
     settings = public_settings(tmp_path)
@@ -247,13 +258,13 @@ def test_macro_without_fred_key_publishes_missing_without_requests(tmp_path):
     assert [indicator.key.upper() for indicator in indicators] == DEFAULT_SERIES
     assert by_key["CPIAUCSL"].source == "BLS"
     assert by_key["DGS10"].source == "Treasury"
-    assert by_key["VIXCLS"].source == "FRED"
+    assert by_key["VIXCLS"].source == "unavailable"
     assert by_key["VIXCLS"].value is None
     assert by_key["VIXCLS"].status == "missing"
     assert macro.fedwatch is None
     assert registry.calls == []
-    assert meta["error_code"] == "provider_auth_failed"
-    assert "DATA_FRED_API_KEY is not configured; no request was sent" in meta["detail"]
+    assert meta["error_code"] == "source_policy_excluded"
+    assert "No approved public source configured for" in meta["detail"]
     assert meta["provider_status"]["fred"]["error"] == "not_configured"
     assert meta["data_quality"] < 1.0
 
@@ -262,12 +273,13 @@ def test_market_policy_collects_crypto_without_other_market_requests(tmp_path, m
     from pipeline.providers.base import ProviderRegistry
 
     settings = public_settings(tmp_path)
-    registry = ProviderRegistry(settings)
+    policy = settings.load_public_source_policy()
+    policy.sources.pop("world_bank_commodities")
+    plan = policy.collection_plan(public_output=True)
+    registry = ProviderRegistry(settings, collection_plan=plan)
     registry.cache_dir = tmp_path / "cache"
     registry.max_retries = 0
-    from pipeline.providers import build_default_providers
-
-    registry.register_all(build_default_providers(settings))
+    registry.register_all(build_default_providers(settings, collection_plan=plan))
     provider = registry.providers_for("crypto")[0]
     monkeypatch.setattr(provider, "get_crypto_market", lambda: {
         "assets": [
@@ -293,7 +305,7 @@ def test_market_policy_collects_crypto_without_other_market_requests(tmp_path, m
     monkeypatch.setattr(MarketCollector, "_collect_history_plan", lambda self: None)
     monkeypatch.setattr(MarketCollector, "_collect_overview_instruments", lambda self: ([], []))
 
-    market = MarketCollector(registry, AssetUniverse.load(settings), settings).collect()
+    market = MarketCollector(registry, AssetUniverse.load(settings), settings, collection_plan=plan).collect()
 
     assert [asset.symbol for asset in market["crypto"].assets] == [
         "BTC", "ETH", "SOL", "ADA", "XRP", "DOGE", "BNB", "LINK", "LTC", "AVAX",
@@ -307,11 +319,8 @@ def test_market_policy_collects_crypto_without_other_market_requests(tmp_path, m
     assert market["source_policy_excluded_datasets"] == ["commodities", "equities", "sectors"]
 
 
-def test_approved_risk_histories_request_only_three_granted_targets(tmp_path, monkeypatch):
-    from datetime import timedelta
-
+def test_public_risk_histories_exclude_personal_use_quote_targets(tmp_path, monkeypatch):
     from pipeline.indicators.breadth import breadth_snapshot
-    from pipeline.providers.base import HistoryResult
     from pipeline.risk.model import RiskModel
     from pipeline.run import _build_risk_context
     from pipeline.schemas import (
@@ -323,26 +332,17 @@ def test_approved_risk_histories_request_only_three_granted_targets(tmp_path, mo
     from tests.pipeline.factories import make_envelope
 
     settings = public_settings(tmp_path)
-    registry = build_registry(settings)
-    registry.max_retries = 0
-    registry._host_budgets["yfinance"] = (2, 0)
-    provider = registry.providers_for("quotes")[0]
-    requested = []
-
-    def history(symbol, period):
-        requested.append((symbol, period))
-        rows = [{"date": (date(2026, 1, 1) + timedelta(days=i)).isoformat(), "close": 100 + i}
-                for i in range(250)]
-        return HistoryResult(symbol=symbol, provider="yfinance", rows=rows, period=period)
-
-    monkeypatch.setattr(provider, "get_history", history)
+    policy = settings.load_public_source_policy()
+    policy.sources.pop("world_bank_commodities")
+    plan = policy.collection_plan(public_output=True)
+    registry = build_registry(settings, collection_plan=plan)
     monkeypatch.setattr(MarketCollector, "_collect_crypto", lambda self: CryptoDataset())
     monkeypatch.setattr(MarketCollector, "_collect_overview_instruments", lambda self: ([], []))
-    result = MarketCollector(registry, AssetUniverse.load(settings), settings).collect()
+    result = MarketCollector(registry, AssetUniverse.load(settings), settings, collection_plan=plan).collect()
 
-    assert set(requested) == {("SPY", "1y"), ("IWM", "1y"), ("SOXX", "1y")}
-    assert set(result["histories"]) == {"SPY", "IWM", "SOXX"}
-    assert breadth_snapshot(result["histories"])["breadth_considered"] == 3
+    assert registry.providers_for("quotes") == []
+    assert result["histories"] == {}
+    assert breadth_snapshot(result["histories"])["breadth_considered"] == 0
     assert result["equities"].assets == []
     assert "equities" in result["source_policy_excluded_datasets"]
     context_args = {
@@ -356,19 +356,14 @@ def test_approved_risk_histories_request_only_three_granted_targets(tmp_path, mo
     model = RiskModel()
     without = model.score(_build_risk_context(histories={}, **context_args))
     with_histories = model.score(_build_risk_context(histories=result["histories"], **context_args))
-    assert with_histories.evidence_coverage > without.evidence_coverage
-    assert with_histories.evidence_coverage >= 0.5
-    assert with_histories.breadth.breadth_considered == 3
+    assert with_histories.evidence_coverage == without.evidence_coverage
+    assert with_histories.breadth.breadth_considered == 0
 
 
-def test_quote_registry_refuses_ungranted_targets_and_operations(tmp_path, monkeypatch):
+def test_quote_registry_refuses_ungranted_targets_and_operations(tmp_path):
     settings = public_settings(tmp_path)
     registry = build_registry(settings)
-    provider = registry.providers_for("quotes")[0]
-    history_calls = []
-    quote_calls = []
-    monkeypatch.setattr(provider, "get_history", lambda *args: history_calls.append(args))
-    monkeypatch.setattr(provider, "get_quote", lambda *args: quote_calls.append(args))
+    assert registry.providers_for("quotes") == []
     for key, args in [("hist_NVDA_1y", ("NVDA", "1y")), ("hist_NVDA_1y", ("SPY", "1y"))]:
         with pytest.raises(ProviderError):
             registry.call("quotes", "get_history", key, args=args)
@@ -384,8 +379,6 @@ def test_quote_registry_refuses_ungranted_targets_and_operations(tmp_path, monke
             "quotes", "yfinance", "get_history", "hist_XLK_1y", args=("XLK", "1y"),
             authorization_dataset="overview",
         )
-    assert history_calls == []
-    assert quote_calls == []
 
 
 def test_market_collector_rejects_unapproved_coinmetrics_asset(tmp_path, monkeypatch):
@@ -421,6 +414,7 @@ def test_news_and_calendar_mark_unlicensed_data_missing_without_registry_calls(t
     policy.sources.pop("fed_press")
     policy.sources.pop("sec_press")
     policy.sources.pop("bea_calendar")
+    policy.sources.pop("bls_calendar")
     plan = policy.collection_plan()
 
     news, news_meta = NewsCollector(registry, settings, collection_plan=plan).collect()
@@ -448,7 +442,7 @@ def test_macro_policy_exclusions_have_an_explicit_reason_code(tmp_path):
     _, meta = MacroCollector(
         registry,
         settings,
-        collection_plan=policy.collection_plan(),
+        collection_plan=policy.collection_plan(public_output=True),
         bls_snapshot=bls,
         treasury_snapshot=treasury,
     ).collect()
