@@ -179,6 +179,18 @@ class MarketCollector:
         for symbol in self._theme_history_symbols():
             add("quotes", symbol, "1y", "themes")
 
+        if self.collection_plan is not None:
+            consumers = {
+                key: labels for key, labels in consumers.items()
+                if key[0] == "quotes"
+                and "risk_breadth_trend" in labels
+                and any(
+                    grant.provider == "yfinance" and grant.registry_domain == "quotes"
+                    and key[1] in grant.instrument_symbols
+                    for grant in self.collection_plan.grants
+                )
+            }
+
         return tuple(
             _HistoryTarget(domain, symbol, period, tuple(sorted(consumers[(domain, symbol, period)])))
             for domain, symbol, period in sorted(consumers)
@@ -385,6 +397,8 @@ class MarketCollector:
     def _collect_equities(self) -> EquitiesDataset:
         assets: list[EquityAsset] = []
         targets = [*self.universe.us_equities, *self.universe.a_share_memory]
+        if self.collection_plan is not None:
+            targets = []
         # #103/P-1: bounded thread pool; the registry's per-host limiter serializes calls to
         # the same host, so parallelism is bought per host and paced by config.
         with ThreadPoolExecutor(max_workers=min(8, max(1, len(targets)))) as pool:
@@ -700,7 +714,9 @@ class MarketCollector:
             sectors = self._collect_sectors()
         else:
             if self.collection_plan.allows_dataset("equities"):
-                equities = self._collect_equities()
+                self._collect_history_plan()
+                self._mark_unavailable("equities")
+                equities = EquitiesDataset()
             else:
                 self._mark_unavailable("equities")
                 equities = EquitiesDataset()

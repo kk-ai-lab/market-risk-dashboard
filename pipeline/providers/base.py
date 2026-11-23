@@ -872,6 +872,22 @@ class ProviderRegistry:
         """
         kwargs = kwargs or {}
         providers = self.providers_for(domain)
+        allowed_target_providers = None
+        if self.collection_plan is not None and domain in {"quotes", "a_share"}:
+            if (
+                method != "get_history" or len(args) != 2
+                or not all(isinstance(arg, str) for arg in args)
+                or key != f"hist_{args[0]}_{args[1]}"
+            ):
+                raise ProviderError(f"[{domain}] no approved provider for requested operation")
+            symbol = args[0]
+            allowed_target_providers = {
+                grant.provider for grant in self.collection_plan.grants
+                if grant.registry_domain == domain and symbol in grant.instrument_symbols
+            }
+            providers = [provider for provider in providers if provider.name in allowed_target_providers]
+            if not providers:
+                raise ProviderError(f"[{domain}] no approved provider for requested target")
         errors: list[str] = []
 
         for index, provider in enumerate(providers):
@@ -887,6 +903,11 @@ class ProviderRegistry:
                 if is_partial:
                     partial_errors = list(result.errors)
                     result = result.result
+                if allowed_target_providers is not None and (
+                    not isinstance(result, HistoryResult)
+                    or result.symbol != args[0] or result.period != args[1]
+                ):
+                    raise ProviderError("History response does not match requested target")
                 meta = {
                     "provider": provider.name,
                     "used_fallback": index > 0,
@@ -912,7 +933,14 @@ class ProviderRegistry:
         # All Providers failed → last-good cache (expired/undated/version-mismatched entries
         # are not served, #66/S-2)
         cached = self._load_last_good(domain, key, method)
-        if cached is not None:
+        if cached is not None and (
+            allowed_target_providers is None or cached[1]["provider"] in allowed_target_providers
+        ) and (
+            allowed_target_providers is None or (
+                isinstance(cached[0], HistoryResult)
+                and cached[0].symbol == args[0] and cached[0].period == args[1]
+            )
+        ):
             data, cache_meta = cached
             self.degraded_domains.add(domain)
             meta = {

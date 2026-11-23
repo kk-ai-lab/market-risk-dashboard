@@ -1,6 +1,18 @@
 schema_version: "1.0.0"
 
 sources:
+  yahoo_risk_proxies:
+    provider: yfinance
+    registry_domain: quotes
+    datasets: [equities]
+    instrument_symbols: [SPY, IWM, SOXX]
+    license_id: Yahoo-personal-use
+    license_url: https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html
+    attribution: "Yahoo Finance via yfinance"
+    permitted_use: personal-use
+    accepted_by: Kai
+    accepted_on: 2026-11-20
+    cadence_minutes: 1440
   coinmetrics:
     provider: coinmetrics
     registry_domain: crypto
