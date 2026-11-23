@@ -113,7 +113,7 @@ def _node_validation_families(output: str) -> list[str]:
 class RiskHistoryPoint(BaseModel):
     model_config = ConfigDict(strict=True, extra="allow", allow_inf_nan=False)
     date: str = Field(min_length=1)
-    total_score: float = Field(ge=0, le=100)
+    total_score: float | None = Field(ge=0, le=100)
     risk_level: RiskLevel | None = None
     regime: MarketRegime | None = None
     confidence: float | None = Field(default=None, ge=0, le=1)
@@ -121,7 +121,7 @@ class RiskHistoryPoint(BaseModel):
     dim_evidence_states: dict[str, RiskEvidenceState] | None = None
     evidence_state: RiskEvidenceState | None = None
 
-    @field_validator("risk_level", "regime", "confidence", "dim_scores", "dim_evidence_states", "evidence_state", mode="before")
+    @field_validator("regime", "confidence", "dim_scores", "dim_evidence_states", "evidence_state", mode="before")
     @classmethod
     def reject_explicit_null(cls, value):
         if value is None:
