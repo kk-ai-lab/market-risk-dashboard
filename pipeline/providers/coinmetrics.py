@@ -54,6 +54,7 @@ class CoinMetricsProvider(BaseProvider):
             "metrics": "ReferenceRateUSD", "frequency": "1h",
             "page_size": len(self.symbols) * HISTORY_POINTS,
             "limit_per_asset": HISTORY_POINTS,
+            "paging_from": "end",
         }
         self._client = guarded_client(set(self.hosts), timeout=10.0)
 

@@ -53,7 +53,7 @@ def test_bulk_reference_rates(provider):
         request = route.calls[0].request
         assert dict(request.url.params) == {
             "assets": "btc,eth", "metrics": "ReferenceRateUSD", "frequency": "1h",
-            "page_size": "52", "limit_per_asset": "26",
+            "page_size": "52", "limit_per_asset": "26", "paging_from": "end",
         }
         assert "authorization" not in request.headers
     assert [a["price"] for a in result["assets"]] == [95000.25, 3000.0]
@@ -78,6 +78,7 @@ def test_expanded_reference_rates_keep_catalog_order_and_source_fields(tmp_path)
             "frequency": "1h",
             "page_size": "260",
             "limit_per_asset": "26",
+            "paging_from": "end",
         }
         assert [(asset["symbol"], asset["name"]) for asset in result["assets"]] == [
             (symbol, name) for symbol, _, name in EXPANDED_ASSETS
