@@ -7,6 +7,8 @@ groups. Commodity cards show price + 1d/1w/1m changes — no technicals, unlike 
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from .envelope import BaseEnvelope, ContractModel, UTCDateTime
@@ -23,6 +25,9 @@ class CommodityAsset(ContractModel):
     change_1m: float | None = None
     source: str = Field(min_length=1)
     updated_at: UTCDateTime
+    frequency: Literal["daily", "monthly"] = "daily"
+    observation_period: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
+    price_unit: str | None = None
 
 
 class CommoditiesDataset(ContractModel):

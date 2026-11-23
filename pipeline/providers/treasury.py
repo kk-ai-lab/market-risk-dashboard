@@ -1,7 +1,8 @@
-"""Official Treasury CMT adapter.
+"""Official Treasury nominal and real CMT adapter.
 
-Source authorization: the exact Daily Treasury Yield Curve Rates dataset is CC0:
+Source authorization: the Daily Treasury nominal and real yield-curve datasets are CC0:
 https://catalog.data.gov/dataset/interest-rate-statistics-daily-treasury-yield-curve-rates
+https://catalog.data.gov/dataset/daily-treasury-real-yield-curve-rates
 This does not license unrelated Treasury or third-party material. CMTs are daily
 interpolated par yields in percent, not tradable intraday quotes. NEW_DATE is an
 observation date, never a release timestamp; no publication-time guarantee is made.
@@ -13,8 +14,9 @@ Historical comparisons spanning that change need methodological care.
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable
 from datetime import UTC, datetime
-from typing import Any, Iterable
+from typing import Any
 from xml.etree import ElementTree as ET
 from xml.parsers import expat
 
@@ -30,15 +32,23 @@ from pipeline.providers.base import (
 
 TREASURY_XML = "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml"
 LICENSE_SOURCE = "https://catalog.data.gov/dataset/interest-rate-statistics-daily-treasury-yield-curve-rates"
-SERIES = {"DGS2": "BC_2YEAR", "DGS10": "BC_10YEAR"}
+REAL_LICENSE_SOURCE = "https://catalog.data.gov/dataset/daily-treasury-real-yield-curve-rates"
+SERIES = {
+    "DGS2": "BC_2YEAR", "DGS5": "BC_5YEAR", "DGS10": "BC_10YEAR",
+    "DFII5": "TC_5YEAR", "DFII10": "TC_10YEAR", "T5YIFR": None, "T10YIE": None,
+}
+NOMINAL_SERIES = {"DGS2", "DGS5", "DGS10"}
+REAL_SERIES = {"DFII5", "DFII10"}
 ATOM = "{http://www.w3.org/2005/Atom}"
 META = "{http://schemas.microsoft.com/ado/2007/08/dataservices/metadata}"
 DATA = "{http://schemas.microsoft.com/ado/2007/08/dataservices}"
 FEED_TITLE = "DailyTreasuryYieldCurveRateData"
 FEED_ID = TREASURY_XML + "-item?data=daily_treasury_yield_curve"
+REAL_FEED_TITLE = "DailyTreasuryRealYieldCurveRateData"
+REAL_FEED_ID = TREASURY_XML + "-item?data=daily_treasury_real_yield_curve"
 
 
-def _trusted_empty_feed(root: ET.Element) -> bool:
+def _trusted_empty_feed(root: ET.Element, title: str, feed_id: str) -> bool:
     """Recognize only Treasury's observed Atom metadata shape for empty years."""
     required = {ATOM + name for name in ("id", "title", "updated")}
     allowed = required | {ATOM + "link"}
@@ -48,7 +58,7 @@ def _trusted_empty_feed(root: ET.Element) -> bool:
         return False
     if any(len(root.findall(tag)) != 1 for tag in required):
         return False
-    if root.findtext(ATOM + "title") != FEED_TITLE or root.findtext(ATOM + "id") != FEED_ID:
+    if root.findtext(ATOM + "title") != title or root.findtext(ATOM + "id") != feed_id:
         return False
     try:
         updated = datetime.fromisoformat(root.findtext(ATOM + "updated") or "")
@@ -57,8 +67,8 @@ def _trusted_empty_feed(root: ET.Element) -> bool:
     if updated.tzinfo is None:
         return False
     return all(
-        node.get("rel") == "self" and node.get("title") == FEED_TITLE
-        and node.get("href") == FEED_TITLE and not (node.text or "").strip()
+        node.get("rel") == "self" and node.get("title") == title
+        and node.get("href") == title and not (node.text or "").strip()
         for node in root.findall(ATOM + "link")
     )
 
@@ -106,7 +116,7 @@ class TreasuryProvider(BaseProvider):
         year. Errors or nonempty feeds with unusable data never trigger fallback.
         """
         now = datetime.now(UTC)
-        selected = list(dict.fromkeys(SERIES if series_ids is None else series_ids))
+        selected = list(dict.fromkeys(sorted(NOMINAL_SERIES) if series_ids is None else series_ids))
         if not selected or any(series_id not in SERIES for series_id in selected):
             raise ProviderError("Treasury: unsupported or empty series selection")
         default_year = year is None
@@ -121,7 +131,70 @@ class TreasuryProvider(BaseProvider):
         return result
 
     def _get_year(self, year: int, now: datetime, series_ids: list[str]) -> dict[str, Any] | None:
-        params = {"data": "daily_treasury_yield_curve", "field_tdr_date_value": str(year)}
+        requested = set(series_ids)
+        nominal_ids = requested & NOMINAL_SERIES
+        real_ids = requested & REAL_SERIES
+        if "T10YIE" in requested:
+            nominal_ids.add("DGS10")
+            real_ids.add("DFII10")
+        if "T5YIFR" in requested:
+            nominal_ids.update({"DGS5", "DGS10"})
+            real_ids.update({"DFII5", "DFII10"})
+        nominal = self._get_year_feed(year, now, sorted(nominal_ids), real=False) if nominal_ids else None
+        real = self._get_year_feed(year, now, sorted(real_ids), real=True) if real_ids else None
+        if nominal_ids and nominal is None or real_ids and real is None:
+            return None
+        combined: dict[str, list[dict[str, Any]]] = {}
+        if nominal is not None:
+            combined.update(nominal["series"])
+        if real is not None:
+            combined.update(real["series"])
+        if "T10YIE" in requested:
+            nominal_by_date = {row["date"]: row["value"] for row in combined["DGS10"]}
+            real_by_date = {row["date"]: row["value"] for row in combined["DFII10"]}
+            combined["T10YIE"] = [
+                {"date": day, "value": nominal_by_date[day] - real_by_date[day]}
+                for day in sorted(nominal_by_date.keys() & real_by_date.keys())
+            ]
+        if "T5YIFR" in requested:
+            nominal_5 = {row["date"]: row["value"] for row in combined["DGS5"]}
+            nominal_10 = {row["date"]: row["value"] for row in combined["DGS10"]}
+            real_5 = {row["date"]: row["value"] for row in combined["DFII5"]}
+            real_10 = {row["date"]: row["value"] for row in combined["DFII10"]}
+            shared_dates = nominal_5.keys() & nominal_10.keys() & real_5.keys() & real_10.keys()
+            forward_values = []
+            for day in sorted(shared_dates):
+                breakeven_5 = (nominal_5[day] - real_5[day]) / 100
+                breakeven_10 = (nominal_10[day] - real_10[day]) / 100
+                if 1 + breakeven_5 <= 0 or 1 + breakeven_10 <= 0:
+                    raise ProviderError("Treasury: invalid breakeven inputs for T5YIFR")
+                forward = (((1 + breakeven_10) ** 10 / (1 + breakeven_5) ** 5) ** 0.2 - 1) * 100
+                forward_values.append({"date": day, "value": forward})
+            combined["T5YIFR"] = forward_values
+        output = {series_id: combined.get(series_id, []) for series_id in requested}
+        if any(not rows for rows in output.values()):
+            raise ProviderError("Treasury: requested maturity missing or empty")
+        return {
+            "series": output,
+            "source": nominal["source"] if nominal is not None else real["source"],
+            "real_source": real["source"] if real is not None and nominal is not None else None,
+            "year": year,
+            "checked_at": datetime.now(UTC).isoformat(),
+            "license_source": LICENSE_SOURCE,
+            "real_license_source": REAL_LICENSE_SOURCE if real is not None else None,
+            "frequency": "daily",
+            "unit": "percent",
+            "date_semantics": "observation_date",
+        }
+
+    def _get_year_feed(
+        self, year: int, now: datetime, series_ids: list[str], *, real: bool,
+    ) -> dict[str, Any] | None:
+        data_name = "daily_treasury_real_yield_curve" if real else "daily_treasury_yield_curve"
+        title = REAL_FEED_TITLE if real else FEED_TITLE
+        feed_id = REAL_FEED_ID if real else FEED_ID
+        fields_by_series = {series_id: SERIES[series_id] for series_id in series_ids}
+        params = {"data": data_name, "field_tdr_date_value": str(year)}
         try:
             with self._client.stream("GET", TREASURY_XML, params=params, follow_redirects=False) as response:
                 if response.status_code != 200:
@@ -141,7 +214,7 @@ class TreasuryProvider(BaseProvider):
             raise ProviderError("Treasury: unexpected XML feed")
         entries = root.findall(ATOM + "entry")
         if not entries:
-            if not _trusted_empty_feed(root):
+            if not _trusted_empty_feed(root, title, feed_id):
                 raise ProviderError("Treasury: untrusted empty feed")
             return None
         output: dict[str, list[dict[str, Any]]] = {key: [] for key in series_ids}
@@ -166,7 +239,7 @@ class TreasuryProvider(BaseProvider):
                 raise ProviderError("Treasury: duplicate observation date")
             seen.add(key)
             for series_id in series_ids:
-                field = SERIES[series_id]
+                field = fields_by_series[series_id]
                 node = fields.get(DATA + field)
                 if node is None or node.get(META + "null") == "true":
                     continue
@@ -180,9 +253,7 @@ class TreasuryProvider(BaseProvider):
             raise ProviderError("Treasury: requested maturity missing or empty")
         for rows in output.values():
             rows.sort(key=lambda row: row["date"])
-        return {"series": output, "source": source_url, "year": year, "checked_at": checked_at,
-                "license_source": LICENSE_SOURCE, "frequency": "daily", "unit": "percent",
-                "date_semantics": "observation_date"}
+        return {"series": output, "source": source_url, "year": year, "checked_at": checked_at}
 
     def get_series_batch(self, *, year: int | None = None) -> dict[str, list[dict[str, Any]]]:
         """Convenience series view; use get_yield_curve to retain retrieval provenance."""

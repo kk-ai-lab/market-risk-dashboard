@@ -42,30 +42,16 @@ class EnergyCollector:
         except (TypeError, ValueError):
             previous_payload = None
 
-        api_key = self.settings.eia_api_key
-        if not api_key or not api_key.get_secret_value().strip():
-            payload = EnergyDataset(
-                observations=[],
-                collection_status="not_configured",
-                observation_age="unknown",
-                last_attempt_at=attempt,
-                last_successful_fetch_at=None,
-            )
-            return {
-                "payload": payload,
-                "degraded": True,
-                "provider": "unavailable",
-                "from_cache": False,
-                "error_code": "provider_auth_failed",
-                "detail": "DATA_EIA_API_KEY is not configured; no request was sent",
-            }
-
         try:
             response = self.registry.call("energy", "get_weekly_inventory", "weekly_inventory")
             if response["meta"].get("from_cache"):
                 raise ProviderError("EIA provider failed; cached response not used")
             observations = [
-                EnergyObservation(week_ending=date.fromisoformat(row["date"]), value=float(row["value"]))
+                EnergyObservation(
+                    week_ending=date.fromisoformat(row["date"]),
+                    released_on=date.fromisoformat(row["release_date"]),
+                    value=float(row["value"]),
+                )
                 for row in response["result"]
             ]
             observations.sort(key=lambda item: item.week_ending)
@@ -85,6 +71,9 @@ class EnergyCollector:
                 "from_cache": False,
                 "error_code": None,
                 "detail": "",
+                # The WPSR CSV gives a release *date*, not an ISO-8601 timestamp. Keep
+                # that date on each observation instead of inventing a midnight UTC time.
+                "source_updated_at": None,
             }
         except ProviderError as exc:
             return self._degraded_previous(
@@ -126,6 +115,7 @@ class EnergyCollector:
             "provider": provider if provider != "unavailable" else "eia",
             "from_cache": False,
             "error_code": error_code,
+            "source_updated_at": None,
             "detail": (
                 "EIA inventory refresh failed; retained validated prior observations"
                 if previous is not None

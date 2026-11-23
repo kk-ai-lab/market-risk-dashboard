@@ -14,7 +14,10 @@
   },
   "commodities": {
     "na": "No commodity data",
-    "naHint": "The commodity source returned nothing; it will resume automatically."
+    "naHint": "The commodity source returned nothing; it will resume automatically.",
+    "monthlyAverage": "Monthly average",
+    "monthChange": "MoM",
+    "monthlyDisclosure": "Benchmark monthly averages, not live futures prices. Source attribution: World Bank Commodity Price Data (The Pink Sheet), CC BY 4.0."
   },
   "crypto": {
     "marketCap": "Total market cap",
@@ -47,6 +50,7 @@
     "unit": "thousand barrels",
     "weeklyChange": "Change from prior week",
     "weekEnding": "Week ending",
+    "sourceReleaseDate": "EIA release date",
     "lastRetrieved": "Last successful retrieval",
     "lastCheck": "Last check: {{time}}",
     "checkTime": "Last check: {{time}}",

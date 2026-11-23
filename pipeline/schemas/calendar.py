@@ -13,7 +13,7 @@ from .envelope import BaseEnvelope, ContractModel, UTCDateTime
 
 EventType = Literal["economic", "earnings"]
 EventImportance = Literal["high", "medium", "low"]
-CalendarSource = Literal["earnings", "economic", "bea_calendar"]
+CalendarSource = Literal["earnings", "economic", "bea_calendar", "bls_calendar"]
 CalendarSourceState = Literal["fresh", "empty", "degraded", "not_configured"]
 
 

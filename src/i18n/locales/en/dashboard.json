@@ -51,7 +51,7 @@
   "news": {
     "title": "Official announcements",
     "none": "No official announcements",
-    "attribution": "Sources: Federal Reserve Board; U.S. SEC. Public domain."
+    "attribution": "Each item names its source. Official U.S. government press releases are public domain."
   },
   "kpi": {
     "trend1d": "1D change",

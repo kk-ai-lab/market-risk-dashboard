@@ -29,7 +29,7 @@ sources:
     provider: bls
     registry_domain: null
     datasets: [macro]
-    macro_series: [CPIAUCSL, CPILFESL, PAYEMS, UNRATE]
+    macro_series: [CPIAUCSL, CPILFESL, PAYEMS, UNRATE, CIVPART]
     market_symbols: []
     license_id: public-domain
     license_url: https://www.bls.gov/opub/copyright-information.htm
@@ -40,19 +40,82 @@ sources:
     provider: treasury
     registry_domain: null
     datasets: [macro]
-    macro_series: [DGS2, DGS10]
+    macro_series: [DGS2, DGS5, DGS10, DFII5, DFII10, T5YIFR, T10YIE]
     market_symbols: []
     license_id: CC0-1.0
     license_url: https://catalog.data.gov/dataset/interest-rate-statistics-daily-treasury-yield-curve-rates
-    attribution: "U.S. Department of the Treasury, Daily Treasury Yield Curve Rates"
+    attribution: "U.S. Department of the Treasury, Daily Treasury Par Yield and Par Real Yield Curve Rates. T10YIE is calculated as the same-date nominal 10-year par yield minus the 10-year real par yield."
+    series_attribution:
+      DGS5: "U.S. Department of the Treasury, Daily Treasury Par Yield Curve Rates, 5-year par yield. CC0."
+      DFII5: "U.S. Department of the Treasury, Daily Treasury Real Yield Curve Rates, 5-year real par yield. CC0."
+      DFII10: "U.S. Department of the Treasury, Daily Treasury Real Yield Curve Rates. CC0."
+      T10YIE: "Calculated from the U.S. Treasury's same-date nominal and real 10-year par yields; CC0 source data."
+      T5YIFR: "Calculated from the U.S. Treasury's same-date 5- and 10-year nominal and real par yields using the published 5y5y forward formula; CC0 source data."
     permitted_use: public-domain
     cadence_minutes: 1440
+  nyfed_rates:
+    provider: nyfed_rates
+    registry_domain: macro
+    datasets: [macro]
+    macro_series: [DFF, RRPONTSYD, SOFR]
+    market_symbols: []
+    license_id: New-York-Fed-Terms-of-Use-reference-rates
+    license_url: https://www.newyorkfed.org/privacy/termsofuse
+    attribution: "Federal Reserve Bank of New York. Reference-rate data are subject to the NY Fed Terms of Use and their required publication disclaimer."
+    series_attribution:
+      DFF: "Source: Federal Reserve Bank of New York, Effective Federal Funds Rate. Subject to https://www.newyorkfed.org/privacy/termsofuse. The New York Fed is not responsible for publication of this data by kk-ai-lab, does not sanction or endorse this republication, and has no liability for your use."
+      SOFR: "Source: Federal Reserve Bank of New York, Secured Overnight Financing Rate. Subject to https://www.newyorkfed.org/privacy/termsofuse. The New York Fed is not responsible for publication of this data by kk-ai-lab, does not sanction or endorse this republication, and has no liability for your use."
+      RRPONTSYD: "Source: Federal Reserve Bank of New York, Overnight Reverse Repo Operation Results. © 2026 Federal Reserve Bank of New York. Content subject to https://www.newyorkfed.org/privacy/termsofuse. This dashboard aggregates accepted overnight reverse-repo amounts in USD billions."
+    permitted_use: public-redistribution
+    cadence_minutes: 1440
+  bea_nipa:
+    provider: bea_nipa
+    registry_domain: macro
+    datasets: [macro]
+    macro_series: [PCEPILFE]
+    license_id: US-Government-public-domain
+    license_url: https://www.bea.gov/open-data
+    attribution: "U.S. Bureau of Economic Analysis, NIPA monthly flat file, Table 2.8.11, PCE excluding food and energy, percent change from a year ago."
+    permitted_use: public-domain
+    cadence_minutes: 43200
+  dol_claims:
+    provider: dol_claims
+    registry_domain: macro
+    datasets: [macro]
+    macro_series: [ICSA, CCSA]
+    license_id: US-Government-public-domain
+    license_url: https://beta.dol.gov/about/notices/website-content-and-publication-practices
+    attribution: "U.S. Department of Labor, Employment and Training Administration, ETA 539 revised weekly UI claims history and weekly non-embargoed advance claims release. Seasonally adjusted national values in thousands."
+    series_attribution:
+      ICSA: "U.S. Department of Labor, Employment and Training Administration, ETA 539 history with the latest ETA 538 advance weekly claims release. Values may be revised in a later release."
+      CCSA: "U.S. Department of Labor, Employment and Training Administration, ETA 539 history with the latest ETA 538 advance weekly claims release. Values may be revised in a later release."
+    permitted_use: public-domain
+    cadence_minutes: 10080
+  federal_reserve_data:
+    provider: federal_reserve_data
+    registry_domain: macro
+    datasets: [macro]
+    macro_series: [WALCL, WRESBAL, WTREGEN, DTWEXBGS, DTWEXAFEGS, DEXUSEU, DEXJPUS, DEXCHUS]
+    market_symbols: []
+    license_id: Federal-Reserve-Board-public-domain
+    license_url: https://www.federalreserve.gov/disclaimer.htm
+    attribution: "Board of Governors of the Federal Reserve System. H.4.1 and H.10 data; public domain, citation requested."
+    series_attribution:
+      WALCL: "Board of Governors of the Federal Reserve System, H.4.1 Table 5. Total assets, Wednesday level; USD millions."
+      WRESBAL: "Board of Governors of the Federal Reserve System, H.4.1 Table 1. Reserve balances, Wednesday level; USD millions."
+      WTREGEN: "Board of Governors of the Federal Reserve System, H.4.1 Table 1. U.S. Treasury General Account, Wednesday level; USD millions."
+      DTWEXBGS: "Board of Governors of the Federal Reserve System, H.10/G.5 nominal broad dollar index, monthly."
+      DTWEXAFEGS: "Board of Governors of the Federal Reserve System, H.10/G.5 nominal advanced foreign economies dollar index, monthly."
+      DEXUSEU: "Board of Governors of the Federal Reserve System, H.10/G.5 euro-area spot rate, monthly U.S. dollars per euro."
+      DEXJPUS: "Board of Governors of the Federal Reserve System, H.10/G.5 Japan spot rate, monthly yen per U.S. dollar."
+      DEXCHUS: "Board of Governors of the Federal Reserve System, H.10/G.5 China spot rate, monthly yuan per U.S. dollar."
+    permitted_use: public-domain
+    cadence_minutes: 10080
   fred:
     provider: fred
     registry_domain: macro
     datasets: [macro]
-    macro_series: [BAA10Y, VIXCLS, DFII10, DFF, PCEPILFE, T5YIFR, T10YIE, ICSA, CCSA, CIVPART,
-                   WALCL, WRESBAL, WTREGEN, RRPONTSYD, SOFR, DTWEXBGS, DTWEXAFEGS, DEXUSEU, DEXJPUS, DEXCHUS]
+    macro_series: [BAA10Y, VIXCLS]
     market_symbols: []
     license_id: FRED-citation-required
     license_url: https://fred.stlouisfed.org/legal/
@@ -113,7 +176,26 @@ sources:
     license_url: https://www.eia.gov/about/copyrights_reuse.php
     attribution: "U.S. Energy Information Administration, Weekly U.S. Ending Stocks of Crude Oil Excluding SPR (WCESTUS1)"
     permitted_use: public-domain
-    cadence_minutes: 15
+    cadence_minutes: 10080
+  world_bank_commodities:
+    provider: world_bank_commodities
+    registry_domain: commodities
+    datasets: [commodities]
+    commodity_series: [GC=F, SI=F, HG=F, CL=F]
+    license_id: CC-BY-4.0
+    license_url: https://datacatalog.worldbank.org/search/dataset/0038238/commodity-prices-history-and-projections
+    attribution: "World Bank Commodity Price Data (The Pink Sheet), monthly prices. CC BY 4.0. Values are monthly averages; units and series specifications follow the World Bank workbook."
+    permitted_use: public-redistribution
+    cadence_minutes: 43200
+  bls_calendar:
+    provider: bls_calendar
+    registry_domain: bls_calendar
+    datasets: [calendar]
+    license_id: public-domain
+    license_url: https://www.bls.gov/opub/copyright-information.htm
+    attribution: "U.S. Bureau of Labor Statistics. Release dates and times are from the BLS Online Calendar."
+    permitted_use: public-domain
+    cadence_minutes: 1440
   bea_calendar:
     provider: bea_calendar
     registry_domain: bea_calendar

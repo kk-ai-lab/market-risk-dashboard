@@ -109,7 +109,7 @@ class NewsCollector:
         self.registry = registry
         self.settings = settings or Settings()
         self.collection_plan = collection_plan or (
-            self.settings.load_public_source_policy().collection_plan()
+            self.settings.load_public_source_policy().collection_plan(public_output=True)
             if self.settings.approved_sources_only else None
         )
         # #102: importance rules come from the VALIDATED news_sources config (single shape,
@@ -233,6 +233,16 @@ class NewsCollector:
         source_failures = [source_id for source_id, status in source_status.items() if not status.get("ok", False)]
         if source_failures:
             self.degraded.append("RSS sources degraded: " + ", ".join(sorted(source_failures)))
+        source_details = [
+            f"{source_id}: {source_status[source_id].get('detail') or source_status[source_id].get('error')}"
+            for source_id in sorted(source_failures)
+            if source_status[source_id].get("detail") or source_status[source_id].get("error")
+        ]
+        source_error_code = next(
+            (str(source_status[source_id]["error_code"]) for source_id in sorted(source_failures)
+             if source_status[source_id].get("error_code")),
+            None,
+        )
 
         now = datetime.now(UTC)
         items: list[NewsItem] = []
@@ -289,6 +299,8 @@ class NewsCollector:
             "source_status": source_status,
             "provider_outcome": outcome,
             "data_quality": round(quality, 3),
+            "detail": "; ".join(source_details or self.degraded)[:200],
+            "error_code": source_error_code,
             # RSS exposes entry publication times but no trustworthy feed-level update time;
             # fetch timestamps are adapter observations and must not become provenance.
             "source_updated_at": None,

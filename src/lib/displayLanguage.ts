@@ -90,6 +90,29 @@ export function displayNewsSource(source: string | null | undefined, locale: Dis
 
 export function displayReasonDetail(detail: string | null | undefined, locale: DisplayLocale): string {
   const normalized = detail?.trim().toLowerCase() ?? "";
+  if (normalized.includes("data_sec_contact_email")) {
+    return translate(locale, "common", "display.reasonDetails.secContactEmail");
+  }
+  if (normalized.includes("bls_calendar") && normalized.includes("403")) {
+    return translate(locale, "common", "display.reasonDetails.blsCalendar403");
+  }
+  if (normalized.startsWith("risk inputs degraded")) {
+    return translate(locale, "common", "display.reasonDetails.riskInputsRights");
+  }
+  if (normalized.startsWith("aggregated from inputs; missing:") && (normalized.includes("equities") || normalized.includes("sectors"))) {
+    return translate(locale, "common", "display.reasonDetails.inputsMissingPublicMarketData");
+  }
+  const publicTargets = normalized.match(/no approved public source configured for (.+)$/)?.[1];
+  if (publicTargets) {
+    if (publicTargets === "equities") {
+      return translate(locale, "common", "display.reasonDetails.publicEquities");
+    }
+    if (publicTargets === "sectors") {
+      return translate(locale, "common", "display.reasonDetails.publicSectors");
+    }
+    const series = publicTargets.toUpperCase();
+    return `${translate(locale, "common", "display.reasonDetails.publicMacroSeries")} ${series}`;
+  }
   const key = normalized.includes("429") || normalized.includes("rate limited")
     ? "rateLimited"
     : normalized.includes("403") || normalized.includes("forbidden")

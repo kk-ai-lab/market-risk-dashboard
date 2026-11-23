@@ -18,8 +18,8 @@ expectations:
   sectors: { interval_minutes: 480, note: "Sector/theme aggregation runs with market collection" }
   crypto: { interval_minutes: 480, note: "Crypto 2-3 times/day, alongside market" }
   commodities:
-    { interval_minutes: 480, note: "Commodities futures (gold/silver/copper/oil) alongside market" }
-  energy: { interval_minutes: 15, note: "Cloud checks every 15 minutes; EIA WCESTUS1 observations are weekly" }
+    { interval_minutes: 43200, note: "World Bank Pink Sheet monthly average commodity prices" }
+  energy: { interval_minutes: 10080, note: "EIA WCESTUS1 inventory is published weekly" }
   macro:
     { interval_minutes: 240, note: "Macro 2-4h (FRED is actually T+1; judged by release schedule)" }
   calendar: { interval_minutes: 15, note: "Cloud release-schedule check every 15 minutes; publication dates follow each source" }
@@ -48,6 +48,12 @@ providers:
     - { name: fmp_quotes, priority: 2, max_concurrency: 1, min_interval_ms: 1000 }
   macro:
     - { name: fred, priority: 1, max_concurrency: 2, min_interval_ms: 600 }
+    - { name: nyfed_rates, priority: 2, max_concurrency: 1, min_interval_ms: 1000 }
+    - { name: federal_reserve_data, priority: 3, max_concurrency: 1, min_interval_ms: 750 }
+    - { name: bea_nipa, priority: 4, max_concurrency: 1, min_interval_ms: 1000 }
+    - { name: dol_claims, priority: 5, max_concurrency: 1, min_interval_ms: 1000 }
+  commodities:
+    - { name: world_bank_commodities, priority: 1, max_concurrency: 1, min_interval_ms: 1000 }
   energy:
     - { name: eia, priority: 1, max_concurrency: 1, min_interval_ms: 1000 }
   fedwatch:
@@ -68,6 +74,8 @@ providers:
     - { name: fred_calendar, priority: 1, max_concurrency: 2, min_interval_ms: 600 }
   bea_calendar:
     - { name: bea_calendar, priority: 1, max_concurrency: 1, min_interval_ms: 1000 }
+  bls_calendar:
+    - { name: bls_calendar, priority: 1, max_concurrency: 1, min_interval_ms: 1000 }
   a_share:
     # #97/#85: yfinance via the CN symbol mapper is the primary (US-hosted, 20/20 from
     # this host; the Eastmoney history tier akshare used is geo-blocked). akshare now

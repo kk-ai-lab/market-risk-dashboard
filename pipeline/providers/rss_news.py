@@ -40,7 +40,7 @@ class RssNewsProvider(BaseProvider):
     def __init__(self, settings=None, *, collection_plan=None) -> None:
         super().__init__(settings)
         self.collection_plan = collection_plan or (
-            self.settings.load_public_source_policy().collection_plan()
+            self.settings.load_public_source_policy().collection_plan(public_output=True)
             if self.settings.approved_sources_only else None
         )
         config = self.settings.load_news_sources_config()

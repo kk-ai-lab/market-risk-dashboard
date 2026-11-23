@@ -16,6 +16,12 @@ export function MacroIndicatorCard({ indicator }: MacroIndicatorCardProps) {
   const { t, i18n } = useTranslation("macro");
   const locale = i18n.language;
   const sourceLabel = t(`sources.${indicator.source}`, { defaultValue: indicator.source });
+  const sourceTermsUrl: Record<string, string> = {
+    "New York Fed": "https://www.newyorkfed.org/privacy/termsofuse",
+    "Federal Reserve Board": "https://www.federalreserve.gov/disclaimer.htm",
+    "Bureau of Economic Analysis": "https://www.bea.gov/open-data",
+    "U.S. Department of Labor": "https://oui.doleta.gov/unemploy/claims.asp",
+  };
   const observationAt = macroObservationTimestamp(
     indicator.observation_date,
     indicator.observation_period,
@@ -50,6 +56,11 @@ export function MacroIndicatorCard({ indicator }: MacroIndicatorCardProps) {
         {indicator.observation_period ? <p className="text-xs tabular-nums text-muted-foreground">{t("indicator.observationPeriod")}: {indicator.observation_period} · {sourceLabel}</p> : null}
         {indicator.observation_date ? <p className="text-xs tabular-nums text-muted-foreground">{t("indicator.observationDate")}: {indicator.observation_date} · {sourceLabel}</p> : null}
         {indicator.fetched_at ? <p className="text-xs tabular-nums text-muted-foreground">{t("indicator.fetchedAt")}: {formatDateTime(indicator.fetched_at, locale)}</p> : null}
+        {indicator.attribution ? (
+          <p className="text-xs text-muted-foreground">
+            {indicator.attribution}{sourceTermsUrl[indicator.source] ? <> <a className="underline underline-offset-2 hover:text-foreground" href={sourceTermsUrl[indicator.source]} target="_blank" rel="noreferrer">{t("indicator.terms")}</a></> : null}
+          </p>
+        ) : null}
         {!indicator.freshness_policy && timeBasedStatus ? <p className="text-xs text-muted-foreground">{t("indicator.freshnessUnavailable")}</p> : null}
       </CardContent>
     </Card>

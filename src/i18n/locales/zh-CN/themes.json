@@ -14,7 +14,10 @@
   },
   "commodities": {
     "na": "暂无商品数据",
-    "naHint": "商品数据源暂未返回数据，稍后自动恢复。"
+    "naHint": "商品数据源暂未返回数据，稍后自动恢复。",
+    "monthlyAverage": "月均值",
+    "monthChange": "月环比",
+    "monthlyDisclosure": "此处为基准商品月均价，并非实时期货报价。来源：世界银行《商品价格数据》（粉单）；知识共享署名 4.0 国际许可。"
   },
   "crypto": {
     "marketCap": "总市值",
@@ -47,6 +50,7 @@
     "unit": "千桶",
     "weeklyChange": "较上周变化",
     "weekEnding": "统计截至",
+    "sourceReleaseDate": "EIA 发布日期",
     "lastRetrieved": "最近成功拉取",
     "lastCheck": "最近检查：{{time}}",
     "checkTime": "最近检查：{{time}}",

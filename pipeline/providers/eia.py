@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 import math
 from datetime import date
 from typing import Any
@@ -15,15 +17,14 @@ from pipeline.providers.base import (
     guarded_client,
 )
 
-EIA_API_SERIES_ID = "PET.WCESTUS1.W"
-EIA_WEEKLY_INVENTORY_ENDPOINT = f"https://api.eia.gov/v2/seriesid/{EIA_API_SERIES_ID}"
+EIA_WEEKLY_INVENTORY_CSV = "https://ir.eia.gov/wpsr/psw00.csv"
+EIA_CSV_SERIES_ID = "WCESTUS1"
 
 
 class EiaProvider(BaseProvider):
     name = "eia"
     domain = "energy"
-    hosts = ("api.eia.gov",)
-    requires_api_key = True
+    hosts = ("ir.eia.gov",)
 
     def __init__(self, settings=None) -> None:
         super().__init__(settings)
@@ -31,56 +32,48 @@ class EiaProvider(BaseProvider):
         self._client = guarded_client(set(self.hosts), timeout=20.0)
 
     def health(self) -> ProviderHealth:
-        configured = bool(self.api_key and self.api_key.get_secret_value().strip())
-        return ProviderHealth(
-            provider=self.name,
-            ok=configured,
-            error=None if configured else "missing DATA_EIA_API_KEY",
-            checked_at=None,
-        )
+        try:
+            rows = self.get_weekly_inventory()
+            return ProviderHealth(provider=self.name, ok=bool(rows), error=None if rows else "empty inventory")
+        except ProviderError as exc:
+            return ProviderHealth(provider=self.name, ok=False, error=str(exc))
 
     def get_weekly_inventory(self) -> list[dict[str, Any]]:
-        """Fetch a bounded, sanitized list; never return the EIA response envelope."""
-        api_key = self.api_key.get_secret_value().strip() if self.api_key else ""
-        if not api_key:
-            raise ProviderError("EIA weekly inventory is not configured")
-
+        """Read official WPSR CSV; never return its source-specific envelope or other series."""
         try:
-            response = self._client.get(
-                EIA_WEEKLY_INVENTORY_ENDPOINT,
-                params={
-                    "api_key": api_key,
-                    "frequency": "weekly",
-                    "sort[0][column]": "period",
-                    "sort[0][direction]": "desc",
-                    "length": "260",
-                },
-            )
+            response = self._client.get(EIA_WEEKLY_INVENTORY_CSV)
         except httpx.TimeoutException as exc:
-            raise ProviderError("EIA weekly inventory request timed out", cls=TRANSIENT) from exc
+            raise ProviderError("EIA WPSR CSV request timed out", cls=TRANSIENT) from exc
         except httpx.TransportError as exc:
-            raise ProviderError("EIA weekly inventory transport failed", cls=TRANSIENT) from exc
+            raise ProviderError("EIA WPSR CSV transport failed", cls=TRANSIENT) from exc
         except ProviderError as exc:
-            raise ProviderError("EIA weekly inventory request was blocked") from exc
+            raise ProviderError("EIA WPSR CSV request was blocked") from exc
 
         if response.status_code != 200:
-            raise ProviderError.from_http("EIA weekly inventory", response)
+            raise ProviderError.from_http("EIA WPSR CSV", response)
 
         try:
-            body = response.json()
-            rows = body["response"]["data"]
-            if not isinstance(rows, list):
-                raise ValueError("invalid rows")
+            reader = csv.DictReader(io.StringIO(response.text))
+            required = {"Release_Date", "Date", "Sourcekey", "Value", "Suppression_Flag"}
+            if not reader.fieldnames or not required.issubset(reader.fieldnames):
+                raise ValueError("unexpected WPSR CSV columns")
             safe_rows: list[dict[str, Any]] = []
-            for row in rows:
-                if not isinstance(row, dict):
-                    raise ValueError("invalid row")
-                week_ending = date.fromisoformat(str(row["period"])).isoformat()
-                value = float(row["value"])
-                if not math.isfinite(value) or value < 0:
+            seen_dates: set[str] = set()
+            for row in reader:
+                if row.get("Sourcekey") != EIA_CSV_SERIES_ID:
+                    continue
+                if row.get("Suppression_Flag", "").strip():
+                    continue
+                release_date = date.fromisoformat(str(row["Release_Date"])).isoformat()
+                week_ending = date.fromisoformat(str(row["Date"])).isoformat()
+                value = float(row["Value"])
+                if not math.isfinite(value) or value < 0 or week_ending in seen_dates:
                     raise ValueError("invalid value")
-                safe_rows.append({"date": week_ending, "value": value})
+                seen_dates.add(week_ending)
+                safe_rows.append({"date": week_ending, "release_date": release_date, "value": value})
             safe_rows.sort(key=lambda item: item["date"])
+            if not safe_rows:
+                raise ValueError("no unsuppressed WCESTUS1 rows")
             return safe_rows[-260:]
         except (KeyError, TypeError, ValueError, OverflowError) as exc:
-            raise ProviderError("EIA weekly inventory response could not be parsed", cls=PERMANENT) from exc
+            raise ProviderError("EIA WPSR CSV could not be parsed", cls=PERMANENT) from exc

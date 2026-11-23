@@ -79,6 +79,7 @@ export function EnergyContextCard({
                   value={weeklyChange === null ? t("common:data.na") : `${formatSignedNumber(weeklyChange, locale, 1)} ${t("energy.unit")}`}
                 />
                 <Metric label={t("energy.weekEnding")} value={formatDate(`${latest.week_ending}T12:00:00`, locale)} />
+                <Metric label={t("energy.sourceReleaseDate")} value={latest.released_on ? formatDate(`${latest.released_on}T12:00:00`, locale) : t("common:data.na")} />
                 <Metric
                   label={t("energy.lastRetrieved")}
                   value={payload.last_successful_fetch_at ? formatDateTime(payload.last_successful_fetch_at, locale) : t("common:data.na")}

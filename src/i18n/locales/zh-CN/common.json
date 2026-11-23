@@ -32,9 +32,15 @@
     "degradedDesc": "部分数据源降级/回退，模型置信度已下调",
     "cacheReplay": "缓存回放",
     "cacheReplayDesc": "数据来自最近一次成功缓存，而非实时获取；请视为过期数据处理",
-    "snapshotAge": { "delayed": "快照延迟", "stale": "快照过期" },
+    "snapshotAge": {
+      "delayed": "快照延迟",
+      "stale": "快照过期"
+    },
     "snapshotAgeDesc": "显示发布快照的时间，不代表数据源的观测时间。",
-    "sourceAge": { "delayed": "来源延迟", "stale": "来源过期" },
+    "sourceAge": {
+      "delayed": "来源延迟",
+      "stale": "来源过期"
+    },
     "sourceAgeDesc": "基于底层数据中最早的来源观测时间。"
   },
   "error": {
@@ -92,7 +98,14 @@
       "noEvents": "所选时间窗内无事件",
       "connectionInterrupted": "数据源连接中断",
       "generic": "数据源详情不可用",
-      "unknown": "原因不可用"
+      "unknown": "原因不可用",
+      "publicEquities": "美股与中国内地股票行情暂无允许公开再分发的免费来源。",
+      "publicSectors": "暂无允许公开再分发的免费行业数据源。",
+      "publicMacroSeries": "以下宏观指标暂无公开再分发授权：",
+      "secContactEmail": "未配置必需的联系邮箱，本次未请求 SEC 新闻源。",
+      "blsCalendar403": "美国劳工统计局发布日历返回 403。",
+      "riskInputsRights": "宏观与股票行情缺少公开数据授权，风险评分证据不足，评分已隐藏。",
+      "inputsMissingPublicMarketData": "股票与行业数据没有公开再分发授权，因此首页与事实层数据不完整。"
     },
     "cryptoNames": {
       "bitcoin": "比特币",

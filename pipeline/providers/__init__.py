@@ -14,15 +14,21 @@ from pipeline.providers.base import (
     QuoteResult,
 )
 from pipeline.providers.bea_calendar import BeaCalendarProvider
+from pipeline.providers.bea_nipa import BeaNipaProvider
+from pipeline.providers.bls_calendar import BlsCalendarProvider
 from pipeline.providers.coingecko import CoinGeckoProvider
 from pipeline.providers.coinmetrics import CoinMetricsProvider
+from pipeline.providers.dol_claims import DolClaimsProvider
 from pipeline.providers.eia import EiaProvider
+from pipeline.providers.federal_reserve_data import FederalReserveDataProvider
 from pipeline.providers.fedwatch import FedWatchProvider
 from pipeline.providers.fmp import FmpProvider, FmpQuotesProvider
 from pipeline.providers.fred import FredProvider
 from pipeline.providers.fred_calendar import FredCalendarProvider
 from pipeline.providers.nasdaq import NasdaqCalendarProvider
+from pipeline.providers.nyfed_rates import NyfedRatesProvider
 from pipeline.providers.rss_news import RssNewsProvider
+from pipeline.providers.world_bank_commodities import WorldBankCommoditiesProvider
 from pipeline.providers.yahoo import YahooAShareProvider, YahooProvider
 from pipeline.settings import Settings
 
@@ -42,6 +48,12 @@ _PROVIDER_CLASSES: dict[str, type[BaseProvider]] = {
     "nasdaq": NasdaqCalendarProvider,
     "fred_calendar": FredCalendarProvider,
     "bea_calendar": BeaCalendarProvider,
+    "bea_nipa": BeaNipaProvider,
+    "dol_claims": DolClaimsProvider,
+    "bls_calendar": BlsCalendarProvider,
+    "world_bank_commodities": WorldBankCommoditiesProvider,
+    "nyfed_rates": NyfedRatesProvider,
+    "federal_reserve_data": FederalReserveDataProvider,
     "fedwatch": FedWatchProvider,
     "akshare": AkshareProvider,
     "rss_news": RssNewsProvider,
@@ -59,7 +71,7 @@ def build_default_providers(settings=None, *, collection_plan: ApprovedCollectio
     """
     s = settings or Settings()
     if s.approved_sources_only:
-        plan = collection_plan or s.load_public_source_policy().collection_plan()
+        plan = collection_plan or s.load_public_source_policy().collection_plan(public_output=True)
         providers: list[BaseProvider] = []
         grouped_grants: dict[tuple[str, str], list[SourceGrant]] = {}
         for grant in plan.grants:
@@ -121,7 +133,7 @@ def build_registry(settings=None, *, collection_plan: ApprovedCollectionPlan | N
     """Build a Registry with all Providers registered."""
     s = settings or Settings()
     plan = collection_plan or (
-        s.load_public_source_policy().collection_plan()
+        s.load_public_source_policy().collection_plan(public_output=True)
         if s.approved_sources_only else None
     )
     registry = ProviderRegistry(s, collection_plan=plan)
@@ -139,6 +151,8 @@ __all__ = [
     "FedWatchProvider",
     "FredProvider",
     "EiaProvider",
+    "BeaNipaProvider",
+    "DolClaimsProvider",
     "HistoryResult",
     "NasdaqCalendarProvider",
     "ProviderError",

@@ -21,7 +21,7 @@ export const isoDate = z.iso.date();
 export const AnalysisLanguage = z.enum(["zh-CN", "en"]);
 export type AnalysisLanguage = z.infer<typeof AnalysisLanguage>;
 
-export const CalendarSource = z.enum(["earnings", "economic", "bea_calendar"]);
+export const CalendarSource = z.enum(["earnings", "economic", "bea_calendar", "bls_calendar"]);
 export type CalendarSource = z.infer<typeof CalendarSource>;
 
 export const CalendarSourceState = z.enum(["fresh", "empty", "degraded", "not_configured"]);
@@ -255,6 +255,9 @@ export const CommodityAsset = z
     change_1m: z.number().finite().nullable().default(null),
     source: z.string().min(1),
     updated_at: utcDateTime,
+    frequency: z.enum(["daily", "monthly"]).default("daily"),
+    observation_period: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])$")).nullable().default(null),
+    price_unit: z.string().nullable().default(null),
   })
   .passthrough();
 export type CommodityAsset = z.infer<typeof CommodityAsset>;
@@ -538,6 +541,7 @@ export type DomainStatus = z.infer<typeof DomainStatus>;
 export const EnergyObservation = z
   .object({
     week_ending: isoDate,
+    released_on: isoDate.nullable().default(null),
     value: z.number().finite().min(0),
   })
   .passthrough();

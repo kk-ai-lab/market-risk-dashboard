@@ -26,8 +26,8 @@ function energyEnvelope(): EnergyEnvelope {
       series_id: "WCESTUS1",
       unit: "thousand_barrels",
       observations: [
-        { week_ending: previous, value: 409_500 },
-        { week_ending: latest, value: 412_000 },
+        { week_ending: previous, released_on: null, value: 409_500 },
+        { week_ending: latest, released_on: null, value: 412_000 },
       ],
       collection_status: "available",
       observation_age: "within_window",

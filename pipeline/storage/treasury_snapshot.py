@@ -14,8 +14,7 @@ import json
 import os
 import tempfile
 import time
-from collections.abc import Callable
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Literal, Protocol
@@ -24,7 +23,12 @@ from urllib.parse import parse_qs, urlsplit
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, FiniteFloat, model_validator
 
 from pipeline.providers.base import ProviderError
-from pipeline.providers.treasury import SERIES, TREASURY_XML
+from pipeline.providers.treasury import (
+    NOMINAL_SERIES,
+    REAL_SERIES,
+    SERIES,
+    TREASURY_XML,
+)
 
 TREASURY_CLOCK_SKEW_TOLERANCE = timedelta(seconds=30)
 
@@ -43,6 +47,7 @@ class TreasuryYear(BaseModel):
     model_config = ConfigDict(extra="forbid")
     year: int
     source: str
+    real_source: str | None = None
     checked_at: str
     date_semantics: Literal["observation_date"]
     series: dict[str, list[Observation]]
@@ -52,13 +57,26 @@ class TreasuryYear(BaseModel):
         stamp = datetime.fromisoformat(self.checked_at)
         if stamp.tzinfo is None or stamp.utcoffset() is None:
             raise ValueError("checked_at must include a timezone")
-        url, official = urlsplit(self.source), urlsplit(TREASURY_XML)
-        if (url.scheme, url.netloc, url.path) != (official.scheme, official.netloc, official.path) or url.fragment:
-            raise ValueError("source must be the official Treasury year feed")
-        if parse_qs(url.query) != {"data": ["daily_treasury_yield_curve"], "field_tdr_date_value": [str(self.year)]}:
-            raise ValueError("source must identify the requested year")
         if not self.series or not set(self.series).issubset(SERIES):
             raise ValueError("Treasury snapshot must contain approved maturities")
+        has_nominal = bool(set(self.series) & NOMINAL_SERIES) or "T10YIE" in self.series
+        has_real = bool(set(self.series) & REAL_SERIES) or "T10YIE" in self.series
+
+        def validate_source(source: str, *, real: bool) -> None:
+            url, official = urlsplit(source), urlsplit(TREASURY_XML)
+            if (url.scheme, url.netloc, url.path) != (official.scheme, official.netloc, official.path) or url.fragment:
+                raise ValueError("source must be an official Treasury year feed")
+            data_name = "daily_treasury_real_yield_curve" if real else "daily_treasury_yield_curve"
+            if parse_qs(url.query) != {"data": [data_name], "field_tdr_date_value": [str(self.year)]}:
+                raise ValueError("source must identify the requested Treasury year")
+
+        validate_source(self.source, real=not has_nominal)
+        if has_real and has_nominal:
+            if self.real_source is None:
+                raise ValueError("real Treasury observations require their source URL")
+            validate_source(self.real_source, real=True)
+        elif self.real_source is not None:
+            raise ValueError("unexpected secondary Treasury source")
         for rows in self.series.values():
             dates = [row.date for row in rows]
             if not dates or dates != sorted(set(dates)) or any(day.year != self.year or day > stamp.date() for day in dates):
@@ -283,13 +301,9 @@ def refresh_treasury_snapshot(directory: Path, provider: YearProvider, *, now: d
                 if year < now.year:
                     history_rechecked = True
                 request_start = now + timedelta(seconds=time.monotonic() - started)
-                result = (
-                    provider.get_yield_curve(year=year)
-                    if selected == set(SERIES)
-                    else provider.get_yield_curve(year=year, series_ids=sorted(selected))
-                )
+                result = provider.get_yield_curve(year=year, series_ids=sorted(selected))
                 request_end = now + timedelta(seconds=time.monotonic() - started)
-                candidate = TreasuryYear.model_validate({key: result[key] for key in ("year", "source", "checked_at", "date_semantics", "series")})
+                candidate = TreasuryYear.model_validate({key: result[key] for key in ("year", "source", "real_source", "checked_at", "date_semantics", "series") if key in result})
                 if candidate.year != year:
                     raise ValueError("Treasury returned a different year")
                 if set(candidate.series) != selected:
