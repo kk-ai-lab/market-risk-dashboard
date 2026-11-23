@@ -7,12 +7,13 @@ YAML loading utilities; used by Collectors since T03.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, Any
 
 import yaml
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 if TYPE_CHECKING:  # pragma: no cover - import-time only, resolves the lazy-typed annotations
@@ -45,6 +46,7 @@ class Settings(BaseSettings):
     )
 
     fred_api_key: SecretStr | None = Field(default=None, description="FRED API key (local .env)")
+    sec_contact_email: str | None = Field(default=None, description="SEC feed contact address (DATA_SEC_CONTACT_EMAIL)")
     eia_api_key: SecretStr | None = Field(default=None, description="EIA API key (local .env or cloud secret)")
     coingecko_api_key: str | None = Field(default=None, description="CoinGecko Demo key")
     fmp_api_key: str | None = Field(default=None, description="FMP free-tier key")
@@ -68,6 +70,16 @@ class Settings(BaseSettings):
     config_dir: Path = PROJECT_ROOT / "config"
     data_dir: Path = PROJECT_ROOT / "public" / "data"
     artifacts_dir: Path = PROJECT_ROOT / "artifacts"
+
+    @field_validator("sec_contact_email", mode="before")
+    @classmethod
+    def _valid_sec_contact_email(cls, value: object) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        email = str(value).strip()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            raise ValueError("DATA_SEC_CONTACT_EMAIL must be a valid email address")
+        return email
 
     # ---- YAML config loading ----
 

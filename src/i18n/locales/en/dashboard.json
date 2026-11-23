@@ -44,12 +44,24 @@
     "none": "No sector data"
   },
   "news": {
-    "title": "Important News",
-    "none": "No news"
+    "title": "Official announcements",
+    "none": "No official announcements",
+    "attribution": "Sources: Federal Reserve Board; U.S. SEC. Public domain."
   },
   "kpi": {
     "trend1d": "1D change",
+    "baaSpread": "Baa–10Y spread",
+    "baaAttribution": "Moody's via FRED",
+    "baaSpreadNote": "stands in for HY OAS",
     "hyOas": "HY OAS",
+    "igOas": "IG OAS",
+    "iceNote": "ICE Data Indices, LLC, via FRED",
+    "displayOnlyNote": "Shown for context; not a risk-score input",
+    "notConfigured": "Not configured",
+    "observed": "As of",
+    "fullCitation": "Full data citation",
+    "hyCitation": "Ice Data Indices, LLC, ICE BofA US High Yield Index Option-Adjusted Spread [BAMLH0A0HYM2], retrieved from FRED, Federal Reserve Bank of St. Louis.",
+    "igCitation": "Ice Data Indices, LLC, ICE BofA US Corporate Index Option-Adjusted Spread [BAMLC0A0CM], retrieved from FRED, Federal Reserve Bank of St. Louis.",
     "colDelta": "Δ 1D",
     "oneWeek": "1W",
     "oneMonth": "1M"

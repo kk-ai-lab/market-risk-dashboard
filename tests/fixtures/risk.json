@@ -90,8 +90,8 @@
         "score": 40.0,
         "indicators": [
           {
-            "key": "hy_oas",
-            "label": "HY OAS",
+            "key": "baa10y_spread",
+            "label": "Baa-10Y Spread",
             "value": 3.4,
             "percentile": 45.0,
             "z_score": 0.1,
@@ -351,7 +351,7 @@
     "regime": "late_cycle",
     "regime_evidence": [
       "10Y-2Y spread near inversion",
-      "HY OAS widening"
+      "Baa spread pressure"
     ],
     "confidence": 0.72,
     "confidence_factors": {

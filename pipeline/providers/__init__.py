@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pipeline.config.models import ApprovedCollectionPlan, ConfigError
+from pipeline.config.models import ApprovedCollectionPlan, ConfigError, SourceGrant
 from pipeline.fred_access import NotConfigured, fred_access
 from pipeline.providers.akshare_provider import AkshareProvider
 from pipeline.providers.base import (
@@ -16,10 +16,10 @@ from pipeline.providers.base import (
 from pipeline.providers.bea_calendar import BeaCalendarProvider
 from pipeline.providers.coingecko import CoinGeckoProvider
 from pipeline.providers.coinmetrics import CoinMetricsProvider
+from pipeline.providers.eia import EiaProvider
 from pipeline.providers.fedwatch import FedWatchProvider
 from pipeline.providers.fmp import FmpProvider, FmpQuotesProvider
 from pipeline.providers.fred import FredProvider
-from pipeline.providers.eia import EiaProvider
 from pipeline.providers.fred_calendar import FredCalendarProvider
 from pipeline.providers.nasdaq import NasdaqCalendarProvider
 from pipeline.providers.rss_news import RssNewsProvider
@@ -61,26 +61,31 @@ def build_default_providers(settings=None, *, collection_plan: ApprovedCollectio
     if s.approved_sources_only:
         plan = collection_plan or s.load_public_source_policy().collection_plan()
         providers: list[BaseProvider] = []
+        grouped_grants: dict[tuple[str, str], list[SourceGrant]] = {}
         for grant in plan.grants:
-            domain = grant.registry_domain
-            if domain is None:
-                continue
-            cls = _PROVIDER_CLASSES.get(grant.provider)
+            if grant.registry_domain is not None:
+                grouped_grants.setdefault((grant.registry_domain, grant.provider), []).append(grant)
+        for (domain, provider_name), grants in grouped_grants.items():
+            cls = _PROVIDER_CLASSES.get(provider_name)
             if cls is None:
                 raise ConfigError(
-                    f"public_sources.yaml: unknown provider {grant.provider!r}"
+                    f"public_sources.yaml: unknown provider {provider_name!r}"
                 )
-            if grant.provider == "coinmetrics" and not grant.market_symbols:
+            if provider_name == "coinmetrics":
+                symbols = frozenset(symbol for grant in grants for symbol in grant.market_symbols)
+                if not symbols:
+                    continue
+            if provider_name == "fred" and isinstance(fred_access(s), NotConfigured):
                 continue
-            if grant.provider == "fred" and isinstance(fred_access(s), NotConfigured):
-                continue
-            provider = (
-                CoinMetricsProvider(s, symbols=grant.market_symbols)
-                if grant.provider == "coinmetrics" else cls(s)
-            )
+            if provider_name == "coinmetrics":
+                provider = CoinMetricsProvider(s, symbols=symbols)
+            elif provider_name == "rss_news":
+                provider = RssNewsProvider(s, collection_plan=plan)
+            else:
+                provider = cls(s)
             if provider.domain != domain:
                 raise ConfigError(
-                    f"public_sources.yaml: {grant.provider!r} is a {provider.domain!r} "
+                    f"public_sources.yaml: {provider_name!r} is a {provider.domain!r} "
                     f"provider, not {domain!r}"
                 )
             provider.priority = len(providers)

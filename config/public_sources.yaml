@@ -38,18 +38,57 @@ sources:
     provider: fred
     registry_domain: macro
     datasets: [macro]
-    macro_series: [VIXCLS, DFII10, DFF, PCEPILFE, T5YIFR, T10YIE, ICSA, CCSA, CIVPART,
+    macro_series: [BAA10Y, VIXCLS, DFII10, DFF, PCEPILFE, T5YIFR, T10YIE, ICSA, CCSA, CIVPART,
                    WALCL, WRESBAL, WTREGEN, RRPONTSYD, SOFR, DTWEXBGS, DTWEXAFEGS, DEXUSEU, DEXJPUS, DEXCHUS]
     market_symbols: []
     license_id: FRED-citation-required
     license_url: https://fred.stlouisfed.org/legal/
     attribution: "Cboe via FRED; Moody's via FRED; Federal Reserve Bank of St. Louis (FRED)"
     series_attribution:
+      BAA10Y: "Moody's via FRED"
       VIXCLS: "Cboe via FRED"
     permitted_use: personal-use
     accepted_by: Kai
     accepted_on: 2026-11-20
     cadence_minutes: 60
+  fred_ice:
+    provider: fred
+    registry_domain: macro
+    datasets: [macro]
+    macro_series: [BAMLH0A0HYM2, BAMLC0A0CM]
+    market_symbols: []
+    license_id: ICE-Data-Indices-FRED
+    license_url: https://fred.stlouisfed.org/series/BAMLH0A0HYM2
+    attribution: "ICE Data Indices, LLC, via FRED"
+    series_attribution:
+      BAMLH0A0HYM2: "ICE BofA US High Yield Index Option-Adjusted Spread. Source: ICE Data Indices, LLC, via FRED"
+      BAMLC0A0CM: "ICE BofA US Corporate Index Option-Adjusted Spread. Source: ICE Data Indices, LLC, via FRED"
+    permitted_use: personal-use
+    accepted_by: Kai
+    accepted_on: 2026-11-20
+    cadence_minutes: 60
+  fed_press:
+    provider: rss_news
+    registry_domain: news
+    datasets: [news]
+    news_feeds: [fed]
+    market_symbols: []
+    license_id: public-domain
+    license_url: https://www.federalreserve.gov/disclaimer.htm
+    attribution: "Board of Governors of the Federal Reserve System"
+    permitted_use: public-domain
+    cadence_minutes: 15
+  sec_press:
+    provider: rss_news
+    registry_domain: news
+    datasets: [news]
+    news_feeds: [sec_press]
+    market_symbols: []
+    license_id: public-domain
+    license_url: https://www.sec.gov/privacy
+    attribution: "U.S. Securities and Exchange Commission"
+    permitted_use: public-domain
+    cadence_minutes: 15
   eia_weekly_crude_inventory:
     provider: eia
     registry_domain: energy

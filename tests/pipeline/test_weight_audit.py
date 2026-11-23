@@ -47,7 +47,7 @@ def test_configured_indicator_weights_use_indicator_share_not_raw_weight() -> No
     """A dimension spanning several indicators splits its weight by indicator share."""
     model = {
         "dimensions": {"a": {"weight": 20}},
-        "indicators": {"a": [{"key": "hy_oas", "weight": 10}, {"key": "vix", "weight": 10}]},
+        "indicators": {"a": [{"key": "baa10y_spread", "weight": 10}, {"key": "vix", "weight": 10}]},
     }
     weights = configured_indicator_weights(model)
 

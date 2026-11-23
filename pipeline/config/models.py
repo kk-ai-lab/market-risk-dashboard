@@ -191,6 +191,12 @@ class SourceGrant:
 class ApprovedCollectionPlan:
     grants: tuple[SourceGrant, ...]
 
+    def grants_for(self, provider: str, dataset: str) -> tuple[SourceGrant, ...]:
+        return tuple(
+            grant for grant in self.grants
+            if grant.provider == provider and dataset in grant.datasets
+        )
+
     def grant_for_dataset(self, dataset: str) -> SourceGrant | None:
         matches = tuple(grant for grant in self.grants if dataset in grant.datasets)
         if len(matches) > 1:
@@ -198,10 +204,7 @@ class ApprovedCollectionPlan:
         return matches[0] if matches else None
 
     def grant_for(self, provider: str, dataset: str) -> SourceGrant | None:
-        matches = tuple(
-            grant for grant in self.grants
-            if grant.provider == provider and dataset in grant.datasets
-        )
+        matches = self.grants_for(provider, dataset)
         if len(matches) > 1:
             raise ConfigError(f"public_sources.yaml: multiple grants for {provider!r}/{dataset!r}")
         return matches[0] if matches else None
@@ -211,6 +214,9 @@ class ApprovedCollectionPlan:
 
     def energy_grant_for(self, series_id: str) -> SourceGrant | None:
         return next((grant for grant in self.grants if series_id in grant.energy_series), None)
+
+    def news_feeds(self) -> frozenset[str]:
+        return frozenset(feed for grant in self.grants for feed in grant.news_feeds)
 
     def grant_for_rung(self, source: str, symbol: str) -> SourceGrant | None:
         return next(
@@ -590,6 +596,7 @@ class NewsSource(BaseModel):
     lang: Literal["en", "zh"] = "en"
     weight: int = Field(default=1, ge=0)
     category: str | None = None
+    requires_declared_ua: bool = False
     enabled: bool = True
     # #124: ordered fallback URL chain — a dead primary advances to the first fallback that
     # serves; one try per URL per run attempt. Every URL is https-only (S-3) and a chain

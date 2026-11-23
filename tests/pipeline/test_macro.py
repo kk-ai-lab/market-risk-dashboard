@@ -1,9 +1,9 @@
-"""Macro coverage (#96, uses #84): 27-series roster, units transforms, frequency-aware
+"""Macro coverage (#96, uses #84): 28-series roster, units transforms, frequency-aware
 change/status, memoised bounded FRED fetches, volatility group, history bundles + manifest."""
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -70,8 +70,8 @@ class TestRoster:
         """#84 §0 root cause: two lists drifted apart. One list now — the fetch loop
         iterates the grouping table, so the mismatch is structurally impossible."""
         assert DEFAULT_SERIES == [s for group in SERIES_GROUPS.values() for s in group]
-        assert len(DEFAULT_SERIES) == 27
-        assert len(set(DEFAULT_SERIES)) == 27  # no duplicates
+        assert len(DEFAULT_SERIES) == 28
+        assert len(set(DEFAULT_SERIES)) == 28  # no duplicates
 
     def test_roster_is_complete_against_the_catalog(self) -> None:
         """Every catalog series except the EFFR anchor is in the roster, and the roster
@@ -92,6 +92,29 @@ class TestRoster:
 
 
 class TestCollector:
+    def test_public_source_plan_fetches_granted_baa10y(self, tmp_path: Path, monkeypatch) -> None:
+        registry = _FakeRegistry(_all_series_rows())
+        settings = Settings(_env_file=None, fred_api_key="test", config_dir=Path(__file__).resolve().parents[2] / "config")
+        collector = MacroCollector(
+            registry,
+            settings,
+            collection_plan=settings.load_public_source_policy().collection_plan(),
+        )
+        monkeypatch.setattr("pipeline.collectors.macro.MacroCollector._collect_fedwatch", lambda self: None)
+
+        dataset = collector.collect()[0]
+
+        assert "BAA10Y" in [call[2] for call in registry.calls]
+        baa = next(indicator for indicator in dataset.credit if indicator.key == "baa10y")
+        assert baa.value is not None
+        assert baa.status != "missing"
+        assert baa.attribution == "Moody's via FRED"
+        assert baa.observation_date is not None
+        high_yield = next(indicator for indicator in dataset.credit if indicator.key == "bamlh0a0hym2")
+        investment_grade = next(indicator for indicator in dataset.credit if indicator.key == "bamlc0a0cm")
+        assert high_yield.attribution.startswith("ICE BofA US High Yield")
+        assert investment_grade.attribution.startswith("ICE BofA US Corporate")
+
     def test_all_groups_populated_with_volatility(self, tmp_path: Path, monkeypatch) -> None:
         registry = _FakeRegistry(_all_series_rows())
         collector = _collector(registry, tmp_path)
@@ -99,7 +122,7 @@ class TestCollector:
         dataset = collector.collect()[0]
 
         assert len(dataset.rates) == 4
-        assert len(dataset.credit) == 2
+        assert len(dataset.credit) == 3
         assert [i.key for i in dataset.volatility] == ["vixcls"]
         assert len(dataset.inflation) == 5
         assert len(dataset.labor) == 5
@@ -123,7 +146,7 @@ class TestCollector:
         assert by_id["DGS10"]["units"] == "lin"
         # #84 §4: every request bounded to the 5y window. The collector anchors on the UTC
         # date (not the runner-local one) — the assertion must match or it flakes on TZ.
-        expected_start = (datetime.now(timezone.utc).date() - timedelta(days=5 * 365)).isoformat()
+        expected_start = (datetime.now(UTC).date() - timedelta(days=5 * 365)).isoformat()
         for sid, kwargs in by_id.items():
             assert kwargs["start"] == expected_start, sid
 
@@ -214,7 +237,7 @@ class TestHistory:
         counts = write_macro_history(writer, rows_by_series, SERIES_GROUPS)
 
         # Layer 1: per-series append-only archive.
-        assert counts["archive"] == 27
+        assert counts["archive"] == 28
         archive = tmp_path / "history" / "macro" / "DGS10" / "daily.json"
         assert archive.exists()
         assert len(writer.read_history("macro/DGS10", "daily")) == 100
@@ -250,7 +273,7 @@ class TestHistory:
         rows_by_series["effr"] = _rows(30)  # FedWatch fallback anchor
         counts = write_macro_history(writer, rows_by_series, SERIES_GROUPS)
 
-        assert counts["archive"] == 27  # EFFR excluded
+        assert counts["archive"] == 28  # EFFR excluded
         assert not (tmp_path / "history" / "macro" / "None.30d.json").exists()
         assert not (tmp_path / "history" / "macro" / "EFFR" / "daily.json").exists()
         manifest = json.loads((tmp_path / "history" / "macro" / "index.json").read_text(encoding="utf-8"))

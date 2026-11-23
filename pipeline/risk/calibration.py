@@ -1,6 +1,6 @@
 """Offline calibration engine (architecture §1.8 frozen: 2008/2018/2020 three segments).
 
-All data is freely available: FRED VIXCLS/BAMLH0A0HYM2/DGS10 + yfinance SPX history.
+Inputs: FRED VIXCLS/BAA10Y + yfinance SPX history.
 Evaluation metrics (PRD §15 subset): early-warning lead time, risk score change speed,
 maximum drawdown, future 5/10/20/30-day volatility, risk level stability.
 Calibration red line: before calibration completes, the UI must not call the risk score
@@ -48,7 +48,7 @@ CALIBRATION_MACRO_GROUPS = {
     "dgs2": "rates",
     "dfii10": "rates",
     "dtwexbgs": "fx",
-    "bamlh0a0hym2": "credit",
+    "baa10y": "credit",
     "bamlc0a0cm": "credit",
     "vixcls": "volatility",
     "walcl": "liquidity",
@@ -59,7 +59,7 @@ CALIBRATION_MACRO_LABELS = {
     "dgs2": "2Y Yield",
     "dfii10": "10Y Real Rate",
     "dtwexbgs": "Dollar Index",
-    "bamlh0a0hym2": "HY OAS",
+    "baa10y": "Baa-10Y Spread",
     "bamlc0a0cm": "IG OAS",
     "vixcls": "VIX",
     "walcl": "Fed Balance Sheet",
@@ -67,11 +67,11 @@ CALIBRATION_MACRO_LABELS = {
 }
 
 
-def composite_score(vix: float | None, hy: float | None, drawdown: float | None) -> float:
-    """Simplified composite risk score (0-100): weighted combination of VIX + HY OAS + drawdown."""
+def composite_score(vix: float | None, baa_spread: float | None, drawdown: float | None) -> float:
+    """Simplified composite risk score (0-100): weighted combination of VIX + Baa-10Y + drawdown."""
     scores = [
         heuristic_risk_score("vix", vix),
-        heuristic_risk_score("hy_oas", hy),
+        heuristic_risk_score("baa10y_spread", baa_spread),
         heuristic_risk_score("drawdown_52w", drawdown),
     ]
     present = [s for s in scores if s is not None]
@@ -83,7 +83,7 @@ def composite_score(vix: float | None, hy: float | None, drawdown: float | None)
 def evaluate_segment(
     dates: list[str],
     vix_series: list[float | None],
-    hy_series: list[float | None],
+    baa_series: list[float | None],
     spx_series: list[float],
     segment: str,
 ) -> dict[str, Any]:
@@ -92,7 +92,7 @@ def evaluate_segment(
     for i in range(len(dates)):
         drawdown = _drawdown(spx_series[: i + 1])
         scores.append(composite_score(vix_series[i] if i < len(vix_series) else None,
-                                      hy_series[i] if i < len(hy_series) else None,
+                                      baa_series[i] if i < len(baa_series) else None,
                                       drawdown))
 
     peak_idx = spx_series.index(max(spx_series)) if spx_series else 0
@@ -116,10 +116,11 @@ def evaluate_segment(
             speed_days = i - start_idx
             break
 
-    # Future 5/10/20/30-day volatility (after the peak)
-    future_vol: dict[str, float | None] = {}
+    forward_daily_return_std_pct: dict[str, float | None] = {}
     for horizon in (5, 10, 20, 30):
-        future_vol[f"vol_{horizon}d"] = _future_vol(spx_series, peak_idx, horizon)
+        forward_daily_return_std_pct[f"{horizon}d"] = _forward_daily_return_std_pct(
+            spx_series, peak_idx, horizon
+        )
 
     # Risk level stability: number of switches across the 40/60 thresholds
     switches = 0
@@ -138,7 +139,7 @@ def evaluate_segment(
         "max_drawdown_pct": round(max_dd * 100.0, 2) if max_dd is not None else None,
         "early_warning_days_vs_peak": early_warning_days,
         "speed_40_to_60_days": speed_days,
-        "future_vol": future_vol,
+        "forward_daily_return_std_pct": forward_daily_return_std_pct,
         "level_switches": switches,
         "score_first": scores[0] if scores else None,
         "score_max": max(scores) if scores else None,
@@ -168,10 +169,8 @@ def _max_drawdown(series: list[float]) -> float | None:
     return worst
 
 
-def _future_vol(series: list[float], start: int, horizon: int) -> float | None:
-    import math
-
-    window = series[start : start + horizon]
+def _forward_daily_return_std_pct(series: list[float], start: int, horizon: int) -> float | None:
+    window = series[start : start + horizon + 1]
     if len(window) < 3:
         return None
     returns = [(window[i] - window[i - 1]) / window[i - 1] for i in range(1, len(window)) if window[i - 1] != 0]

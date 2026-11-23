@@ -337,7 +337,7 @@ describe("route rendering (fixtures data)", () => {
     ["macro", "宏观"],
     ["equities", "股票"],
     ["themes", "板块"],
-    ["news", "新闻"],
+    ["news", "官方公告"],
     ["calendar", "日历"],
     ["risklab", "风险实验室"],
     ["status", "系统状态"],
@@ -346,6 +346,40 @@ describe("route rendering (fixtures data)", () => {
     setHash(`#/zh/${page}`);
     renderApp();
     expect(await screen.findByTestId("page-title")).toHaveTextContent(title);
+  });
+
+  it("shows only announcements from the approved Fed and SEC feeds", async () => {
+    const news = structuredClone(FIXTURE_MAP["/latest/news.json"]) as {
+      payload: { items: Array<Record<string, unknown>>; total: number };
+    };
+    const official = news.payload.items[0];
+    news.payload.items.push(
+      {
+        ...official,
+        id: "unapproved-cnbc",
+        title: "Unapproved CNBC headline",
+        source: "CNBC",
+        source_id: "cnbc",
+      },
+      {
+        ...official,
+        id: "legacy-unidentified",
+        title: "Legacy unidentified headline",
+        source: "Unknown source",
+        source_id: null,
+      },
+    );
+    news.payload.total = news.payload.items.length;
+    installCustomFetch((url) => url.endsWith("/latest/news.json")
+      ? { ok: true, body: news }
+      : fixtureForUrl(url));
+    setHash("#/en/news");
+    renderApp();
+
+    expect(await screen.findByText("Federal Reserve releases corrected minutes")).toBeInTheDocument();
+    expect(screen.queryByText("Unapproved CNBC headline")).not.toBeInTheDocument();
+    expect(screen.queryByText("Legacy unidentified headline")).not.toBeInTheDocument();
+    expect(screen.getByText("Total news: 1")).toBeInTheDocument();
   });
 
   it("invalid language segment → redirects to /en/overview", async () => {

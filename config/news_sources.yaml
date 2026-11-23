@@ -11,6 +11,7 @@ sources:
   - { id: marketwatch, name: MarketWatch, url: "https://feeds.content.dowjones.io/public/rss/mw_topstories", lang: en, weight: 2 }
   - { id: investing, name: Investing.com, url: "https://www.investing.com/rss/news.rss", lang: en, weight: 2 }
   - { id: fed, name: Federal Reserve, url: "https://www.federalreserve.gov/feeds/press_all.xml", lang: en, weight: 4, category: central_bank }
+  - { id: sec_press, name: U.S. SEC, url: "https://www.sec.gov/news/pressreleases.rss", lang: en, weight: 4, category: regulator, requires_declared_ua: true }
   # Chinese sources (landed in R3; enabled defaults to true, an unreachable single source is marked degraded by the Provider rather than crashing)
   # Eastmoney official RSS (verified reachable 2026-08, 95 items/fetch) — authoritative official source
   - { id: eastmoney, name: 东方财富, url: "https://rss.eastmoney.com/rss_partener.xml", lang: zh, weight: 3 }

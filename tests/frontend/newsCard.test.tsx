@@ -29,6 +29,7 @@ function makeItem(overrides: Partial<NewsItem> = {}): NewsItem {
     summary_zh: "美联储将目标区间上调25个基点。",
     impact_window: null,
     ...overrides,
+    source_id: overrides.source_id ?? null,
   };
 }
 

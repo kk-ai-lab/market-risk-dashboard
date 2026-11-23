@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline calibration script (Architecture §1.8: 2008/2018/2020 segments → docs/calibration-report.md).
 
-All data is freely available: FRED VIXCLS/BAMLH0A0HYM2/DGS10 + yfinance SPX history.
+Inputs: FRED VIXCLS/BAA10Y + yfinance SPX history.
 Released with the repo (T05 removed the docs/ ignore); calibration boundary: the UI must not
 claim "exact crash probability" before calibration is complete.
 
@@ -50,8 +50,8 @@ def run_calibration(out_path: Path) -> int:
     report_lines.append("")
     report_lines.append("## Methodology")
     report_lines.append("")
-    report_lines.append("Run the simplified risk model on the 2008/2018/2020 windows (composite score of VIX + HY OAS + SPX drawdown),")
-    report_lines.append("evaluating: early warning lead time, risk score speed, maximum drawdown, forward 5/10/20/30-day volatility, and risk-level stability.")
+    report_lines.append("Run the simplified risk model on the 2008/2018/2020 windows (composite score of VIX + Baa-10Y spread + SPX drawdown),")
+    report_lines.append("evaluating: warning lead time versus the SPX peak, risk score speed, maximum drawdown, sample standard deviation of the next 5/10/20/30 daily SPX returns, and risk-level stability.")
     report_lines.append("This harness evaluates the HEURISTIC FALLBACK path (`heuristic_risk_score`), not the production percentile path in `pipeline/risk/scoring.py`.")
     report_lines.append("")
     report_lines.append("## Results")
@@ -61,26 +61,31 @@ def run_calibration(out_path: Path) -> int:
     for segment, meta in CALIBRATION_WINDOWS.items():
         start, end = meta["start"], meta["end"]
         vix_map = _fetch_fred_map("VIXCLS", start, end)
-        hy_map = _fetch_fred_map("BAMLH0A0HYM2", start, end)
+        baa_map = _fetch_fred_map("BAA10Y", start, end)
         spx_map = _fetch_spx_map(start, end)
-        # Align on common trading days (FRED and yfinance trading calendars are not synchronized)
-        common_dates = sorted(set(vix_map) & set(hy_map) & set(spx_map)) or sorted(set(spx_map))
-        if not common_dates or not spx_map:
-            report_lines.append(f"### {segment} ({meta['note']}) — ⚠️ data unavailable (network/rate limit), skipped")
+        common_dates = sorted(set(vix_map) & set(baa_map) & set(spx_map))
+        coverage = (
+            f"VIXCLS {len(vix_map)}, BAA10Y {len(baa_map)}, SPX {len(spx_map)}, "
+            f"common dates {len(common_dates)}"
+        )
+        if not common_dates:
+            report_lines.append(f"### {segment} ({meta['note']}) — skipped; no complete input dates ({coverage})")
             report_lines.append("")
             ok = False
             continue
         vix_values = [vix_map.get(d) for d in common_dates]
-        hy_values = [hy_map.get(d) for d in common_dates]
+        baa_values = [baa_map.get(d) for d in common_dates]
         spx_values = [spx_map[d] for d in common_dates]
-        result = evaluate_segment(common_dates, vix_values, hy_values, spx_values, segment)
+        result = evaluate_segment(common_dates, vix_values, baa_values, spx_values, segment)
         report_lines.append(f"### {segment} ({meta['note']})")
         report_lines.append("")
+        report_lines.append(f"- Input observations: {coverage}")
+        report_lines.append(f"- Common dates: {common_dates[0]} to {common_dates[-1]}")
         report_lines.append(f"- Trading days: {result['n_days']}")
         report_lines.append(f"- Max drawdown: {result['max_drawdown_pct']}%")
-        report_lines.append(f"- Early warning (score ≥60 vs peak): {result['early_warning_days_vs_peak']} days (positive = warned before peak)")
+        report_lines.append(f"- Warning lead time (score ≥60 vs SPX peak): {result['early_warning_days_vs_peak']} days (positive = before peak; negative = after peak)")
         report_lines.append(f"- Risk score 40→60 speed: {result['speed_40_to_60_days']} days")
-        report_lines.append(f"- Forward volatility after peak: {result['future_vol']}")
+        report_lines.append(f"- Forward return volatility after SPX peak (%): {result['forward_daily_return_std_pct']}")
         report_lines.append(f"- Risk level switches: {result['level_switches']}")
         report_lines.append(f"- Score range: first {result['score_first']} / peak {result['score_max']} / last {result['score_last']}")
         report_lines.append("")

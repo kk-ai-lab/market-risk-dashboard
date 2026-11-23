@@ -40,8 +40,8 @@ from pipeline.collectors.news import (
     news_translation_coverage,
     translation_sidecar_matches_news_batch,
 )
-from pipeline.config.models import ApprovedCollectionPlan
 from pipeline.factlayer import FactLayerBuilder
+from pipeline.fred_access import Configured, fred_access
 from pipeline.indicators.derived_series import derive_report
 from pipeline.metadata import oldest_source_timestamp, row_count_for
 from pipeline.providers import build_registry
@@ -75,7 +75,6 @@ from pipeline.schemas import (
     RiskModelResult,
     SectorsEnvelope,
 )
-from pipeline.fred_access import Configured, fred_access
 from pipeline.schemas import registry as dataset_registry
 from pipeline.schemas.envelope import (
     SOURCE_POLICY_EXCLUDED_REASON_CODE,
@@ -706,8 +705,12 @@ def _run_collection(command: str) -> dict[str, Any]:
                     source_errors["bls"] = "BLS local snapshot unavailable"
             macro_options["bls_snapshot"] = bls_snapshot
         if collection_plan is not None:
-            fred_grant = collection_plan.grant_for("fred", "macro")
-            if fred_grant is not None and isinstance(fred_access(settings), Configured):
+            fred_grants = collection_plan.grants_for("fred", "macro")
+            fred_series = tuple(dict.fromkeys(
+                series_id for grant in fred_grants for series_id in grant.macro_series
+            ))
+            fred_retry_minutes = min((grant.cadence_minutes for grant in fred_grants), default=60)
+            if fred_series and isinstance(fred_access(settings), Configured):
                 from contextlib import suppress
 
                 from pipeline.providers.fred import SERIES_CATALOG
@@ -744,8 +747,8 @@ def _run_collection(command: str) -> dict[str, Any]:
                         fred_snapshot = refresh_cloud_fred_snapshot(
                             checkpoint, settings.fred_checkpoint_path, fetch_fred,
                             now=datetime.now(UTC),
-                            series_ids=fred_grant.macro_series,
-                            retry_minutes=fred_grant.cadence_minutes,
+                            series_ids=fred_series,
+                            retry_minutes=fred_retry_minutes,
                         )
                     except CloudFredRefreshError as exc:
                         fred_snapshot = exc.snapshot
@@ -762,8 +765,8 @@ def _run_collection(command: str) -> dict[str, Any]:
                             settings.artifacts_dir / "fred" / "snapshot.json",
                             fetch_fred,
                             now=datetime.now(UTC),
-                            series_ids=fred_grant.macro_series,
-                            retry_minutes=fred_grant.cadence_minutes,
+                            series_ids=fred_series,
+                            retry_minutes=fred_retry_minutes,
                         )
                     except (FredSnapshotError, OSError):
                         source_errors["fred"] = "FRED snapshot unavailable"

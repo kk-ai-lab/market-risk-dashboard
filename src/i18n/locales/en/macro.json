@@ -51,6 +51,7 @@
     "dgs2": "2-Year Treasury Yield",
     "dfii10": "10-Year Real Yield",
     "dff": "Effective Federal Funds Rate",
+    "baa10y": "Baa Corporate Spread vs 10Y Treasury",
     "bamlh0a0hym2": "US High-Yield OAS",
     "bamlc0a0cm": "US Corporate OAS",
     "vixcls": "Volatility Index",

@@ -42,6 +42,7 @@ SERIES_CATALOG: dict[str, dict[str, str]] = {
     "DFII10": {"label": "10-Year Real Yield", "unit": "pct", "frequency": "daily", "scale": "pct"},
     "DFF": {"label": "Effective Federal Funds Rate", "unit": "pct", "frequency": "daily", "scale": "pct"},
     # credit
+    "BAA10Y": {"label": "Moody's Baa Corporate Yield minus 10Y Treasury", "unit": "pct", "frequency": "daily", "scale": "pct"},
     "BAMLH0A0HYM2": {"label": "ICE BofA US High Yield OAS", "unit": "pct", "frequency": "daily", "scale": "pct"},
     "BAMLC0A0CM": {"label": "ICE BofA US Corporate OAS", "unit": "pct", "frequency": "daily", "scale": "pct"},
     # volatility (#84 §5: VIX belongs in its own group, not under rates)

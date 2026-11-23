@@ -2,7 +2,7 @@
 
 Config (config/risk_model.yaml `indicators:`) is a fact, not documentation (ADR 0005).
 These tests assert the two sets are identical in both directions and that no indicator
-is registered in two dimensions (ruling B) — the `hy_oas` double-count must be
+is registered in two dimensions (ruling B) — the `baa10y_spread` double-count must be
 unrepeatable, not merely fixed.
 """
 
@@ -78,20 +78,20 @@ def test_every_registered_key_is_in_config() -> None:
 
 
 def test_no_indicator_registered_in_two_dimensions() -> None:
-    """Ruling B: one indicator in one dimension. hy_oas scored once, at weight 10.0."""
+    """Ruling B: one indicator in one dimension. baa10y_spread scored once, at weight 10.0."""
     config_keys, code_keys, double = _drift()
     assert not double, f"indicator registered in two dimensions: {double}"
 
-    # The named regression this rule exists for: hy_oas appears exactly once, under
+    # The named regression this rule exists for: baa10y_spread appears exactly once, under
     # liquidity_credit, at weight 10.0 (the macro registration is gone).
     model = RiskModel()
-    hy_oas_sites = [
+    baa10y_spread_sites = [
         (dim, ind.weight)
         for dim in _DIMENSION_BUILDERS
         for ind in getattr(model, _DIMENSION_BUILDERS[dim])({})
-        if ind.key == "hy_oas"
+        if ind.key == "baa10y_spread"
     ]
-    assert hy_oas_sites == [("liquidity_credit", 10.0)], f"hy_oas must be scored once at 10.0, found {hy_oas_sites}"
+    assert baa10y_spread_sites == [("liquidity_credit", 10.0)], f"baa10y_spread must be scored once at 10.0, found {baa10y_spread_sites}"
 
 
 def test_calibration_policy_covers_live_model_controls() -> None:

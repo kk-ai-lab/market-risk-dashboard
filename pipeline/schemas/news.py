@@ -34,11 +34,12 @@ def _validate_news_url(value: str) -> str:
 
 
 class NewsItem(ContractModel):
-    id: str = Field(min_length=1, description="sha1(title+source+published) dedupe key")
+    id: str = Field(min_length=1, description="sha1(feed_id|guid or canonical link) identity key")
     title: str = Field(min_length=1, description="Source headline; Chinese feeds retain Chinese until English translation arrives")
     title_zh: str | None = None
     lang: NewsSourceLang = Field(default="en", description="source feed language for UI fallback and translation routing (ADR-0003)")
     source: str = Field(min_length=1)
+    source_id: str | None = Field(default=None, min_length=1, description="configured RSS feed id")
     url: str = Field(min_length=1)
     published_at: UTCDateTime
     categories: list[str] = Field(default_factory=list)

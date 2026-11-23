@@ -13,9 +13,10 @@ size, not rate limits, was the constraint (#84 §4).
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
+from pipeline.config.models import ApprovedCollectionPlan
 from pipeline.fedwatch import (
     FedWatchInput,
     compute_fedwatch,
@@ -27,9 +28,7 @@ from pipeline.fedwatch import (
     save_history,
 )
 from pipeline.fred_access import Configured, NotConfigured, fred_access
-from pipeline.storage.fred_snapshot import FredSnapshot
 from pipeline.metadata import oldest_source_timestamp, quality_for_outcomes
-from pipeline.config.models import ApprovedCollectionPlan
 from pipeline.providers.base import ProviderError, ProviderRegistry
 from pipeline.providers.bls import SERIES as BLS_SERIES
 from pipeline.providers.fred import DEFAULT_SERIES_META, SERIES_CATALOG
@@ -38,6 +37,7 @@ from pipeline.schemas import FedWatchSnapshot, MacroDataset, MacroIndicator
 from pipeline.schemas.envelope import SOURCE_POLICY_EXCLUDED_REASON_CODE
 from pipeline.settings import Settings
 from pipeline.storage.bls_snapshot import BlsSnapshot
+from pipeline.storage.fred_snapshot import FredSnapshot
 from pipeline.storage.treasury_snapshot import TreasurySnapshot
 
 # FRED series → group (#96, uses #84 §1 roster). VIXCLS moved to its own `volatility`
@@ -45,7 +45,7 @@ from pipeline.storage.treasury_snapshot import TreasurySnapshot
 # `inflation` (an expectation measure, not a rate).
 SERIES_GROUPS: dict[str, list[str]] = {
     "rates": ["DGS10", "DGS2", "DFII10", "DFF"],
-    "credit": ["BAMLH0A0HYM2", "BAMLC0A0CM"],
+    "credit": ["BAA10Y", "BAMLH0A0HYM2", "BAMLC0A0CM"],
     "volatility": ["VIXCLS"],
     "inflation": ["CPIAUCSL", "CPILFESL", "PCEPILFE", "T5YIFR", "T10YIE"],
     "labor": ["PAYEMS", "UNRATE", "ICSA", "CCSA", "CIVPART"],
@@ -110,7 +110,7 @@ class MacroCollector:
         catalog = SERIES_CATALOG.get(series_id, {})
         # #84 §4: observation_start bounds every request to the 5y window (the risk model's
         # percentile window) — the full-history download was ~7 MB/run for 8 series.
-        start = (datetime.now(timezone.utc).date() - timedelta(days=MACRO_LOOKBACK_DAYS)).isoformat()
+        start = (datetime.now(UTC).date() - timedelta(days=MACRO_LOOKBACK_DAYS)).isoformat()
         units = catalog.get("units", "lin")
         try:
             out = self.registry.call(
@@ -223,6 +223,7 @@ class MacroCollector:
                         self.degraded.append(f"No approved public observation for {series_id}")
                     groups[_group_of(series_id)].append(MacroIndicator(
                         key=series_id.lower(), label=catalog["label"], source=source_label, status="missing",
+                        attribution=grant.series_attribution.get(series_id) if grant is not None else None,
                         unit=_unit(catalog.get("unit", "level")),
                     ))
                 elif bls is not None or treasury is not None:
@@ -244,8 +245,9 @@ class MacroCollector:
                 change_1m=_change(rows, FREQ_SPEC.get(frequency, FREQ_SPEC["daily"])["lookback"]),
                 unit=_unit(catalog.get("unit", "level")),
                 source="Treasury" if treasury is not None else "BLS" if bls is not None else "FRED",
+                attribution=grant.series_attribution.get(series_id) if grant is not None else None,
                 updated_at=None if bls is not None or treasury is not None else _utc_from_date(rows[-1]["date"]),
-                observation_date=rows[-1]["date"] if treasury is not None else None,
+                observation_date=rows[-1]["date"],
                 observation_period=rows[-1]["date"][:7] if frequency == "monthly" else None,
                 fetched_at=rows[-1]["fetched_at"] if treasury is not None else bls.fetched_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ") if bls is not None and bls.fetched_at is not None else None,
                 freshness_policy=_freshness_policy(frequency),
@@ -500,7 +502,7 @@ def _series_status(last_date: str, frequency: str) -> str:
     """
     try:
         # §8.2: compare against UTC, not the host's local date.
-        age_days = (datetime.now(timezone.utc).date() - date.fromisoformat(last_date)).days
+        age_days = (datetime.now(UTC).date() - date.fromisoformat(last_date)).days
     except ValueError:
         return "stale"
     threshold = FREQ_SPEC.get(frequency, FREQ_SPEC["daily"])["stale_days"]

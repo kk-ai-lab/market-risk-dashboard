@@ -3,7 +3,7 @@
 # When a dimension's coverage=0, its weight is redistributed proportionally across the remaining dimensions,
 # and confidence_factors.coverage is lowered accordingly.
 # ============================================================
-model_version: "1.1.0"
+model_version: "1.2.0"
 
 dimensions:
   macro: { weight: 20 }
@@ -22,7 +22,7 @@ indicators:
     - { key: dgs10, source: FRED, metric: DGS10, label: "10Y Yield", weight: 5 }
     - { key: sahm_style_labor_stress, source: BLS, metric: UNRATE, label: "Sahm-style Labor Stress", weight: 2.5 }
   liquidity_credit:
-    - { key: hy_oas, source: FRED, metric: BAMLH0A0HYM2, label: "High Yield OAS", weight: 10 }
+    - { key: baa10y_spread, source: FRED, metric: BAA10Y, label: "Baa Corporate Spread vs 10Y Treasury", weight: 10 }
     - { key: ig_oas, source: FRED, metric: BAMLC0A0CM, label: "Investment Grade OAS", weight: 5 }
     - { key: fed_balance_sheet, source: FRED, metric: WALCL, label: "Fed Balance Sheet", weight: 5 }
     - { key: reverse_repo, source: FRED, metric: RRPONTSYD, label: "Reverse Repo", weight: 5 }
@@ -102,7 +102,7 @@ calibration_policy:
       dollar_index: retain
       dgs10: retain
       sahm_style_labor_stress: change
-      hy_oas: retain
+      baa10y_spread: change
       ig_oas: retain
       fed_balance_sheet: retain
       reverse_repo: retain
@@ -131,6 +131,7 @@ calibration_policy:
     cross_asset_aggregation:
       cross_asset_confirmation: gate
   limitations:
+    - "Baa-10Y replaces ICE BofA HY OAS for licensing; it is an investment-grade spread and reacts later and less than HY."
     - "Latest-source history is revised and is not point-in-time vintage data."
     - "The confidence field is a data-trust score, not statistical confidence or a calibrated probability."
     - "Cross-asset confirmation remains proxy-backed until its deferred signals have governed inputs."
