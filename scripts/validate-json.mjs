@@ -439,12 +439,18 @@ function checkMetadata() {
   if (freshness && sources) {
     const UNHEALTHY = new Set(["degraded", "missing", "stale"]);
     for (const [domain, entry] of Object.entries(sources.domains || {})) {
-      const keys = Array.isArray(entry?.datasets) ? entry.datasets : [];
+      const rawKeys = entry?.datasets;
+      if (rawKeys !== undefined && !Array.isArray(rawKeys)) {
+        errors.push(`metadata/sources.json[${domain}].datasets: must be an array`);
+        continue;
+      }
+      const keys = rawKeys ?? [];
       for (const key of keys) {
         if (!CANONICAL_KEYS.includes(key)) {
           errors.push(`metadata/sources.json[${domain}].datasets: ${key} is not a registered dataset key`);
         }
       }
+      if (keys.length === 0) continue;
       if (typeof entry?.degraded !== "boolean") continue;
       const expected = keys.some((k) => UNHEALTHY.has(datasets[k]?.status));
       if (entry.degraded !== expected) {
