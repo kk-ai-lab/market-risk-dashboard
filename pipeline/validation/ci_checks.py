@@ -279,14 +279,22 @@ def _expected_minutes(dataset_key: str) -> int:
 def _check_risk_ranges(payload: dict[str, Any], report: CheckReport, name: str) -> None:
     """Explicit re-check of risk score ranges (Pydantic Field already constrains; double safety here)."""
     try:
-        raw_total = payload.get("total_score")
-        if raw_total is not None:
+        if "total_score" not in payload:
+            raise KeyError("total_score")
+        raw_total = payload["total_score"]
+        if raw_total is None:
+            if payload.get("evidence_state") != "insufficient_evidence":
+                report.error(f"{name}: total_score may be null only when evidence is insufficient")
+        else:
             total = float(raw_total)
             if not (0.0 <= total <= 100.0):
                 report.error(f"{name}: total_score out of range [0,100]: {total}")
         for dim in payload.get("dimensions", []):
-            raw_score = dim.get("score")
-            if raw_score is not None:
+            raw_score = dim.get("score", -1)
+            if raw_score is None:
+                if dim.get("evidence_state") != "insufficient_evidence":
+                    report.error(f"{name}: dimension {dim.get('key')} score may be null only when evidence is insufficient")
+            else:
                 score = float(raw_score)
                 if not (0.0 <= score <= 100.0):
                     report.error(f"{name}: dimension {dim.get('key')} score out of range [0,100]: {score}")
