@@ -693,7 +693,9 @@ class ProviderRegistry:
         except OSError:
             logger.warning("could not quarantine corrupt cache entry %s", path)
 
-    def _load_last_good(self, domain: str, key: str, method: str) -> tuple[Any, dict[str, Any]] | None:
+    def _load_last_good(
+        self, domain: str, key: str, method: str, *, allowed_providers: set[str] | None = None
+    ) -> tuple[Any, dict[str, Any]] | None:
         """Load a valid last-good cache entry, or ``None`` when it cannot be served (#66, S-2).
 
         A cache entry is served only when it is dated, younger than
@@ -709,6 +711,12 @@ class ProviderRegistry:
             self.collection_plan.providers_for_domain(domain)
             if self.collection_plan is not None else None
         )
+        if allowed_providers is not None:
+            allowed_cache_providers = (
+                set(allowed_providers)
+                if allowed_cache_providers is None
+                else set(allowed_cache_providers) & allowed_providers
+            )
         if allowed_cache_providers is not None and not allowed_cache_providers:
             return None
 
@@ -861,6 +869,10 @@ class ProviderRegistry:
         key: str,
         args: tuple = (),
         kwargs: dict[str, Any] | None = None,
+        *,
+        provider_names: set[str] | None = None,
+        authorization_dataset: str | None = None,
+        use_cache: bool = True,
     ) -> dict[str, Any]:
         """Call a Provider method along the degradation chain, returning (result, meta).
 
@@ -871,7 +883,58 @@ class ProviderRegistry:
         remaining symbols resolve through fallback/cache — degraded, never missing).
         """
         kwargs = kwargs or {}
+        if (
+            self.collection_plan is not None
+            and domain == "quotes"
+            and method in {"get_quote", "get_history"}
+        ):
+            symbol = str(args[0]) if args else ""
+            datasets = (
+                {authorization_dataset}
+                if authorization_dataset is not None
+                else {"equities", "sectors"}
+            )
+            target_providers = {
+                grant.provider
+                for grant in self.collection_plan.grants
+                if grant.registry_domain == domain
+                and symbol in grant.instrument_symbols
+                and datasets.intersection(grant.datasets)
+                and (not grant.methods or method in grant.methods)
+            }
+            provider_names = (
+                target_providers
+                if provider_names is None
+                else target_providers & provider_names
+            )
         providers = self.providers_for(domain)
+        allowed_target_providers = None
+        if self.collection_plan is not None and domain in {"quotes", "a_share"}:
+            if method == "get_history":
+                if (
+                    len(args) != 2 or not all(isinstance(arg, str) for arg in args)
+                    or key != f"hist_{args[0]}_{args[1]}"
+                ):
+                    raise ProviderError(f"[{domain}] no approved provider for requested operation")
+                symbol = args[0]
+                allowed_target_providers = (
+                    set(provider_names)
+                    if domain == "quotes" and provider_names is not None
+                    else {
+                        grant.provider for grant in self.collection_plan.grants
+                        if grant.registry_domain == domain and symbol in grant.instrument_symbols
+                        and (not grant.methods or method in grant.methods)
+                    }
+                )
+            elif domain == "quotes" and method == "get_quote" and len(args) == 1:
+                allowed_target_providers = set(provider_names or ())
+            else:
+                raise ProviderError(f"[{domain}] no approved provider for requested operation")
+            providers = [provider for provider in providers if provider.name in allowed_target_providers]
+            if not providers:
+                raise ProviderError(f"[{domain}] no approved provider for requested target")
+        elif provider_names is not None:
+            providers = [provider for provider in providers if provider.name in provider_names]
         errors: list[str] = []
 
         for index, provider in enumerate(providers):
@@ -887,6 +950,11 @@ class ProviderRegistry:
                 if is_partial:
                     partial_errors = list(result.errors)
                     result = result.result
+                if method == "get_history" and allowed_target_providers is not None and (
+                    not isinstance(result, HistoryResult)
+                    or result.symbol != args[0] or result.period != args[1]
+                ):
+                    raise ProviderError("History response does not match requested target")
                 meta = {
                     "provider": provider.name,
                     "used_fallback": index > 0,
@@ -911,8 +979,19 @@ class ProviderRegistry:
 
         # All Providers failed → last-good cache (expired/undated/version-mismatched entries
         # are not served, #66/S-2)
-        cached = self._load_last_good(domain, key, method)
-        if cached is not None:
+        cache_providers = allowed_target_providers if allowed_target_providers is not None else provider_names
+        cached = (
+            self._load_last_good(domain, key, method, allowed_providers=cache_providers)
+            if use_cache else None
+        )
+        if cached is not None and (
+            allowed_target_providers is None or cached[1]["provider"] in allowed_target_providers
+        ) and (
+            method != "get_history" or allowed_target_providers is None or (
+                isinstance(cached[0], HistoryResult)
+                and cached[0].symbol == args[0] and cached[0].period == args[1]
+            )
+        ):
             data, cache_meta = cached
             self.degraded_domains.add(domain)
             meta = {
@@ -929,6 +1008,30 @@ class ProviderRegistry:
             }
 
         raise ProviderError(f"[{domain}] all Providers failed: {'; '.join(errors)}")
+
+    def call_provider(
+        self,
+        domain: str,
+        provider_name: str,
+        method: str,
+        key: str,
+        args: tuple = (),
+        kwargs: dict[str, Any] | None = None,
+        *,
+        authorization_dataset: str | None = None,
+        use_cache: bool = True,
+    ) -> dict[str, Any]:
+        """Resolve one approved source rung while retaining registry retry/cache behavior."""
+        return self.call(
+            domain,
+            method,
+            key,
+            args=args,
+            kwargs=kwargs,
+            provider_names={provider_name},
+            authorization_dataset=authorization_dataset,
+            use_cache=use_cache,
+        )
 
     def _host_for(self, provider: BaseProvider) -> str:
         return provider.hosts[0] if provider.hosts else "general"

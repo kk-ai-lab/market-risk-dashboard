@@ -85,13 +85,14 @@ def test_policy_loads_licensed_sources_and_builds_only_approved_providers(tmp_pa
 
     providers = build_default_providers(settings)
     assert [(provider.name, provider.domain) for provider in providers] == [
+        ("yfinance", "quotes"),
         ("coinmetrics", "crypto"),
         ("rss_news", "news"),
         ("eia", "energy"),
         ("bea_calendar", "bea_calendar"),
     ]
-    assert isinstance(providers[0], CoinMetricsProvider)
-    assert providers[0].symbols == (
+    assert isinstance(providers[1], CoinMetricsProvider)
+    assert providers[1].symbols == (
         "BTC", "ETH", "SOL", "ADA", "XRP", "DOGE", "BNB", "LINK", "LTC", "AVAX",
     )
     assert policy.sources["coinmetrics"].market_symbols == [
@@ -131,7 +132,7 @@ def test_policy_plan_and_provider_factory_keep_the_selected_market_targets(tmp_p
     providers = build_default_providers(settings, collection_plan=plan)
 
     assert plan.grant_for_dataset("crypto").market_symbols == frozenset({"ETH"})
-    assert providers[0].symbols == ("ETH",)
+    assert next(provider for provider in providers if provider.name == "coinmetrics").symbols == ("ETH",)
 
 
 @pytest.mark.parametrize(
@@ -205,19 +206,25 @@ def test_policy_rejects_unapproved_provider_and_legacy_cache_fallback(tmp_path, 
     registry.cache_dir.mkdir(parents=True)
     provider = registry.providers_for("crypto")[0]
     monkeypatch.setattr(provider, "get_crypto_market", lambda: (_ for _ in ()).throw(ProviderError("offline")))
+    monkeypatch.setattr(registry.providers_for("quotes")[0], "get_quote", lambda *_: (_ for _ in ()).throw(ProviderError("offline")))
 
     with pytest.raises(ValueError, match="public source policy"):
         registry.register("crypto", CoinGeckoProvider(settings))
 
     legacy_crypto_cache = registry.cache_dir / "crypto__crypto_market.json"
     legacy_crypto_cache.write_text('{"provider":"coingecko","data":{"assets":[]}}')
-    legacy_quote_cache = registry.cache_dir / "quotes__quote_SPY.json"
+    legacy_quote_cache = registry.cache_dir / "quotes__quote_UNAPPROVED.json"
     legacy_quote_cache.write_text('{"provider":"yfinance","data":{}}')
 
     with pytest.raises(ProviderError):
         registry.call("crypto", "get_crypto_market", "crypto_market")
     with pytest.raises(ProviderError):
-        registry.call("quotes", "get_quote", "quote_SPY", args=("SPY",))
+        registry.call("quotes", "get_quote", "quote_UNAPPROVED", args=("UNAPPROVED",))
+    with pytest.raises(ProviderError):
+        registry.call_provider(
+            "quotes", "yfinance", "get_quote", "quote_SPY", args=("SPY",),
+            authorization_dataset="equities",
+        )
 
     assert legacy_crypto_cache.exists()
     assert legacy_quote_cache.exists()
@@ -283,7 +290,8 @@ def test_market_policy_collects_crypto_without_other_market_requests(tmp_path, m
         "market_cap_total": None,
         "sentiment": None,
     })
-    monkeypatch.setattr(MarketCollector, "_collect_history_plan", lambda self: pytest.fail("unapproved history was requested"))
+    monkeypatch.setattr(MarketCollector, "_collect_history_plan", lambda self: None)
+    monkeypatch.setattr(MarketCollector, "_collect_overview_instruments", lambda self: ([], []))
 
     market = MarketCollector(registry, AssetUniverse.load(settings), settings).collect()
 
@@ -296,8 +304,88 @@ def test_market_policy_collects_crypto_without_other_market_requests(tmp_path, m
     assert market["sectors"].themes == []
     assert market["histories"] == {}
     assert market["source_updated_at_by_dataset"]["crypto"] == "2026-11-15T12:00:00Z"
-    assert "approved public source" in market["degraded_detail_by_dataset"]["equities"]
     assert market["source_policy_excluded_datasets"] == ["commodities", "equities", "sectors"]
+
+
+def test_approved_risk_histories_request_only_three_granted_targets(tmp_path, monkeypatch):
+    from datetime import timedelta
+
+    from pipeline.indicators.breadth import breadth_snapshot
+    from pipeline.providers.base import HistoryResult
+    from pipeline.risk.model import RiskModel
+    from pipeline.run import _build_risk_context
+    from pipeline.schemas import (
+        CommoditiesEnvelope,
+        CryptoEnvelope,
+        EquitiesEnvelope,
+        MacroEnvelope,
+    )
+    from tests.pipeline.factories import make_envelope
+
+    settings = public_settings(tmp_path)
+    registry = build_registry(settings)
+    registry.max_retries = 0
+    registry._host_budgets["yfinance"] = (2, 0)
+    provider = registry.providers_for("quotes")[0]
+    requested = []
+
+    def history(symbol, period):
+        requested.append((symbol, period))
+        rows = [{"date": (date(2026, 1, 1) + timedelta(days=i)).isoformat(), "close": 100 + i}
+                for i in range(250)]
+        return HistoryResult(symbol=symbol, provider="yfinance", rows=rows, period=period)
+
+    monkeypatch.setattr(provider, "get_history", history)
+    monkeypatch.setattr(MarketCollector, "_collect_crypto", lambda self: CryptoDataset())
+    monkeypatch.setattr(MarketCollector, "_collect_overview_instruments", lambda self: ([], []))
+    result = MarketCollector(registry, AssetUniverse.load(settings), settings).collect()
+
+    assert set(requested) == {("SPY", "1y"), ("IWM", "1y"), ("SOXX", "1y")}
+    assert set(result["histories"]) == {"SPY", "IWM", "SOXX"}
+    assert breadth_snapshot(result["histories"])["breadth_considered"] == 3
+    assert result["equities"].assets == []
+    assert "equities" in result["source_policy_excluded_datasets"]
+    context_args = {
+        "macro": MacroEnvelope.model_validate(make_envelope("macro")),
+        "equities": EquitiesEnvelope.model_validate(make_envelope("equities")),
+        "crypto": CryptoEnvelope.model_validate(make_envelope("crypto")),
+        "commodities": CommoditiesEnvelope.model_validate(make_envelope("commodities")),
+        "qualities": [1.0], "prev_total_score": None, "prev_dim_scores": None,
+        "risk_history": [], "series_history": {},
+    }
+    model = RiskModel()
+    without = model.score(_build_risk_context(histories={}, **context_args))
+    with_histories = model.score(_build_risk_context(histories=result["histories"], **context_args))
+    assert with_histories.evidence_coverage > without.evidence_coverage
+    assert with_histories.evidence_coverage >= 0.5
+    assert with_histories.breadth.breadth_considered == 3
+
+
+def test_quote_registry_refuses_ungranted_targets_and_operations(tmp_path, monkeypatch):
+    settings = public_settings(tmp_path)
+    registry = build_registry(settings)
+    provider = registry.providers_for("quotes")[0]
+    history_calls = []
+    quote_calls = []
+    monkeypatch.setattr(provider, "get_history", lambda *args: history_calls.append(args))
+    monkeypatch.setattr(provider, "get_quote", lambda *args: quote_calls.append(args))
+    for key, args in [("hist_NVDA_1y", ("NVDA", "1y")), ("hist_NVDA_1y", ("SPY", "1y"))]:
+        with pytest.raises(ProviderError):
+            registry.call("quotes", "get_history", key, args=args)
+    with pytest.raises(ProviderError):
+        registry.call("quotes", "get_quote", "quote_NVDA", args=("NVDA",))
+    with pytest.raises(ProviderError):
+        registry.call_provider(
+            "quotes", "yfinance", "get_quote", "quote_SPY", args=("SPY",),
+            authorization_dataset="equities",
+        )
+    with pytest.raises(ProviderError):
+        registry.call_provider(
+            "quotes", "yfinance", "get_history", "hist_XLK_1y", args=("XLK", "1y"),
+            authorization_dataset="overview",
+        )
+    assert history_calls == []
+    assert quote_calls == []
 
 
 def test_market_collector_rejects_unapproved_coinmetrics_asset(tmp_path, monkeypatch):
@@ -317,7 +405,8 @@ def test_market_collector_rejects_unapproved_coinmetrics_asset(tmp_path, monkeyp
         ],
         "btc_dominance": None, "stablecoin_mcap": None, "market_cap_total": None, "sentiment": None,
     })
-    monkeypatch.setattr(MarketCollector, "_collect_history_plan", lambda self: pytest.fail("unapproved history was requested"))
+    monkeypatch.setattr(MarketCollector, "_collect_history_plan", lambda self: None)
+    monkeypatch.setattr(MarketCollector, "_collect_overview_instruments", lambda self: ([], []))
 
     result = MarketCollector(registry, AssetUniverse.load(settings), settings, collection_plan=plan).collect()
 
@@ -538,10 +627,10 @@ def test_unknown_chain_rung_rejected(tmp_path):
     unapproved = InstrumentsConfig.model_validate({
         "schema_version": "1.0.0",
         "instruments": {
-            "spx": {"kind": "index", "chain": [{"source": "yfinance", "symbol": "^GSPC"}]},
+            "spx": {"kind": "index", "chain": [{"source": "yfinance", "symbol": "UNAPPROVED"}]},
         },
     })
-    with pytest.raises(ConfigError, match="yfinance/\\^GSPC"):
+    with pytest.raises(ConfigError, match="yfinance/UNAPPROVED"):
         policy.validate_instrument_chains(unapproved)
 
     approved = InstrumentsConfig.model_validate({

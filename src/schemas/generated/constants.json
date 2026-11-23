@@ -29,7 +29,7 @@
     "input_dataset_unhealthy",
     "news_translation_incomplete"
   ],
-  "coinmetrics_expected_interval_minutes": 15,
+  "coinmetrics_expected_interval_minutes": 60,
   "energy_observation_window_days": 14,
   "risk_level_thresholds": {
     "risk_on": {

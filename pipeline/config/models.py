@@ -48,9 +48,10 @@ TARGET_FIELDS: dict[str, tuple[str, ...]] = {
     "equities": ("instrument_symbols", "index_series"),
     "sectors": ("instrument_symbols",),
     "crypto": ("market_symbols",),
+    "overview": ("instrument_symbols",),
     "energy": ("energy_series",),
 }
-PUBLIC_DATASETS = frozenset({"calendar", "commodities", "crypto", "energy", "equities", "macro", "news", "sectors"})
+PUBLIC_DATASETS = frozenset({"calendar", "commodities", "crypto", "energy", "equities", "macro", "news", "overview", "sectors"})
 PermittedUse = Literal["public-domain", "noncommercial", "personal-use"]
 
 
@@ -131,6 +132,7 @@ class PublicDataSource(BaseModel):
     provider: str = Field(min_length=1)
     registry_domain: str | None = None
     datasets: list[str] = Field(default_factory=list)
+    methods: list[Literal["get_quote", "get_history"]] = Field(default_factory=list)
     macro_series: list[str] = Field(default_factory=list)
     market_symbols: list[str] = Field(default_factory=list)
     energy_series: list[str] = Field(default_factory=list)
@@ -160,6 +162,7 @@ class SourceGrant:
     provider: str
     registry_domain: str | None
     datasets: frozenset[str]
+    methods: frozenset[str]
     macro_series: frozenset[str]
     market_symbols: frozenset[str]
     energy_series: frozenset[str]
@@ -218,11 +221,21 @@ class ApprovedCollectionPlan:
     def news_feeds(self) -> frozenset[str]:
         return frozenset(feed for grant in self.grants for feed in grant.news_feeds)
 
-    def grant_for_rung(self, source: str, symbol: str) -> SourceGrant | None:
+    def grant_for_rung(
+        self,
+        source: str,
+        symbol: str,
+        *,
+        dataset: str | None = None,
+        method: str | None = None,
+    ) -> SourceGrant | None:
         return next(
             (
                 grant for grant in self.grants
-                if source in (grant.source_id, grant.provider) and symbol in grant.targets
+                if source in (grant.source_id, grant.provider)
+                and symbol in grant.targets
+                and (dataset is None or dataset in grant.datasets)
+                and (method is None or not grant.methods or method in grant.methods)
             ),
             None,
         )
@@ -278,6 +291,7 @@ class PublicSourcePolicy(BaseModel):
                 provider=source.provider,
                 registry_domain=source.registry_domain,
                 datasets=frozenset(source.datasets),
+                methods=frozenset(source.methods),
                 macro_series=frozenset(source.macro_series),
                 market_symbols=frozenset(source.market_symbols),
                 energy_series=frozenset(source.energy_series),
@@ -300,10 +314,22 @@ class PublicSourcePolicy(BaseModel):
         grants = self.collection_plan().grants
         for key, instrument in config.instruments.items():
             for rung in instrument.chain:
-                if not any(
-                    rung.source in (grant.source_id, grant.provider) and rung.symbol in grant.targets
-                    for grant in grants
-                ):
+                if instrument.kind == "crypto":
+                    target_is_granted = any(
+                        rung.source in (grant.source_id, grant.provider)
+                        and rung.symbol in grant.market_symbols
+                        and "crypto" in grant.datasets
+                        for grant in grants
+                    )
+                else:
+                    target_is_granted = any(
+                        rung.source in (grant.source_id, grant.provider)
+                        and rung.symbol in grant.instrument_symbols
+                        and "overview" in grant.datasets
+                        and (not grant.methods or "get_quote" in grant.methods)
+                        for grant in grants
+                    )
+                if not target_is_granted:
                     raise ConfigError(
                         f"instruments.yaml: {key} rung {rung.source}/{rung.symbol} "
                         "has no public source grant"
@@ -355,8 +381,14 @@ class PublicSourcePolicy(BaseModel):
                 raise ValueError(f"{source_id} configures energy_series outside the energy dataset")
             if source.news_feeds and "news" not in source.datasets:
                 raise ValueError(f"{source_id} configures news_feeds outside the news dataset")
-            if source.instrument_symbols and not ({"equities", "sectors"} & set(source.datasets)):
-                raise ValueError(f"{source_id} configures instrument_symbols outside the equities or sectors dataset")
+            if source.instrument_symbols and not ({"equities", "overview", "sectors"} & set(source.datasets)):
+                raise ValueError(f"{source_id} configures instrument_symbols outside the equities, overview or sectors dataset")
+            if source.methods and (
+                not source.instrument_symbols
+                or source.registry_domain != "quotes"
+                or len(source.methods) != len(set(source.methods))
+            ):
+                raise ValueError(f"{source_id} methods require quote-domain instrument targets and unique operations")
             if source.index_series and "equities" not in source.datasets:
                 raise ValueError(f"{source_id} configures index_series outside the equities dataset")
             unknown_attribution = set(source.series_attribution) - set(source.macro_series)

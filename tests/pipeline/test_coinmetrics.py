@@ -52,8 +52,8 @@ def test_bulk_reference_rates(provider):
         assert route.call_count == 1
         request = route.calls[0].request
         assert dict(request.url.params) == {
-            "assets": "btc,eth", "metrics": "ReferenceRateUSD", "frequency": "1m",
-            "page_size": "2", "limit_per_asset": "1",
+            "assets": "btc,eth", "metrics": "ReferenceRateUSD", "frequency": "1h",
+            "page_size": "52", "limit_per_asset": "26", "paging_from": "end",
         }
         assert "authorization" not in request.headers
     assert [a["price"] for a in result["assets"]] == [95000.25, 3000.0]
@@ -75,9 +75,10 @@ def test_expanded_reference_rates_keep_catalog_order_and_source_fields(tmp_path)
         assert dict(route.calls[0].request.url.params) == {
             "assets": "btc,eth,sol,ada,xrp,doge,bnb,link,ltc,avax",
             "metrics": "ReferenceRateUSD",
-            "frequency": "1m",
-            "page_size": "10",
-            "limit_per_asset": "1",
+            "frequency": "1h",
+            "page_size": "260",
+            "limit_per_asset": "26",
+            "paging_from": "end",
         }
         assert [(asset["symbol"], asset["name"]) for asset in result["assets"]] == [
             (symbol, name) for symbol, _, name in EXPANDED_ASSETS
@@ -116,6 +117,39 @@ def test_selected_symbol_request_contains_only_the_approved_asset(tmp_path):
         assert [asset["symbol"] for asset in result["assets"]] == ["ETH"]
     finally:
         instance._client.close()
+
+
+def test_hourly_history_calculates_change_from_exact_24_hour_reference(provider):
+    history = [
+        {"asset": "btc", "ReferenceRateUSD": "100", "time": "2020-01-01T00:00:00Z"},
+        {"asset": "btc", "ReferenceRateUSD": "110", "time": "2020-01-02T00:00:00Z"},
+        {"asset": "eth", "ReferenceRateUSD": "200", "time": "2020-01-01T01:00:00Z"},
+        {"asset": "eth", "ReferenceRateUSD": "210", "time": "2020-01-02T01:00:00Z"},
+    ]
+    with respx.mock:
+        respx.get(CM_URL).respond(200, json={"data": history})
+        result = provider.get_crypto_market()
+
+    btc, eth = result["assets"]
+    assert (btc["price"], btc["change_1d"], btc["updated_at"]) == (
+        110.0, 10.0, "2020-01-02T00:00:00Z"
+    )
+    assert (eth["price"], eth["change_1d"], eth["updated_at"]) == (
+        210.0, 5.0, "2020-01-02T01:00:00Z"
+    )
+
+
+def test_hourly_history_leaves_change_unknown_without_exact_24_hour_reference(provider):
+    history = [
+        {"asset": "btc", "ReferenceRateUSD": "110", "time": "2020-01-02T00:00:00Z"},
+        {"asset": "eth", "ReferenceRateUSD": "210", "time": "2020-01-02T01:00:00Z"},
+        {"asset": "eth", "ReferenceRateUSD": "200", "time": "2020-01-01T00:00:00Z"},
+    ]
+    with respx.mock:
+        respx.get(CM_URL).respond(200, json={"data": history})
+        result = provider.get_crypto_market()
+
+    assert [asset["change_1d"] for asset in result["assets"]] == [None, None]
 
 
 @pytest.mark.parametrize("payload,match", [

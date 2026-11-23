@@ -19,7 +19,12 @@
     "details": "Show data table",
     "catEquities": "Equities",
     "catCrypto": "Crypto",
-    "catSectors": "Sectors"
+    "catSectors": "Sectors",
+    "catIndices": "Indices",
+    "catSectorEtfs": "SPDR sector ETFs",
+    "source": "Source / provider",
+    "retrievedAt": "Retrieved {{time}}",
+    "proxyDisclosure": "Proxy for {{symbol}}"
   },
   "trend": {
     "legacyEvidenceUnknown": "Some older scores do not record evidence coverage.",

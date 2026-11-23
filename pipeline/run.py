@@ -65,6 +65,7 @@ from pipeline.schemas import (
     CalendarEnvelope,
     CryptoEnvelope,
     DashboardAsset,
+    DashboardInstrument,
     DashboardPayload,
     EquitiesEnvelope,
     MacroDataset,
@@ -420,6 +421,8 @@ def _build_dashboard(
     crypto: Any,
     sectors: Any,
     calendar: Any,
+    index_performance: list[DashboardInstrument] | None = None,
+    sector_etfs: list[DashboardInstrument] | None = None,
 ) -> DashboardPayload:
     """Aggregate key fields from risk/crypto/equities/sectors/calendar (architecture §2 L299 + §3.6).
 
@@ -464,6 +467,8 @@ def _build_dashboard(
         cross_asset=cross_asset,
         catalysts=catalysts,
         sector_performance=sector_performance,
+        index_performance=index_performance or [],
+        sector_etfs=sector_etfs or [],
     )
 
 
@@ -550,7 +555,9 @@ def _run_collection(command: str) -> dict[str, Any]:
 
     if need_market:
         t0 = time.monotonic()
-        market_options = {"collection_plan": collection_plan} if collection_plan is not None else {}
+        market_options = {"previous_dashboard": StorageWriter(settings.data_dir).read_latest("dashboard")}
+        if collection_plan is not None:
+            market_options["collection_plan"] = collection_plan
         mc = MarketCollector(registry, universe, settings, **market_options)
         market = mc.collect()
         results.update(
@@ -559,6 +566,8 @@ def _run_collection(command: str) -> dict[str, Any]:
             commodities=market["commodities"],
             sectors=market["sectors"],
             histories=market["histories"],
+            index_performance=market["index_performance"],
+            sector_etfs=market["sector_etfs"],
         )
         results["market_meta"] = market
         results["degraded"].extend(market["degraded"])
@@ -1145,6 +1154,8 @@ def _run_risk_and_write(
             crypto=crypto,
             sectors=sectors,
             calendar=calendar,
+            index_performance=results.get("index_performance", []),
+            sector_etfs=results.get("sector_etfs", []),
         )
         # #174: the dashboard never contacts a provider, so its degraded reason must be
         # `input_dataset_unhealthy` naming the culprits at the aggregated worst status — NOT

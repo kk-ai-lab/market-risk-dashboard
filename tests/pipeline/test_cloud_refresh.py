@@ -44,6 +44,7 @@ def files():
         "latest/data.json": {"generated_at": STAMP, "fetched_at": STAMP, "value": 4.2},
         "history/data.json": [{"date": "2026-11-14", "value": 1}],
         "metadata/data.json": {"updated_at": STAMP},
+        "metadata/collection-config.json": {"sha256": cloud._collection_config_digest(Settings(_env_file=None))},
         **{
             path: {"generated_at": STAMP, "fetched_at": STAMP, "value": 4.2}
             for path in cloud.expected_latest_outputs()
@@ -403,6 +404,72 @@ def test_code_only_preserves_data_timestamps_and_calls_no_provider(
     assert state.writes == 0
 
 
+@pytest.mark.parametrize("fingerprint", [None, "0" * 64])
+def test_code_only_recollects_when_collection_config_is_unknown_or_changed(
+    tmp_path, files, setup, monkeypatch, fingerprint
+):
+    if fingerprint is None:
+        del files["metadata/collection-config.json"]
+    else:
+        files["metadata/collection-config.json"] = {"sha256": fingerprint}
+    root, generation = deployed(tmp_path, files)
+    paths, settings = setup
+    calls = []
+
+    def collect(isolated):
+        calls.append(True)
+        for relative, value in files.items():
+            target = isolated.data_dir / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(canonical_json(value))
+        return collected_receipt()
+
+    monkeypatch.setattr(cloud, "_collect_approved", collect)
+    import scripts.stage_publication as stage
+    monkeypatch.setattr(stage, "validate_candidate", lambda _: True)
+    state = Store(PublicationState(deployed=generation, last_attempt=1))
+    result = cloud.refresh_cloud(
+        mode="code-only", app_revision=EVENT_REVISION, checkpoint=state,
+        paths=paths, settings=settings, restorer=restorer(root),
+    )
+    assert calls == [True]
+    assert json.loads((result.generation_dir / "metadata/collection-config.json").read_bytes()) == {
+        "sha256": cloud._collection_config_digest(settings)
+    }
+
+
+@pytest.mark.parametrize("field,value", [
+    ("fred_api_key", "fred-secret"),
+    ("eia_api_key", "eia-secret"),
+    ("sec_contact_email", "contact@example.com"),
+])
+def test_adding_collection_credentials_triggers_collection(field, value, tmp_path, files, setup, monkeypatch):
+    paths, settings = setup
+    root, generation = deployed(tmp_path, files)
+    configured = settings.model_copy(update={field: Settings(_env_file=None, **{field: value}).__getattribute__(field)})
+    calls = []
+
+    def collect(isolated):
+        calls.append(True)
+        return collected_receipt()
+
+    monkeypatch.setattr(cloud, "_collect_approved", collect)
+    import scripts.stage_publication as stage
+    monkeypatch.setattr(stage, "validate_candidate", lambda _: True)
+    state = Store(PublicationState(deployed=generation, last_attempt=1))
+    cloud.refresh_cloud(
+        mode="code-only", app_revision=EVENT_REVISION, checkpoint=state,
+        paths=paths, settings=configured, restorer=restorer(root),
+    )
+    assert calls == [True]
+
+
+def test_fingerprint_does_not_depend_on_credential_values():
+    first = Settings(_env_file=None, fred_api_key="one", eia_api_key="one", sec_contact_email="one@example.com")
+    second = Settings(_env_file=None, fred_api_key="two", eia_api_key="two", sec_contact_email="two@example.com")
+    assert cloud._collection_config_digest(first) == cloud._collection_config_digest(second)
+
+
 @pytest.mark.parametrize("path", ["publication.json", "bls/ledger.json", "treasury/ledger.json"])
 @pytest.mark.parametrize("corrupt", [False, True])
 def test_missing_or_corrupt_state_fails_before_collection(path, corrupt, setup, monkeypatch):
@@ -678,6 +745,7 @@ def test_pipeline_adapter_forces_approved_mode_and_shared_cloud_branch(tmp_path,
         cloud_state_repo="owner/repo",
         cloud_state_token="test-token",
         cloud_state_branch="cloud-state",
+        sec_contact_email="contact@example.com",
     )
     monkeypatch.setenv("DATA_APPROVED_SOURCES_ONLY", "false")
     monkeypatch.setenv("DATA_FRED_API_KEY", "must-not-forward")
@@ -707,6 +775,7 @@ def test_pipeline_adapter_forces_approved_mode_and_shared_cloud_branch(tmp_path,
     assert env["DATA_BLS_CLOUD_ENABLED"] == env["DATA_TREASURY_CLOUD_ENABLED"] == "true"
     assert env["DATA_CLOUD_STATE_BRANCH"] == "cloud-state"
     assert "DATA_FRED_API_KEY" not in env
+    assert env["DATA_SEC_CONTACT_EMAIL"] == "contact@example.com"
 
 
 @pytest.mark.parametrize(

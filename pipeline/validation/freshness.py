@@ -28,7 +28,7 @@ from pipeline.utils import now_utc
 # only as fresh as its stalest input, so the worst status among its constituents wins.
 
 
-COINMETRICS_EXPECTED_MINUTES = 15
+COINMETRICS_EXPECTED_MINUTES = 60
 
 
 class FreshnessVerdict(NamedTuple):

@@ -1,6 +1,19 @@
 schema_version: "1.0.0"
 
 sources:
+  yahoo_risk_proxies:
+    provider: yfinance
+    registry_domain: quotes
+    datasets: [equities]
+    methods: [get_history]
+    instrument_symbols: [SPY, IWM, SOXX]
+    license_id: Yahoo-personal-use
+    license_url: https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html
+    attribution: "Yahoo Finance via yfinance"
+    permitted_use: personal-use
+    accepted_by: Kai
+    accepted_on: 2026-11-20
+    cadence_minutes: 1440
   coinmetrics:
     provider: coinmetrics
     registry_domain: crypto
@@ -11,7 +24,7 @@ sources:
     license_url: https://creativecommons.org/licenses/by-nc/4.0/
     attribution: "Data provided by Coin Metrics Community Network Data. Modified from source."
     permitted_use: noncommercial
-    cadence_minutes: 15
+    cadence_minutes: 60
   bls:
     provider: bls
     registry_domain: null
@@ -112,3 +125,16 @@ sources:
     attribution: "Source: U.S. Bureau of Economic Analysis. This product uses the Bureau of Economic Analysis (BEA) Data API but is not endorsed or certified by BEA."
     permitted_use: public-domain
     cadence_minutes: 15
+  yfinance_overview:
+    provider: yfinance
+    registry_domain: quotes
+    datasets: [overview]
+    methods: [get_quote]
+    instrument_symbols: [^GSPC, ^IXIC, ^DJI, ^RUT, ^VIX, SPY, QQQ, DIA, IWM, VIXY, XLB, XLC, XLE, XLF, XLI, XLK, XLP, XLRE, XLU, XLV, XLY]
+    license_id: Yahoo-Finance-terms
+    license_url: https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html
+    attribution: Yahoo Finance
+    permitted_use: personal-use
+    accepted_by: Kai
+    accepted_on: 2026-11-23
+    cadence_minutes: 480

@@ -1,5 +1,74 @@
 schema_version: "1.0.0"
 
-# Source preference chains for indices, sector ETFs and crypto. PR 2 ships the
-# schema and validation only; PR 10 fills the chain table.
-instruments: {}
+# Source preference chains for overview index rows and the eleven SPDR sector ETFs.
+# ETF fallbacks are explicit proxies; the dashboard preserves the proxy disclosure.
+instruments:
+  sp500:
+    kind: index
+    chain:
+      - { source: yfinance, symbol: ^GSPC }
+      - { source: yfinance, symbol: SPY, proxy_of: ^GSPC }
+  nasdaq:
+    kind: index
+    chain:
+      - { source: yfinance, symbol: ^IXIC }
+      - { source: yfinance, symbol: QQQ, proxy_of: ^IXIC }
+  dow:
+    kind: index
+    chain:
+      - { source: yfinance, symbol: ^DJI }
+      - { source: yfinance, symbol: DIA, proxy_of: ^DJI }
+  russell_2000:
+    kind: index
+    chain:
+      - { source: yfinance, symbol: ^RUT }
+      - { source: yfinance, symbol: IWM, proxy_of: ^RUT }
+  volatility_index:
+    kind: index
+    chain:
+      - { source: yfinance, symbol: ^VIX }
+      - { source: yfinance, symbol: VIXY, proxy_of: ^VIX }
+  sector_materials:
+    kind: sector_etf
+    chain:
+      - { source: yfinance, symbol: XLB }
+  sector_communication_services:
+    kind: sector_etf
+    chain:
+      - { source: yfinance, symbol: XLC }
+  sector_energy:
+    kind: sector_etf
+    chain:
+      - { source: yfinance, symbol: XLE }
+  sector_financials:
+    kind: sector_etf
+    chain:
+      - { source: yfinance, symbol: XLF }
+  sector_industrials:
+    kind: sector_etf
+    chain:
+      - { source: yfinance, symbol: XLI }
+  sector_technology:
+    kind: sector_etf
+    chain:
+      - { source: yfinance, symbol: XLK }
+  sector_consumer_staples:
+    kind: sector_etf
+    chain:
+      - { source: yfinance, symbol: XLP }
+  sector_real_estate:
+    kind: sector_etf
+    chain:
+      - { source: yfinance, symbol: XLRE }
+  sector_utilities:
+    kind: sector_etf
+    chain:
+      - { source: yfinance, symbol: XLU }
+  sector_health_care:
+    kind: sector_etf
+    chain:
+      - { source: yfinance, symbol: XLV }
+  sector_consumer_discretionary:
+    kind: sector_etf
+    chain:
+      - { source: yfinance, symbol: XLY }

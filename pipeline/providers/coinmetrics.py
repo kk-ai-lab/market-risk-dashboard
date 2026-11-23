@@ -13,7 +13,7 @@ import json
 import math
 import time
 from collections.abc import Iterable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -27,6 +27,7 @@ from pipeline.providers.base import BaseProvider, ProviderError, ProviderHealth,
 
 CM_URL = "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics"
 MAX_BYTES = 64 * 1024
+HISTORY_POINTS = 26
 
 
 class CoinMetricsProvider(BaseProvider):
@@ -50,8 +51,10 @@ class CoinMetricsProvider(BaseProvider):
         )
         self._params = {
             "assets": ",".join(COINMETRICS_BY_SYMBOL[symbol].asset_id for symbol in self.symbols),
-            "metrics": "ReferenceRateUSD", "frequency": "1m",
-            "page_size": len(self.symbols), "limit_per_asset": 1,
+            "metrics": "ReferenceRateUSD", "frequency": "1h",
+            "page_size": len(self.symbols) * HISTORY_POINTS,
+            "limit_per_asset": HISTORY_POINTS,
+            "paging_from": "end",
         }
         self._client = guarded_client(set(self.hosts), timeout=10.0)
 
@@ -95,15 +98,13 @@ class CoinMetricsProvider(BaseProvider):
         if not rows:
             raise ProviderError("Coin Metrics no data")
         expected_ids = {COINMETRICS_BY_SYMBOL[symbol].asset_id for symbol in self.symbols}
-        assets_by_id = {}
+        observations_by_asset: dict[str, dict[datetime, float]] = {}
         now = datetime.now(UTC)
         for row in rows:
             asset_id = row.get("asset") if isinstance(row, dict) else None
             asset = COINMETRICS_BY_ASSET_ID.get(asset_id) if isinstance(asset_id, str) else None
             if asset is None or asset_id not in expected_ids:
                 raise ProviderError("Coin Metrics malformed or unexpected asset")
-            if asset_id in assets_by_id:
-                raise ProviderError("Coin Metrics duplicate asset")
             raw_price, raw_time = row.get("ReferenceRateUSD"), row.get("time")
             try:
                 if isinstance(raw_price, bool) or not isinstance(raw_price, (str, int, float)):
@@ -118,15 +119,30 @@ class CoinMetricsProvider(BaseProvider):
                     raise ValueError("invalid or future time")
             except (ValueError, OverflowError) as exc:
                 raise ProviderError("Coin Metrics invalid price or source time") from exc
+            observed = observed.astimezone(UTC)
+            asset_observations = observations_by_asset.setdefault(asset_id, {})
+            if observed in asset_observations:
+                raise ProviderError("Coin Metrics duplicate asset observation")
+            asset_observations[observed] = price
+        if set(observations_by_asset) != expected_ids:
+            raise ProviderError("Coin Metrics partial approved-symbol data")
+        assets_by_id = {}
+        for asset_id, observations in observations_by_asset.items():
+            latest_time = max(observations)
+            latest_price = observations[latest_time]
+            reference_price = observations.get(latest_time - timedelta(hours=24))
+            change_1d = (
+                round((latest_price - reference_price) / reference_price * 100.0, 4)
+                if reference_price is not None else None
+            )
+            asset = COINMETRICS_BY_ASSET_ID[asset_id]
             assets_by_id[asset_id] = {
                 "symbol": asset.symbol, "name": asset.name,
-                "price": price, "source": self.name,
-                "updated_at": observed.astimezone(UTC).isoformat().replace("+00:00", "Z"),
-                "change_1d": None, "change_1w": None, "change_1m": None,
+                "price": latest_price, "source": self.name,
+                "updated_at": latest_time.isoformat().replace("+00:00", "Z"),
+                "change_1d": change_1d, "change_1w": None, "change_1m": None,
                 "market_cap": None, "volume_24h": None,
             }
-        if set(assets_by_id) != expected_ids:
-            raise ProviderError("Coin Metrics partial approved-symbol data")
         return {
             "assets": [
                 assets_by_id[COINMETRICS_BY_SYMBOL[symbol].asset_id]

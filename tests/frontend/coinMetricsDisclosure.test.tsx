@@ -31,13 +31,13 @@ it.each([
     "en",
     "Source observation",
     "BTC, ETH, SOL, ADA, XRP, DOGE, BNB, LINK, LTC, and AVAX are Coin Metrics market-wide reference rates, not exchange last trades",
-    "This source does not provide 24-hour changes",
+    "Daily changes appear only when an exact 24-hour reference is available",
   ],
   [
     "zh-CN",
     "来源观测时间",
     "所展示的加密资产价格为全市场参考价，并非单一交易所的最新成交价",
-    "该来源不提供 24 小时涨跌幅",
+    "仅在有精确的 24 小时参考价时显示日涨跌幅",
   ],
 ])(
   "shows ten reference assets, source timing, limits and the license in %s",
@@ -86,7 +86,7 @@ it("does not attribute non-Coin-Metrics crypto data to Coin Metrics", async () =
 it("ages Coin Metrics source observations on the system status page", async () => {
   await i18n.changeLanguage("en");
   const now = new Date().toISOString();
-  const oldSource = new Date(Date.now() - 60 * 60_000).toISOString();
+  const oldSource = new Date(Date.now() - 181 * 60_000).toISOString();
   const crypto = CryptoEnvelope.parse(FIXTURE_MAP["/latest/crypto.json"]);
   crypto.provenance.provider = "coinmetrics";
   crypto.source_updated_at = oldSource;
@@ -104,7 +104,7 @@ it("shows cache replay and source age together on the system status page", async
   const crypto = CryptoEnvelope.parse(FIXTURE_MAP["/latest/crypto.json"]);
   crypto.provenance.provider = "coinmetrics";
   crypto.provenance.from_cache = true;
-  crypto.source_updated_at = new Date(Date.now() - 60 * 60_000).toISOString();
+  crypto.source_updated_at = new Date(Date.now() - 181 * 60_000).toISOString();
   const freshness = structuredClone(FIXTURE_MAP["/metadata/freshness.json"]) as { datasets: Record<string, { status: string; updated_at: string }> };
   freshness.datasets.crypto.status = "degraded";
   freshness.datasets.crypto.updated_at = new Date().toISOString();

@@ -61,7 +61,7 @@ class ReusePlan:
 
 @dataclass(frozen=True)
 class CollectPlan:
-    reason: Literal["initial_bootstrap", "scheduled", "missing_outputs"]
+    reason: Literal["initial_bootstrap", "scheduled", "missing_outputs", "collection_config_changed"]
     missing_paths: tuple[str, ...] = ()
 
 
@@ -82,7 +82,8 @@ def expected_latest_outputs(specs: Sequence[DatasetSpec] = DATASETS) -> frozense
     )
 
 
-def choose_refresh_plan(*, mode: CloudMode, available_paths: Collection[str] | None) -> RefreshPlan:
+def choose_refresh_plan(*, mode: CloudMode, available_paths: Collection[str] | None,
+                        collection_config_matches: bool) -> RefreshPlan:
     if mode == "scheduled":
         return CollectPlan("scheduled")
     if mode != "code-only":
@@ -92,7 +93,23 @@ def choose_refresh_plan(*, mode: CloudMode, available_paths: Collection[str] | N
     missing_paths = tuple(sorted(expected_latest_outputs() - set(available_paths)))
     if missing_paths:
         return CollectPlan("missing_outputs", missing_paths)
+    if not collection_config_matches:
+        return CollectPlan("collection_config_changed")
     return ReusePlan()
+
+
+def _collection_config_digest(settings: Settings) -> str:
+    config = {}
+    for path in sorted(settings.config_dir.glob("*.yaml")):
+        config[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+    if not config:
+        raise CloudRefreshError("Collection configuration is missing")
+    credentials = {
+        "fred": bool(settings.fred_api_key and settings.fred_api_key.get_secret_value().strip()),
+        "eia": bool(settings.eia_api_key and settings.eia_api_key.get_secret_value().strip()),
+        "sec": bool(settings.sec_contact_email),
+    }
+    return hashlib.sha256(canonical_json({"config": config, "credentials": credentials})).hexdigest()
 
 
 def _valid_latest_output_path(value: str) -> bool:
@@ -604,6 +621,8 @@ def _collect_approved(
     )
     if fred_api_key:
         env["DATA_FRED_API_KEY"] = fred_api_key
+    if settings.sec_contact_email:
+        env["DATA_SEC_CONTACT_EMAIL"] = settings.sec_contact_email
     result = subprocess.run(
         [sys.executable, "-m", "pipeline.run", "--full"],
         cwd=settings.project_root,
@@ -674,9 +693,20 @@ def refresh_cloud(
             raise CloudRefreshError("Restored generation does not match checkpoint")
     parent = state.deployed.generation_id if state.deployed else None
     collection_logs_dir = None
+    config_digest = _collection_config_digest(settings)
+    fingerprint_path = "metadata/collection-config.json"
+    stored_digest = None
+    if restored is not None and fingerprint_path in manifest["files"]:
+        try:
+            fingerprint = load_json_rejecting_duplicates((restored / fingerprint_path).read_bytes())
+            if isinstance(fingerprint, dict) and set(fingerprint) == {"sha256"}:
+                stored_digest = fingerprint["sha256"]
+        except (OSError, ValueError, UnicodeError):
+            pass
     plan = choose_refresh_plan(
         mode=mode,
         available_paths=set(manifest["files"]) if manifest is not None else None,
+        collection_config_matches=stored_digest == config_digest,
     )
     if diagnostics is not None:
         diagnostics.record_plan(mode, plan)
@@ -726,6 +756,8 @@ def refresh_cloud(
                 if diagnostics is not None:
                     diagnostics.record_missing_registered_outputs()
                 raise
+        (data / fingerprint_path).parent.mkdir(parents=True, exist_ok=True)
+        (data / fingerprint_path).write_bytes(canonical_json({"sha256": config_digest}))
         try:
             pointer = stage_candidate(
                 data, store, parent_id=parent, revision=app_revision, created_at=now_utc()
