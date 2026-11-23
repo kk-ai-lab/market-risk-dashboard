@@ -149,7 +149,8 @@ def test_node_rejection_emits_only_safe_validation_families(
             returncode=1,
             stdout=(
                 "  [ERROR] history/macro/index.json: BAA10Y has value 123.45\n"
-                "  [ERROR] metadata/sources.json: source detail contains private text\n"
+                "  [ERROR] metadata/freshness.json[macro]: reason.detail must be a string; private text\n"
+                "  [ERROR] metadata/sources.json[macro]: degraded false disagrees with freshness.json (expected true)\n"
             ),
             stderr="provider response with private text",
         ),
@@ -163,7 +164,11 @@ def test_node_rejection_emits_only_safe_validation_families(
     assert diagnostic == {
         "event": "candidate_validation.failure",
         "validator": "node",
-        "families": ["macro_history", "metadata_projection"],
+        "families": [
+            "macro_history",
+            "metadata_freshness_reason",
+            "metadata_sources_freshness_projection",
+        ],
     }
     assert "123.45" not in json.dumps(diagnostic)
     assert "private" not in json.dumps(diagnostic)
