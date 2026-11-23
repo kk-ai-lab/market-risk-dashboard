@@ -48,13 +48,41 @@ export default function OverviewPage() {
     equity: t("heatmap.catEquities"),
     crypto: t("heatmap.catCrypto"),
     sector: t("heatmap.catSectors"),
+    index: t("heatmap.catIndices"),
+    sector_etf: t("heatmap.catSectorEtfs"),
   };
   const heatmapCells: HeatmapCell[] =
-    dashboard?.cross_asset.map((asset) => ({
-      asset: asset.asset,
-      category: categoryLabels[asset.category] ?? asset.category,
-      change1d: asset.change_1d,
-    })) ?? [];
+    dashboard
+      ? [
+          ...dashboard.cross_asset.map((asset) => ({
+            asset: asset.asset,
+            category: categoryLabels[asset.category] ?? asset.category,
+            change1d: asset.change_1d,
+            source: asset.source,
+            provider: null,
+            isProxy: false,
+            proxyOf: null,
+          })),
+          ...dashboard.index_performance.map((asset) => ({
+            asset: asset.symbol,
+            category: categoryLabels.index,
+            change1d: asset.change_1d,
+            source: asset.source,
+            provider: asset.provider,
+            isProxy: asset.is_proxy,
+            proxyOf: asset.proxy_of,
+          })),
+          ...dashboard.sector_etfs.map((asset) => ({
+            asset: asset.symbol,
+            category: categoryLabels.sector_etf,
+            change1d: asset.change_1d,
+            source: asset.source,
+            provider: asset.provider,
+            isProxy: asset.is_proxy,
+            proxyOf: asset.proxy_of,
+          })),
+        ]
+      : [];
   const catalysts = dashboard?.catalysts ?? [];
   const sectorBaskets = dashboard?.sector_performance ?? [];
 

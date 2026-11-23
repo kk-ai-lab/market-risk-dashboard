@@ -11,6 +11,10 @@ export interface HeatmapCell {
   asset: string;
   category: string;
   change1d: number | null;
+  source?: string | null;
+  provider?: string | null;
+  isProxy?: boolean;
+  proxyOf?: string | null;
 }
 
 export interface AssetHeatmapProps {
@@ -94,6 +98,16 @@ export function AssetHeatmap({ cells }: AssetHeatmapProps) {
                     <span className="break-words font-mono text-xs font-semibold text-foreground">{asset}</span>
                     <span className={`mt-2 text-sm font-semibold tabular-nums ${STATE_TEXT_CLASSES[state]}`}>{change}</span>
                     <span className="mt-0.5 text-xs text-muted-foreground">{t(`heatmap.state.${state}`)}</span>
+                    {cell.source || cell.provider ? (
+                      <span className="mt-1 break-words text-xs text-muted-foreground">
+                        {[cell.source, cell.provider].filter(Boolean).join(" · ")}
+                      </span>
+                    ) : null}
+                    {cell.isProxy ? (
+                      <span className="mt-1 text-xs text-muted-foreground">
+                        {t("heatmap.proxyDisclosure", { symbol: cell.proxyOf ?? cell.asset })}
+                      </span>
+                    ) : null}
                   </div>
                 );
               })}
@@ -111,6 +125,7 @@ export function AssetHeatmap({ cells }: AssetHeatmapProps) {
                 <th className="py-1.5 pr-2 font-medium">{t("heatmap.asset")}</th>
                 <th className="py-1.5 pr-2 font-medium">{t("heatmap.axis")}</th>
                 <th className="py-1.5 text-right font-medium">{t("heatmap.change")}</th>
+                <th className="py-1.5 pl-2 font-medium">{t("heatmap.source")}</th>
               </tr>
             </thead>
             <tbody>
@@ -121,6 +136,10 @@ export function AssetHeatmap({ cells }: AssetHeatmapProps) {
                     <td className="break-words py-1.5 pr-2">{cell.asset.trim() || t("common:empty.translationUnavailable")}</td>
                     <td className="break-words py-1.5 pr-2">{cell.category.trim() || t("heatmap.unknownCategory")}</td>
                     <td className="py-1.5 text-right tabular-nums">{state === "unavailable" ? t("heatmap.state.unavailable") : formatChange(cell.change1d, locale)}</td>
+                    <td className="break-words py-1.5 pl-2">
+                      {[cell.source, cell.provider].filter(Boolean).join(" · ") || t("common:data.na")}
+                      {cell.isProxy ? ` · ${t("heatmap.proxyDisclosure", { symbol: cell.proxyOf ?? cell.asset })}` : ""}
+                    </td>
                   </tr>
                 );
               })}

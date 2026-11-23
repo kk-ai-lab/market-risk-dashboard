@@ -11,7 +11,14 @@ from .analysis import AnalysisDataset, AnalysisLineage, CaseStatement, SignalCla
 from .calendar import CalendarDataset, CalendarEnvelope, CalendarEvent, CalendarSourceStatus
 from .commodities import CommoditiesDataset, CommoditiesEnvelope, CommodityAsset
 from .crypto import CryptoAsset, CryptoDataset, CryptoEnvelope
-from .dashboard import DashboardAsset, DashboardEnvelope, DashboardPayload, DashboardSector
+from .dashboard import (
+    DashboardAsset,
+    DashboardEnvelope,
+    DashboardInstrument,
+    DashboardPayload,
+    DashboardSector,
+)
+from .energy import EnergyDataset, EnergyEnvelope, EnergyObservation
 from .envelope import (
     BaseEnvelope,
     ContractModel,
@@ -19,7 +26,6 @@ from .envelope import (
     UTCDateTime,
     validate_utc_datetime,
 )
-from .energy import EnergyDataset, EnergyEnvelope, EnergyObservation
 from .equities import EquitiesDataset, EquitiesEnvelope, EquityAsset
 from .factlayer import EvidenceRef, FactLayer
 from .macro import (
@@ -72,6 +78,7 @@ __all__ = [
     "CrossAssetSignal",
     "DashboardAsset",
     "DashboardEnvelope",
+    "DashboardInstrument",
     "DashboardPayload",
     "DashboardSector",
     "DriverContribution",

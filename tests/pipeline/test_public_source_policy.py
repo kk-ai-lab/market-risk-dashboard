@@ -90,6 +90,7 @@ def test_policy_loads_licensed_sources_and_builds_only_approved_providers(tmp_pa
         ("rss_news", "news"),
         ("eia", "energy"),
         ("bea_calendar", "bea_calendar"),
+        ("fmp_quotes", "quotes"),
     ]
     assert isinstance(providers[1], CoinMetricsProvider)
     assert providers[1].symbols == (
@@ -213,13 +214,18 @@ def test_policy_rejects_unapproved_provider_and_legacy_cache_fallback(tmp_path, 
 
     legacy_crypto_cache = registry.cache_dir / "crypto__crypto_market.json"
     legacy_crypto_cache.write_text('{"provider":"coingecko","data":{"assets":[]}}')
-    legacy_quote_cache = registry.cache_dir / "quotes__quote_SPY.json"
+    legacy_quote_cache = registry.cache_dir / "quotes__quote_UNAPPROVED.json"
     legacy_quote_cache.write_text('{"provider":"yfinance","data":{}}')
 
     with pytest.raises(ProviderError):
         registry.call("crypto", "get_crypto_market", "crypto_market")
     with pytest.raises(ProviderError):
-        registry.call("quotes", "get_quote", "quote_SPY", args=("SPY",))
+        registry.call("quotes", "get_quote", "quote_UNAPPROVED", args=("UNAPPROVED",))
+    with pytest.raises(ProviderError):
+        registry.call_provider(
+            "quotes", "yfinance", "get_quote", "quote_SPY", args=("SPY",),
+            authorization_dataset="equities",
+        )
 
     assert legacy_crypto_cache.exists()
     assert legacy_quote_cache.exists()
@@ -286,6 +292,7 @@ def test_market_policy_collects_crypto_without_other_market_requests(tmp_path, m
         "sentiment": None,
     })
     monkeypatch.setattr(MarketCollector, "_collect_history_plan", lambda self: None)
+    monkeypatch.setattr(MarketCollector, "_collect_overview_instruments", lambda self: ([], []))
 
     market = MarketCollector(registry, AssetUniverse.load(settings), settings).collect()
 
@@ -363,7 +370,7 @@ def test_quote_registry_refuses_ungranted_targets_and_operations(tmp_path, monke
         with pytest.raises(ProviderError):
             registry.call("quotes", "get_history", key, args=args)
     with pytest.raises(ProviderError):
-        registry.call("quotes", "get_quote", "quote_SPY", args=("SPY",))
+        registry.call("quotes", "get_quote", "quote_NVDA", args=("NVDA",))
 
 
 def test_market_collector_rejects_unapproved_coinmetrics_asset(tmp_path, monkeypatch):
@@ -384,6 +391,7 @@ def test_market_collector_rejects_unapproved_coinmetrics_asset(tmp_path, monkeyp
         "btc_dominance": None, "stablecoin_mcap": None, "market_cap_total": None, "sentiment": None,
     })
     monkeypatch.setattr(MarketCollector, "_collect_history_plan", lambda self: None)
+    monkeypatch.setattr(MarketCollector, "_collect_overview_instruments", lambda self: ([], []))
 
     result = MarketCollector(registry, AssetUniverse.load(settings), settings, collection_plan=plan).collect()
 
@@ -604,10 +612,10 @@ def test_unknown_chain_rung_rejected(tmp_path):
     unapproved = InstrumentsConfig.model_validate({
         "schema_version": "1.0.0",
         "instruments": {
-            "spx": {"kind": "index", "chain": [{"source": "yfinance", "symbol": "^GSPC"}]},
+            "spx": {"kind": "index", "chain": [{"source": "yfinance", "symbol": "UNAPPROVED"}]},
         },
     })
-    with pytest.raises(ConfigError, match="yfinance/\\^GSPC"):
+    with pytest.raises(ConfigError, match="yfinance/UNAPPROVED"):
         policy.validate_instrument_chains(unapproved)
 
     approved = InstrumentsConfig.model_validate({

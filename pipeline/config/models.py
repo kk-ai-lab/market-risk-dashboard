@@ -48,9 +48,10 @@ TARGET_FIELDS: dict[str, tuple[str, ...]] = {
     "equities": ("instrument_symbols", "index_series"),
     "sectors": ("instrument_symbols",),
     "crypto": ("market_symbols",),
+    "overview": ("instrument_symbols",),
     "energy": ("energy_series",),
 }
-PUBLIC_DATASETS = frozenset({"calendar", "commodities", "crypto", "energy", "equities", "macro", "news", "sectors"})
+PUBLIC_DATASETS = frozenset({"calendar", "commodities", "crypto", "energy", "equities", "macro", "news", "overview", "sectors"})
 PermittedUse = Literal["public-domain", "noncommercial", "personal-use"]
 
 
@@ -300,10 +301,21 @@ class PublicSourcePolicy(BaseModel):
         grants = self.collection_plan().grants
         for key, instrument in config.instruments.items():
             for rung in instrument.chain:
-                if not any(
-                    rung.source in (grant.source_id, grant.provider) and rung.symbol in grant.targets
-                    for grant in grants
-                ):
+                if instrument.kind == "crypto":
+                    target_is_granted = any(
+                        rung.source in (grant.source_id, grant.provider)
+                        and rung.symbol in grant.market_symbols
+                        and "crypto" in grant.datasets
+                        for grant in grants
+                    )
+                else:
+                    target_is_granted = any(
+                        rung.source in (grant.source_id, grant.provider)
+                        and rung.symbol in grant.instrument_symbols
+                        and "overview" in grant.datasets
+                        for grant in grants
+                    )
+                if not target_is_granted:
                     raise ConfigError(
                         f"instruments.yaml: {key} rung {rung.source}/{rung.symbol} "
                         "has no public source grant"
@@ -355,8 +367,8 @@ class PublicSourcePolicy(BaseModel):
                 raise ValueError(f"{source_id} configures energy_series outside the energy dataset")
             if source.news_feeds and "news" not in source.datasets:
                 raise ValueError(f"{source_id} configures news_feeds outside the news dataset")
-            if source.instrument_symbols and not ({"equities", "sectors"} & set(source.datasets)):
-                raise ValueError(f"{source_id} configures instrument_symbols outside the equities or sectors dataset")
+            if source.instrument_symbols and not ({"equities", "overview", "sectors"} & set(source.datasets)):
+                raise ValueError(f"{source_id} configures instrument_symbols outside the equities, overview or sectors dataset")
             if source.index_series and "equities" not in source.datasets:
                 raise ValueError(f"{source_id} configures index_series outside the equities dataset")
             unknown_attribution = set(source.series_attribution) - set(source.macro_series)

@@ -21,6 +21,7 @@ if TYPE_CHECKING:  # pragma: no cover - import-time only, resolves the lazy-type
     # lazy inside each loader to avoid the module-level cycle (config.models → degrade →
     # settings).
     from pipeline.config.models import (
+        InstrumentsConfig,
         NewsSourcesConfig,
         PublicSourcePolicy,
         SourcesConfig,
@@ -139,6 +140,13 @@ class Settings(BaseSettings):
         from pipeline.config.models import UniverseConfig, load_config
 
         return load_config(self.config_dir / "universe.yaml", UniverseConfig)
+
+    def load_instruments_config(self) -> InstrumentsConfig:
+        from pipeline.config.models import InstrumentsConfig, load_config
+
+        config = load_config(self.config_dir / "instruments.yaml", InstrumentsConfig)
+        self.load_public_source_policy().validate_instrument_chains(config)
+        return config
 
     def load_themes_config(self) -> "ThemesConfig":
         """Validated themes.yaml: constituents resolve in universe.yaml and the #86 taxonomy

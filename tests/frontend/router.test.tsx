@@ -200,6 +200,50 @@ describe("route rendering (fixtures data)", () => {
     expect(metrics.responseBytes).toBeLessThan(previousFanout);
   });
 
+  it.each(["en", "zh"])("shows configured index and SPDR rows with source and proxy details in %s", async (locale) => {
+    const dashboard = structuredClone(FIXTURE_MAP["/latest/dashboard.json"]) as {
+      payload: {
+        cross_asset: Array<Record<string, unknown>>;
+        index_performance: Array<Record<string, unknown>>;
+        sector_etfs: Array<Record<string, unknown>>;
+      };
+    };
+    const indexSymbols = ["^GSPC", "^IXIC", "^DJI", "^RUT", "^VIX"];
+    const sectorSymbols = ["XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"];
+    dashboard.payload.index_performance = indexSymbols.map((symbol, index) => ({
+      key: `index_${index}`,
+      symbol: index === 0 ? "SPY" : symbol,
+      change_1d: 0.5,
+      source: index === 0 ? "Financial Modeling Prep" : "Yahoo Finance",
+      provider: index === 0 ? "fmp_quotes" : "yfinance",
+      is_proxy: index === 0,
+      proxy_of: index === 0 ? "^GSPC" : null,
+    }));
+    dashboard.payload.sector_etfs = sectorSymbols.map((symbol) => ({
+      key: symbol,
+      symbol,
+      change_1d: -0.25,
+      source: "Yahoo Finance",
+      provider: "yfinance",
+      is_proxy: false,
+      proxy_of: null,
+    }));
+    installCustomFetch((url) => url.endsWith("/latest/dashboard.json")
+      ? { ok: true, body: dashboard } : fixtureForUrl(url));
+    setHash(`#/${locale}/overview`);
+    renderApp();
+
+    const heatmap = await screen.findByTestId("asset-heatmap");
+    expect(within(heatmap).getAllByTestId("heatmap-cell")).toHaveLength(
+      dashboard.payload.cross_asset.length
+        + dashboard.payload.index_performance.length
+        + dashboard.payload.sector_etfs.length,
+    );
+    expect(within(heatmap).getAllByText(locale === "en" ? "SPDR sector ETFs" : "SPDR 板块 ETF").length).toBeGreaterThan(0);
+    expect(within(heatmap).getAllByText(locale === "en" ? "Proxy for ^GSPC" : "^GSPC 的代理指标").length).toBeGreaterThan(0);
+    expect(within(heatmap).getByText("Financial Modeling Prep · fmp_quotes")).toBeInTheDocument();
+  });
+
   it("attributes Coin Metrics crypto reference rates shown by the overview", async () => {
     const dashboard = structuredClone(FIXTURE_MAP["/latest/dashboard.json"]) as {
       payload: { cross_asset: Array<{ category: string; source?: string }> };

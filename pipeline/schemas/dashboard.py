@@ -30,6 +30,18 @@ class DashboardSector(ContractModel):
     change_1d: float | None = None
 
 
+class DashboardInstrument(ContractModel):
+    """Overview index or sector ETF row with provider and proxy provenance."""
+
+    key: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    change_1d: float | None = None
+    source: str | None = None
+    provider: str | None = None
+    is_proxy: bool = False
+    proxy_of: str | None = None
+
+
 class DashboardPayload(ContractModel):
     """dashboard.json payload (consistent with the frontend Zod strict structure)."""
 
@@ -39,6 +51,8 @@ class DashboardPayload(ContractModel):
     cross_asset: list[DashboardAsset] = Field(default_factory=list)
     catalysts: list[CalendarEvent] = Field(default_factory=list)
     sector_performance: list[DashboardSector] = Field(default_factory=list)
+    index_performance: list[DashboardInstrument] = Field(default_factory=list)
+    sector_etfs: list[DashboardInstrument] = Field(default_factory=list)
 
 
 class DashboardEnvelope(BaseEnvelope):

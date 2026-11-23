@@ -9,7 +9,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, NamedTuple
 
-from pipeline.config.models import ApprovedCollectionPlan, theme_history_symbols
+from pipeline.config.models import ApprovedCollectionPlan, ConfigError, theme_history_symbols
 from pipeline.indicators.technical import technical_snapshot
 from pipeline.indicators.themes import changes_from_closes, percentile_of_trailing_return
 from pipeline.metadata import latest_row_timestamp, oldest_source_timestamp, quality_for_outcomes
@@ -19,6 +19,7 @@ from pipeline.schemas import (
     CommodityAsset,
     CryptoAsset,
     CryptoDataset,
+    DashboardInstrument,
     EquitiesDataset,
     EquityAsset,
     MemoryProxy,
@@ -92,6 +93,8 @@ class MarketCollector:
             self.settings.load_public_source_policy().collection_plan()
             if self.settings.approved_sources_only else None
         )
+        self.instruments = self.settings.load_instruments_config()
+        self.source_policy = self.settings.load_public_source_policy()
         # #102 (C-1): the sector/theme taxonomy lives in config/themes.yaml, not in this
         # module. Loading it validates every constituent resolves in universe.yaml and
         # raises ConfigError before any provider is constructed. Labels are nowhere here —
@@ -186,6 +189,7 @@ class MarketCollector:
                 and "risk_breadth_trend" in labels
                 and any(
                     grant.provider == "yfinance" and grant.registry_domain == "quotes"
+                    and "equities" in grant.datasets
                     and key[1] in grant.instrument_symbols
                     for grant in self.collection_plan.grants
                 )
@@ -575,6 +579,62 @@ class MarketCollector:
         )
         return SectorsDataset(sectors=sectors, themes=themes, memory=memory)
 
+    def _collect_overview_instruments(self) -> tuple[list[DashboardInstrument], list[DashboardInstrument]]:
+        """Resolve configured overview rows through explicitly granted source rungs."""
+        policy_plan = self.source_policy.collection_plan()
+        indices: list[DashboardInstrument] = []
+        sector_etfs: list[DashboardInstrument] = []
+        for key, instrument in self.instruments.instruments.items():
+            if instrument.kind == "crypto":
+                continue
+            dataset = "overview"
+            target = sector_etfs if instrument.kind == "sector_etf" else indices
+            row: DashboardInstrument | None = None
+            if self.collection_plan is not None and not self.collection_plan.allows_dataset(dataset):
+                target.append(DashboardInstrument(key=key, symbol=instrument.chain[0].symbol))
+                continue
+            errors: list[str] = []
+            for index, rung in enumerate(instrument.chain):
+                grant = policy_plan.grant_for_rung(rung.source, rung.symbol)
+                if grant is None or dataset not in grant.datasets:
+                    raise ConfigError(
+                        f"instruments.yaml: {key} rung {rung.source}/{rung.symbol} "
+                        f"does not grant dataset {dataset}"
+                    )
+                if grant.registry_domain is None:
+                    raise ConfigError(f"instruments.yaml: {key} source {rung.source} has no provider route")
+                try:
+                    request_key = f"overview_{key}_{index}_{grant.provider}_{rung.symbol}"
+                    out = self.registry.call_provider(
+                        grant.registry_domain,
+                        grant.provider,
+                        "get_quote",
+                        request_key,
+                        args=(rung.symbol,),
+                        authorization_dataset=dataset,
+                    )
+                except ProviderError as exc:
+                    errors.append(str(exc))
+                    continue
+                quote = out["result"]
+                row = DashboardInstrument(
+                    key=key,
+                    symbol=rung.symbol,
+                    change_1d=quote.change_1d,
+                    source=grant.attribution or quote.source,
+                    provider=str(out["meta"].get("provider", grant.provider)),
+                    is_proxy=bool(rung.proxy_of or quote.is_proxy),
+                    proxy_of=rung.proxy_of,
+                )
+                break
+            if row is None:
+                first = instrument.chain[0]
+                row = DashboardInstrument(key=key, symbol=first.symbol)
+                if errors:
+                    self.provider_status.setdefault("overview_instruments", {})[key] = errors[-1]
+            target.append(row)
+        return indices, sector_etfs
+
     def _prefetch_theme_series(self) -> None:
         """Fetch every symbol behind the sector/theme series once, in a bounded thread pool.
 
@@ -739,6 +799,7 @@ class MarketCollector:
             name: quality_for_outcomes([name in self._dataset_degraded], settings=self.settings)
             for name in ("equities", "crypto", "commodities", "sectors")
         }
+        index_performance, sector_etfs = self._collect_overview_instruments()
         quality = round(sum(quality_by_dataset.values()) / len(quality_by_dataset), 3)
         risk_input_quality = quality_for_outcomes([self._risk_history_degraded], settings=self.settings)
         risk_data_quality = round(
@@ -791,6 +852,8 @@ class MarketCollector:
             "crypto": crypto,
             "commodities": commodities,
             "sectors": sectors,
+            "index_performance": index_performance,
+            "sector_etfs": sector_etfs,
             "histories": self.histories,
             "degraded": self.degraded,
             # ``quotes`` and ``a_share`` are internal routes within the canonical market

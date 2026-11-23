@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from pipeline.collectors.market import MarketCollector
-from pipeline.providers.base import HistoryResult, ProviderError
+from pipeline.providers.base import HistoryResult, ProviderError, QuoteResult
 from pipeline.schemas import CommoditiesDataset, CryptoDataset, EquitiesDataset, SectorsDataset
 from pipeline.settings import Settings
 from pipeline.universe import AssetUniverse
@@ -18,11 +18,25 @@ class _HistoryRegistry:
         self.failing_symbols = failing_symbols or set()
         self.degraded_domains: set[str] = set()
         self.calls: list[tuple[str, str, str, str]] = []
+        self.quote_calls: list[str] = []
 
     def resolved_provider(self, domain: str):
         return {"provider": "test-provider", "used_fallback": False, "from_cache": False}
 
+    def call_provider(self, domain, provider_name, method, key, args=(), kwargs=None, *, authorization_dataset=None):
+        return self.call(domain, method, key, args, kwargs)
+
     def call(self, domain: str, method: str, key: str, args=(), kwargs=None):
+        if method == "get_quote":
+            symbol = str(args[0])
+            self.quote_calls.append(symbol)
+            return {
+                "result": QuoteResult(
+                    symbol=symbol, price=100.0, change_1d=0.5,
+                    source="test", provider="test-provider",
+                ),
+                "meta": {"provider": "test-provider", "used_fallback": False, "from_cache": False},
+            }
         assert method == "get_history"
         symbol, period = str(args[0]), str(args[1])
         self.calls.append((domain, symbol, period, key))

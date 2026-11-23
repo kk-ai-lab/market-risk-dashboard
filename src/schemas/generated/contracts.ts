@@ -352,6 +352,20 @@ export const DashboardAsset = z
   .passthrough();
 export type DashboardAsset = z.infer<typeof DashboardAsset>;
 
+/** Overview index or sector ETF row with provider and proxy provenance. */
+export const DashboardInstrument = z
+  .object({
+    key: z.string().min(1),
+    symbol: z.string().min(1),
+    change_1d: z.number().finite().nullable().default(null),
+    source: z.string().nullable().default(null),
+    provider: z.string().nullable().default(null),
+    is_proxy: z.boolean().default(false),
+    proxy_of: z.string().nullable().default(null),
+  })
+  .passthrough();
+export type DashboardInstrument = z.infer<typeof DashboardInstrument>;
+
 /** Localized sector/theme performance entry used by the homepage read model. */
 export const DashboardSector = z
   .object({
@@ -455,6 +469,8 @@ export const DashboardPayload = z
     cross_asset: z.array(DashboardAsset).default([]),
     catalysts: z.array(CalendarEvent).default([]),
     sector_performance: z.array(DashboardSector).default([]),
+    index_performance: z.array(DashboardInstrument).default([]),
+    sector_etfs: z.array(DashboardInstrument).default([]),
   })
   .passthrough();
 export type DashboardPayload = z.infer<typeof DashboardPayload>;
