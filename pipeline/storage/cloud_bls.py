@@ -30,6 +30,8 @@ from pipeline.storage.github_checkpoint import (
 )
 from pipeline.storage.strict_json import load_json_rejecting_duplicates
 
+_PRE_CIVPART_BLS_SERIES = frozenset({"CPIAUCSL", "CPILFESL", "PAYEMS", "UNRATE"})
+
 
 class CloudBlsRefreshError(CheckpointError):
     """Refresh failed after reading a usable snapshot; only old values are safe."""
@@ -73,6 +75,19 @@ def _decode(content: bytes) -> CloudBlsLedger:
         snapshot = raw.get("snapshot")
         if not isinstance(snapshot, dict) or type(snapshot.get("version")) is not int or snapshot["version"] != 1:
             raise ValueError("invalid snapshot version")
+        series = snapshot.get("series")
+        if (
+            isinstance(series, dict)
+            and set(series) == _PRE_CIVPART_BLS_SERIES
+            and set(BLS_SERIES) == _PRE_CIVPART_BLS_SERIES | {"CIVPART"}
+        ):
+            raw = dict(raw)
+            snapshot = dict(snapshot)
+            snapshot["series"] = {
+                **series,
+                "CIVPART": {"rows": [], "fetched_at": None, "status": "missing"},
+            }
+            raw["snapshot"] = snapshot
         return CloudBlsLedger.model_validate_json(json.dumps(raw), strict=True)
     except (ValidationError, ValueError, TypeError, UnicodeError) as exc:
         raise SnapshotError("Cloud BLS ledger is invalid; refresh was not attempted") from exc
