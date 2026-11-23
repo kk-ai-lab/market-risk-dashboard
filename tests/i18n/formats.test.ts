@@ -124,10 +124,15 @@ describe("raw data conventions (architecture §8.2/§8.3)", () => {
     }
   });
 
-  it("risk score is a raw 0-100 number (not formatted at storage)", () => {
+  it("risk score is withheld when evidence is insufficient and raw otherwise", () => {
     const riskPath = path.join(dataDir, "risk.json");
     const risk = JSON.parse(readFileSync(riskPath, "utf-8"));
     const total = risk.payload.total_score;
+    if (risk.payload.evidence_state === "insufficient_evidence") {
+      expect(total).toBeNull();
+      expect(risk.payload.risk_level).toBeNull();
+      return;
+    }
     expect(typeof total).toBe("number");
     expect(total).toBeGreaterThanOrEqual(0);
     expect(total).toBeLessThanOrEqual(100);
