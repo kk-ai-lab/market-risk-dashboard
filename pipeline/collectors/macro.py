@@ -424,6 +424,8 @@ class MacroCollector:
             and (grant := self.collection_plan.macro_grant_for(series_id)) is not None
             and grant.provider == "fred"
         ]
+        if fred_not_configured_series:
+            self.degraded.append("FRED API key is not configured")
         detail_parts = []
         if self.source_errors:
             detail_parts.append("Source checkpoints degraded: " + ", ".join(sorted(self.source_errors)))
