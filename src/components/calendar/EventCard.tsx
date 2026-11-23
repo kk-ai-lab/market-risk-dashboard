@@ -3,12 +3,9 @@ import { Briefcase, Landmark } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { formatDateTime, formatUnitSuffix } from "@/lib/format";
-import { displayEventTitle } from "@/lib/displayLanguage";
+import { displayEventTitle, displayProvider } from "@/lib/displayLanguage";
 import type { CalendarEvent } from "@/schemas";
 
-/**
- * EventCard: calendar event card (economic / earnings; importance color + text; actual / forecast / previous).
- */
 export interface EventCardProps {
   event: CalendarEvent;
 }
@@ -43,7 +40,14 @@ export function EventCard({ event }: EventCardProps) {
           <span className="text-xs text-muted-foreground">{formatDateTime(event.datetime, locale)}</span>
         </div>
         <p className="text-base font-medium text-foreground">{displayEventTitle(event.title, locale)}</p>
-        <dl className="grid grid-cols-3 gap-1.5 text-xs">
+        <p className="text-xs text-muted-foreground">
+          {t("field.source")}: {event.source === "bea" ? (
+            <a className="underline underline-offset-2 hover:text-foreground" href="https://www.bea.gov/news/schedule/icalendar" target="_blank" rel="noopener noreferrer">
+              {displayProvider(event.source, locale)}
+            </a>
+          ) : displayProvider(event.source, locale)}
+        </p>
+        {event.source === "bea" ? <p className="text-xs text-muted-foreground">{t("bea.scheduleOnly")}</p> : <dl className="grid grid-cols-3 gap-1.5 text-xs">
           <div className="rounded bg-muted/50 px-1.5 py-1 text-center">
             <dt className="text-xs uppercase text-muted-foreground">{t("field.actual")}</dt>
             <dd className="tabular-nums">{valueWithUnit(event.actual)}</dd>
@@ -56,7 +60,7 @@ export function EventCard({ event }: EventCardProps) {
             <dt className="text-xs uppercase text-muted-foreground">{t("field.previous")}</dt>
             <dd className="tabular-nums">{valueWithUnit(event.previous)}</dd>
           </div>
-        </dl>
+        </dl>}
         {event.related_assets.length > 0 ? (
           <div className="flex flex-wrap gap-1 text-xs text-muted-foreground">
             {event.related_assets.map((a) => (

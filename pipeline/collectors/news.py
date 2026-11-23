@@ -10,18 +10,61 @@ from __future__ import annotations
 
 import hashlib
 import re
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
+from pipeline.config.models import ApprovedCollectionPlan
 from pipeline.metadata import quality_for_outcomes
 from pipeline.providers.base import ProviderError, ProviderRegistry
 from pipeline.schemas import NewsDataset, NewsItem, NewsTranslation, NewsTranslationsDataset
+from pipeline.schemas.envelope import SOURCE_POLICY_EXCLUDED_REASON_CODE
 from pipeline.settings import Settings
 from pipeline.universe import AssetUniverse
 from pipeline.utils import now_utc
 
 _HTML_RE = re.compile(r"<[^>]+>")
 _CJK_RE = re.compile(r"[\u3400-\u9fff]")
+
+
+@dataclass(frozen=True)
+class NewsIdentity:
+    id: str
+    content_hash: str
+    feed_id: str
+    canonical_url: str
+
+
+def canonical_link(url: str) -> str:
+    parsed = urlsplit(url)
+    host = (parsed.hostname or "").lower()
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    port = parsed.port
+    netloc = f"{host}:{port}" if port and not (
+        (parsed.scheme.lower() == "https" and port == 443)
+        or (parsed.scheme.lower() == "http" and port == 80)
+    ) else host
+    path = parsed.path.rstrip("/") or "/"
+    return urlunsplit((parsed.scheme.lower(), netloc, path, "", ""))
+
+
+def _news_identity(item: dict[str, Any]) -> NewsIdentity:
+    feed_id = str(item.get("source_id") or "unknown")
+    guid = str(item.get("guid") or "").strip()
+    canonical_url = canonical_link(str(item["url"]))
+    identity = guid or canonical_url
+    title_key = _normalize_title(str(item.get("title") or ""))
+    content_hash = hashlib.sha1(
+        f"{title_key}|{item.get('published_at', '')}".encode()
+    ).hexdigest()
+    return NewsIdentity(
+        id=hashlib.sha1(f"{feed_id}|{identity}".encode()).hexdigest(),
+        content_hash=content_hash,
+        feed_id=feed_id,
+        canonical_url=canonical_url,
+    )
 
 
 def _normalize_title(text: str) -> str:
@@ -36,10 +79,39 @@ def _normalize_title(text: str) -> str:
     return re.sub(r"\W+", "", text or "").lower()
 
 
+def news_translation_coverage(news: NewsDataset) -> tuple[int, int]:
+    complete = sum(
+        bool(
+            item.title_zh
+            and _CJK_RE.search(item.title_zh)
+            and (not item.summary or (item.summary_zh and _CJK_RE.search(item.summary_zh)))
+            and not _CJK_RE.search(item.title)
+            and not _CJK_RE.search(item.summary)
+        )
+        for item in news.items
+    )
+    return complete, len(news.items)
+
+
+def translation_sidecar_matches_news_batch(
+    news: NewsDataset,
+    translations: NewsTranslationsDataset,
+) -> bool:
+    if not news.items:
+        return True
+    if translations.updated_at is None:
+        return False
+    return translations.updated_at >= max(item.published_at for item in news.items)
+
+
 class NewsCollector:
-    def __init__(self, registry: ProviderRegistry, settings: Settings | None = None) -> None:
+    def __init__(self, registry: ProviderRegistry, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None) -> None:
         self.registry = registry
         self.settings = settings or Settings()
+        self.collection_plan = collection_plan or (
+            self.settings.load_public_source_policy().collection_plan()
+            if self.settings.approved_sources_only else None
+        )
         # #102: importance rules come from the VALIDATED news_sources config (single shape,
         # extra="forbid") rather than a raw dict the model cannot govern.
         self._news_config = self.settings.load_news_sources_config()
@@ -57,9 +129,6 @@ class NewsCollector:
         self.news_max_items = int(operations.news_max_items)
         self.news_summary_max_chars = int(operations.news_summary_max_chars)
         self.degraded: list[str] = []
-
-    def _dedupe_id(self, title: str, source: str, published: str) -> str:
-        return hashlib.sha1(f"{title}|{source}|{published}".encode("utf-8")).hexdigest()
 
     def _score_importance(self, item: dict[str, Any], now: datetime) -> float:
         title = item["title"].lower()
@@ -119,6 +188,25 @@ class NewsCollector:
         return quality_for_outcomes([bool(self.degraded)], settings=self.settings)
 
     def collect(self) -> tuple[NewsDataset, dict[str, Any]]:
+        if (
+            self.collection_plan is not None
+            and not self.collection_plan.allows_dataset("news")
+        ):
+            detail = "No approved public source configured for news"
+            self.degraded.append(detail)
+            return NewsDataset(items=[], total=0, updated_at=now_utc()), {
+                "degraded": [detail],
+                "provider": "unavailable",
+                "provider_outcome": {
+                    "provider": "unavailable",
+                    "used_fallback": False,
+                    "from_cache": False,
+                },
+                "data_quality": round(self._quality(), 3),
+                "source_updated_at": None,
+                "detail": detail,
+                "error_code": SOURCE_POLICY_EXCLUDED_REASON_CODE,
+            }
         outcome: dict[str, Any] = {"provider": "rss_news", "used_fallback": False, "from_cache": False}
         try:
             out = self.registry.call("news", "fetch_news", "rss_all")
@@ -146,9 +234,10 @@ class NewsCollector:
         if source_failures:
             self.degraded.append("RSS sources degraded: " + ", ".join(sorted(source_failures)))
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         items: list[NewsItem] = []
-        seen: set[str] = set()
+        seen_ids: dict[str, tuple[str, int]] = {}
+        seen_links: dict[str, str] = {}
         for raw in raw_items:
             title = _clean(raw.get("title", ""))
             source = raw.get("source", "unknown")
@@ -156,27 +245,36 @@ class NewsCollector:
             if not published:
                 self.degraded.append(f"news item missing published_at: {title[:80]}")
                 continue
-            dedupe_id = self._dedupe_id(title, source, published)
-            if dedupe_id in seen:
+            identity = _news_identity(raw)
+            link_owner = seen_links.get(identity.canonical_url)
+            if link_owner is not None and link_owner != identity.feed_id:
                 continue
-            seen.add(dedupe_id)
-            items.append(
-                NewsItem(
-                    id=dedupe_id,
-                    title=title,
-                    title_zh=None,
-                    lang="zh" if raw.get("lang", "en") == "zh" else "en",
-                    source=source,
-                    url=raw.get("url", ""),
-                    published_at=published,
-                    categories=self._category(raw),
-                    assets=self._map_assets(title),
-                    importance=self._score_importance(raw, now),
-                    sentiment=None,
-                    summary=raw.get("summary", "")[: self.news_summary_max_chars],
-                    impact_window=None,
-                )
+            existing = seen_ids.get(identity.id)
+            if existing is not None and existing[0] == identity.content_hash:
+                continue
+            item = NewsItem(
+                id=identity.id,
+                title=title,
+                title_zh=None,
+                lang="zh" if raw.get("lang", "en") == "zh" else "en",
+                source=source,
+                source_id=identity.feed_id,
+                url=identity.canonical_url,
+                published_at=published,
+                categories=self._category(raw),
+                assets=self._map_assets(title),
+                importance=self._score_importance(raw, now),
+                sentiment=None,
+                summary=raw.get("summary", "")[: self.news_summary_max_chars],
+                impact_window=None,
             )
+            if existing is not None:
+                items[existing[1]] = item
+                seen_ids[identity.id] = (identity.content_hash, existing[1])
+            else:
+                seen_links[identity.canonical_url] = identity.feed_id
+                seen_ids[identity.id] = (identity.content_hash, len(items))
+                items.append(item)
 
         items.sort(key=lambda n: n.importance, reverse=True)
         items = items[: self.news_max_items]
@@ -199,14 +297,13 @@ class NewsCollector:
     # ---- Chinese translation merge (architecture §1.5 step 4; ADR-0003) ----
 
     def merge_translations(self, news: NewsDataset, translations: NewsTranslationsDataset | None) -> NewsDataset:
-        """Merge AI-produced symmetric full-pair translations into the news payload.
+        """Fill the missing language while preserving each feed's source text.
 
-        Canonical bilingual model (ADR-0003): `summary`/`title` stay English, `summary_zh`/`title_zh`
-        carry Chinese. A translation record carries both sides; this copies whatever it provides and
-        never replaces the canonical English with Chinese (the pre-ADR-0003 overwrite bug).
+        English-source items retain their English fields and receive Chinese overlays.
+        Chinese-source items retain their Chinese fallback and receive English fields when present.
 
         Matching is by id (the canonical key) with a deterministic content fallback (#225): the
-        external AI step sometimes re-derives ids from the translated text, so a record that misses
+        external translation jobs sometimes re-derive ids from the translated text, so a record that misses
         the collector's id is still merged when its `title_zh` (zh-source items) or English `title`
         (en-source items) matches the item after title normalization.
         """

@@ -7,9 +7,12 @@ Any Provider failure → degradation chain → degraded, does not interrupt.
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from typing import Any, NamedTuple
 
-from pipeline.config.models import theme_history_symbols
+from pydantic import ValidationError
+
+from pipeline.config.models import ApprovedCollectionPlan, ConfigError, theme_history_symbols
 from pipeline.indicators.technical import technical_snapshot
 from pipeline.indicators.themes import changes_from_closes, percentile_of_trailing_return
 from pipeline.metadata import latest_row_timestamp, oldest_source_timestamp, quality_for_outcomes
@@ -19,6 +22,7 @@ from pipeline.schemas import (
     CommodityAsset,
     CryptoAsset,
     CryptoDataset,
+    DashboardInstrument,
     EquitiesDataset,
     EquityAsset,
     MemoryProxy,
@@ -84,15 +88,22 @@ INDEX_HISTORIES = {
 
 
 class MarketCollector:
-    def __init__(self, registry: ProviderRegistry, universe: AssetUniverse, settings: Settings | None = None) -> None:
+    def __init__(self, registry: ProviderRegistry, universe: AssetUniverse, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None, previous_dashboard: dict[str, Any] | None = None) -> None:
         self.registry = registry
         self.universe = universe
         self.settings = settings or Settings()
+        self.instruments = self.settings.load_instruments_config()
+        self.source_policy = self.settings.load_public_source_policy()
+        self.collection_plan = collection_plan or (
+            self.source_policy.collection_plan()
+            if self.settings.approved_sources_only else None
+        )
         # #102 (C-1): the sector/theme taxonomy lives in config/themes.yaml, not in this
         # module. Loading it validates every constituent resolves in universe.yaml and
         # raises ConfigError before any provider is constructed. Labels are nowhere here —
         # the frontend renders t(themes.<key>).
         self.themes = self.settings.load_themes_config()
+        self.previous_dashboard = previous_dashboard or {}
         # theme membership, reversed: symbol → theme keys, to populate EquityAsset.theme
         # (the payload keeps the field; universe.yaml no longer carries theme tags, D-8).
         self._symbol_to_themes: dict[str, list[str]] = {}
@@ -115,6 +126,7 @@ class MarketCollector:
         self._history_missing: list[dict[str, Any]] = []
         self._history_degraded: list[dict[str, Any]] = []
         self._dataset_degraded: set[str] = set()
+        self._unavailable_detail_by_dataset: dict[str, str] = {}
         self._risk_history_degraded = False
         # #103/P-1: collection runs in a bounded thread pool; the per-(provider, host)
         # circuit breaker lives in the registry (threshold 3 consecutive transient
@@ -173,6 +185,20 @@ class MarketCollector:
 
         for symbol in self._theme_history_symbols():
             add("quotes", symbol, "1y", "themes")
+
+        if self.collection_plan is not None:
+            consumers = {
+                key: labels for key, labels in consumers.items()
+                if key[0] == "quotes"
+                and "risk_breadth_trend" in labels
+                and any(
+                    grant.provider == "yfinance" and grant.registry_domain == "quotes"
+                    and "equities" in grant.datasets
+                    and (not grant.methods or "get_history" in grant.methods)
+                    and key[1] in grant.instrument_symbols
+                    for grant in self.collection_plan.grants
+                )
+            }
 
         return tuple(
             _HistoryTarget(domain, symbol, period, tuple(sorted(consumers[(domain, symbol, period)])))
@@ -380,6 +406,8 @@ class MarketCollector:
     def _collect_equities(self) -> EquitiesDataset:
         assets: list[EquityAsset] = []
         targets = [*self.universe.us_equities, *self.universe.a_share_memory]
+        if self.collection_plan is not None:
+            targets = []
         # #103/P-1: bounded thread pool; the registry's per-host limiter serializes calls to
         # the same host, so parallelism is bought per host and paced by config.
         with ThreadPoolExecutor(max_workers=min(8, max(1, len(targets)))) as pool:
@@ -422,6 +450,19 @@ class MarketCollector:
         try:
             out = self.registry.call("crypto", "get_crypto_market", "crypto_market")
             data = out["result"]
+            if self.collection_plan is not None:
+                grant = self.collection_plan.grant_for_dataset("crypto")
+                expected = set(grant.market_symbols) if grant is not None else set()
+                rows = data.get("assets", [])
+                symbols = [row.get("symbol") for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+                if (
+                    not isinstance(rows, list)
+                    or len(symbols) != len(rows)
+                    or any(not isinstance(symbol, str) for symbol in symbols)
+                    or len(symbols) != len(set(symbols))
+                    or set(symbols) != expected
+                ):
+                    raise ProviderError("crypto provider response does not match approved symbols")
             self.provider_status["crypto"] = out["meta"]
             self._record_outcome("crypto", out["meta"])
             if out["meta"].get("degraded"):
@@ -543,6 +584,119 @@ class MarketCollector:
         )
         return SectorsDataset(sectors=sectors, themes=themes, memory=memory)
 
+    def _collect_overview_instruments(self) -> tuple[list[DashboardInstrument], list[DashboardInstrument]]:
+        """Resolve configured overview rows through explicitly granted source rungs."""
+        policy_plan = self.source_policy.collection_plan()
+        previous_payload = self.previous_dashboard.get("payload", {})
+        previous_rows = {
+            row.key: row
+            for field in ("index_performance", "sector_etfs")
+            for raw in (previous_payload.get(field, []) if isinstance(previous_payload, dict) else [])
+            if isinstance(raw, dict)
+            for row in [self._dashboard_instrument(raw)]
+            if row is not None
+        }
+        indices: list[DashboardInstrument] = []
+        sector_etfs: list[DashboardInstrument] = []
+        for key, instrument in self.instruments.instruments.items():
+            if instrument.kind == "crypto":
+                continue
+            dataset = "overview"
+            target = sector_etfs if instrument.kind == "sector_etf" else indices
+            row: DashboardInstrument | None = None
+            if self.collection_plan is not None and not self.collection_plan.allows_dataset(dataset):
+                target.append(DashboardInstrument(key=key, symbol=instrument.chain[0].symbol))
+                continue
+            previous = previous_rows.get(key)
+            if previous is not None and self._overview_row_is_within_cadence(previous, instrument, policy_plan):
+                target.append(previous)
+                continue
+            errors: list[str] = []
+            for index, rung in enumerate(instrument.chain):
+                grant = policy_plan.grant_for_rung(
+                    rung.source, rung.symbol, dataset=dataset, method="get_quote"
+                )
+                if grant is None:
+                    raise ConfigError(
+                        f"instruments.yaml: {key} rung {rung.source}/{rung.symbol} "
+                        f"does not grant dataset {dataset}"
+                    )
+                if grant.registry_domain is None:
+                    raise ConfigError(f"instruments.yaml: {key} source {rung.source} has no provider route")
+                try:
+                    request_key = f"overview_{key}_{index}_{grant.provider}_{rung.symbol}"
+                    out = self.registry.call_provider(
+                        grant.registry_domain,
+                        grant.provider,
+                        "get_quote",
+                        request_key,
+                        args=(rung.symbol,),
+                        authorization_dataset=dataset,
+                        use_cache=False,
+                    )
+                except ProviderError as exc:
+                    errors.append(str(exc))
+                    continue
+                quote = out["result"]
+                row = DashboardInstrument(
+                    key=key,
+                    symbol=rung.symbol,
+                    change_1d=quote.change_1d,
+                    source=grant.attribution or quote.source,
+                    provider=str(out["meta"].get("provider", grant.provider)),
+                    retrieved_at=now_utc(),
+                    is_proxy=bool(rung.proxy_of or quote.is_proxy),
+                    proxy_of=rung.proxy_of,
+                )
+                break
+            if row is None:
+                first = instrument.chain[0]
+                row = DashboardInstrument(key=key, symbol=first.symbol)
+                if errors:
+                    self.provider_status.setdefault("overview_instruments", {})[key] = errors[-1]
+            target.append(row)
+        return indices, sector_etfs
+
+    @staticmethod
+    def _dashboard_instrument(value: dict[str, Any]) -> DashboardInstrument | None:
+        try:
+            return DashboardInstrument.model_validate(value)
+        except ValidationError:
+            return None
+
+    @staticmethod
+    def _overview_row_is_within_cadence(
+        row: DashboardInstrument, instrument: Any, policy_plan: Any
+    ) -> bool:
+        if row.retrieved_at is None:
+            return False
+        matching_rung = next(
+            (
+                rung for rung in instrument.chain
+                if rung.symbol == row.symbol and rung.proxy_of == row.proxy_of
+            ),
+            None,
+        )
+        if matching_rung is None:
+            return False
+        grant = policy_plan.grant_for_rung(
+            matching_rung.source,
+            matching_rung.symbol,
+            dataset="overview",
+            method="get_quote",
+        )
+        if grant is None or row.provider != grant.provider:
+            return False
+        try:
+            retrieved = datetime.fromisoformat(row.retrieved_at.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        if retrieved.tzinfo is None:
+            return False
+        current_time = datetime.fromisoformat(now_utc().replace("Z", "+00:00"))
+        age_minutes = (current_time - retrieved).total_seconds() / 60
+        return 0 <= age_minutes < grant.cadence_minutes
+
     def _prefetch_theme_series(self) -> None:
         """Fetch every symbol behind the sector/theme series once, in a bounded thread pool.
 
@@ -632,7 +786,16 @@ class MarketCollector:
         self._history_missing.clear()
         self._history_degraded.clear()
         self._dataset_degraded.clear()
+        self._unavailable_detail_by_dataset.clear()
         self._risk_history_degraded = False
+
+    def _mark_unavailable(self, dataset: str) -> str:
+        detail = f"No approved public source configured for {dataset}"
+        self._dataset_degraded.add(dataset)
+        self._unavailable_detail_by_dataset[dataset] = detail
+        self.degraded.append(detail)
+        self.provider_status[dataset] = {"provider": "unavailable", "degraded": True}
+        return detail
 
     def _sectors_degraded_detail(self) -> str:
         """A human-readable detail behind the sectors degraded flag (#174).
@@ -665,15 +828,40 @@ class MarketCollector:
 
     def collect(self) -> dict[str, Any]:
         self._reset_collection_state()
-        self._collect_history_plan()
-        equities = self._collect_equities()
-        crypto = self._collect_crypto()
-        commodities = self._collect_commodities()
-        sectors = self._collect_sectors()
+        if self.collection_plan is None:
+            self._collect_history_plan()
+            equities = self._collect_equities()
+            crypto = self._collect_crypto()
+            commodities = self._collect_commodities()
+            sectors = self._collect_sectors()
+        else:
+            if self.collection_plan.allows_dataset("equities"):
+                self._collect_history_plan()
+                self._mark_unavailable("equities")
+                equities = EquitiesDataset()
+            else:
+                self._mark_unavailable("equities")
+                equities = EquitiesDataset()
+            if self.collection_plan.allows_dataset("crypto"):
+                crypto = self._collect_crypto()
+            else:
+                self._mark_unavailable("crypto")
+                crypto = CryptoDataset()
+            if self.collection_plan.allows_dataset("commodities"):
+                commodities = self._collect_commodities()
+            else:
+                self._mark_unavailable("commodities")
+                commodities = CommoditiesDataset()
+            if self.collection_plan.allows_dataset("sectors"):
+                sectors = self._collect_sectors()
+            else:
+                self._mark_unavailable("sectors")
+                sectors = SectorsDataset()
         quality_by_dataset = {
             name: quality_for_outcomes([name in self._dataset_degraded], settings=self.settings)
             for name in ("equities", "crypto", "commodities", "sectors")
         }
+        index_performance, sector_etfs = self._collect_overview_instruments()
         quality = round(sum(quality_by_dataset.values()) / len(quality_by_dataset), 3)
         risk_input_quality = quality_for_outcomes([self._risk_history_degraded], settings=self.settings)
         risk_data_quality = round(
@@ -689,9 +877,22 @@ class MarketCollector:
             # combines that quote with historical observations. One unknown contributor
             # makes the dataset-level provenance unknown.
             "equities": None,
-            # CoinGecko currently does not expose a trustworthy dataset-level timestamp in its
-            # normalized provider result; do not substitute the local fetch time.
-            "crypto": None,
+            "crypto": (
+                oldest_source_timestamp(asset.updated_at for asset in crypto.assets)
+                if (
+                    (
+                        (self.settings.coinmetrics_enabled and len(crypto.assets) == 2)
+                        or (
+                            self.collection_plan is not None
+                            and self.collection_plan.allows_dataset("crypto")
+                            and len(crypto.assets) == len(
+                                self.collection_plan.grant_for_dataset("crypto").market_symbols
+                            )
+                        )
+                    )
+                )
+                else None
+            ),
             # Quote adapters expose local fetch time only; no upstream observation timestamp is
             # published as provenance until a provider supplies one explicitly.
             "commodities": None,
@@ -713,6 +914,8 @@ class MarketCollector:
             "crypto": crypto,
             "commodities": commodities,
             "sectors": sectors,
+            "index_performance": index_performance,
+            "sector_etfs": sector_etfs,
             "histories": self.histories,
             "degraded": self.degraded,
             # ``quotes`` and ``a_share`` are internal routes within the canonical market
@@ -733,8 +936,16 @@ class MarketCollector:
             # request keys were already in collection_telemetry, this surfaces them on the
             # Status page reason instead of burying them in sources.json.
             "degraded_detail_by_dataset": {
-                "sectors": self._sectors_degraded_detail(),
+                "sectors": self._unavailable_detail_by_dataset.get(
+                    "sectors", self._sectors_degraded_detail()
+                ),
+                **{
+                    name: detail
+                    for name, detail in self._unavailable_detail_by_dataset.items()
+                    if name != "sectors"
+                },
             },
+            "source_policy_excluded_datasets": sorted(self._unavailable_detail_by_dataset),
             "source_updated_at_by_dataset": source_by_dataset,
             "risk_data_quality": risk_data_quality,
             "risk_history_degraded": self._risk_history_degraded,

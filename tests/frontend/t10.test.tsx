@@ -1,7 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import "@/i18n";
-import { EvidenceLink } from "@/components/ai/EvidenceLink";
+import i18n from "@/i18n";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 
 const { init, chart } = vi.hoisted(() => {
@@ -19,27 +18,6 @@ afterEach(() => {
 });
 
 describe("T10 frontend hardening", () => {
-  it("EvidenceLink expands an adversarial path without selector errors", () => {
-    render(
-      <EvidenceLink
-        refs={[
-          {
-            dataset: "risk",
-            path: 'payload[0]"\\\\bad',
-            metric: "total_score",
-            value: 52.3,
-            updated_at: null,
-          },
-        ]}
-      />,
-    );
-
-    expect(() => fireEvent.click(screen.getByRole("button"))).not.toThrow();
-    expect(screen.getByRole("button")).toHaveAttribute("aria-pressed", "true");
-    fireEvent.keyDown(screen.getByRole("button"), { key: "Enter" });
-    expect(screen.getByRole("button")).toHaveAttribute("aria-pressed", "false");
-  });
-
   it("reuses the ECharts instance when trend data changes in place", async () => {
     vi.stubGlobal("navigator", { userAgent: "Chrome" });
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
@@ -48,16 +26,16 @@ describe("T10 frontend hardening", () => {
     const { rerender } = render(
       <RiskTrendChart
         points={[
-          { date: "2026-08-01", total_score: 48.1 },
-          { date: "2026-08-02", total_score: 52.3 },
+          { date: "2026-08-01", total_score: 48.1, model_version: "1.1.0" },
+          { date: "2026-08-02", total_score: 52.3, model_version: "1.1.0" },
         ]}
       />,
     );
     rerender(
       <RiskTrendChart
         points={[
-          { date: "2026-08-01", total_score: 49.1 },
-          { date: "2026-08-02", total_score: 53.3 },
+          { date: "2026-08-01", total_score: 49.1, model_version: "1.1.0" },
+          { date: "2026-08-02", total_score: 53.3, model_version: "1.1.0" },
         ]}
       />,
     );
@@ -66,7 +44,8 @@ describe("T10 frontend hardening", () => {
     expect(chart.setOption).toHaveBeenCalledWith(expect.any(Object), { notMerge: true });
   });
 
-  it("renders recovery UI when a lazy route throws", () => {
+  it.each([["en", "Reload"], ["zh-CN", "重新加载"]])("renders localized recovery UI in %s when a route throws", async (locale, label) => {
+    await i18n.changeLanguage(locale);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     function BrokenPage(): never {
       throw new Error("chunk failed");
@@ -78,6 +57,6 @@ describe("T10 frontend hardening", () => {
       </ErrorBoundary>,
     );
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Reload");
+    expect(screen.getByRole("alert")).toHaveTextContent(label);
   });
 });

@@ -34,18 +34,19 @@ def _validate_news_url(value: str) -> str:
 
 
 class NewsItem(ContractModel):
-    id: str = Field(min_length=1, description="sha1(title+source+published) dedupe key")
-    title: str = Field(min_length=1, description="English headline (canonical bilingual, ADR-0003)")
+    id: str = Field(min_length=1, description="sha1(feed_id|guid or canonical link) identity key")
+    title: str = Field(min_length=1, description="Source headline; Chinese feeds retain Chinese until English translation arrives")
     title_zh: str | None = None
-    lang: NewsSourceLang = Field(default="en", description="source feed language; translation routing only, never a display string (ADR-0003)")
+    lang: NewsSourceLang = Field(default="en", description="source feed language for UI fallback and translation routing (ADR-0003)")
     source: str = Field(min_length=1)
+    source_id: str | None = Field(default=None, min_length=1, description="configured RSS feed id")
     url: str = Field(min_length=1)
     published_at: UTCDateTime
     categories: list[str] = Field(default_factory=list)
     assets: list[str] = Field(default_factory=list)
     importance: float = Field(ge=0.0, le=100.0)
     sentiment: NewsSentiment | None = None
-    summary: str = Field(default="", description="English one-sentence summary (canonical bilingual, ADR-0003)")
+    summary: str = Field(default="", description="Source summary; Chinese feeds retain Chinese until English translation arrives")
     summary_zh: str | None = Field(default=None, description="Chinese translation of the summary (canonical bilingual, ADR-0003)")
     impact_window: str | None = None
 
@@ -65,11 +66,7 @@ class NewsEnvelope(BaseEnvelope):
 
 
 class NewsTranslation(ContractModel):
-    """Symmetric full-pair translation of a news item (AI automation produces news.zh-translations.json, ADR-0003).
-
-    Carries both English (title/summary) and Chinese (title_zh/summary_zh) for the same id; merge copies
-    both sides without overwriting the canonical English (title/summary) of the item.
-    """
+    """Translation fields used to fill the missing language for a news item."""
 
     id: str = Field(min_length=1, description="corresponding NewsItem.id")
     title: str | None = Field(default=None, description="English title (required for zh-source items)")
@@ -79,7 +76,7 @@ class NewsTranslation(ContractModel):
 
 
 class NewsTranslationsDataset(ContractModel):
-    """news.zh-translations.json (architecture §1.5: merged into news.json on the next pipeline run)."""
+    """news.zh-translations.json; merged only when it covers the current news batch."""
 
     items: list[NewsTranslation] = Field(default_factory=list)
     updated_at: UTCDateTime | None = None

@@ -13,10 +13,10 @@ from typing import Any
 
 
 def infer_regime(ctx: dict[str, Any]) -> tuple[str, list[str]]:
-    """Input context (vix/hy_oas/yield_curve/breadth/cross_asset/momentum),
+    """Input context (vix/baa10y_spread/yield_curve/breadth/cross_asset/momentum),
     returns (regime, evidence_list). #71: the dollar index was dead here and is gone."""
     vix = ctx.get("vix")
-    hy_oas = ctx.get("hy_oas")
+    baa_spread = ctx.get("baa10y_spread")
     curve = ctx.get("yield_curve_10y2y")
     breadth = ctx.get("breadth_above_ma200")
     cross = ctx.get("cross_asset_confirmation")
@@ -25,26 +25,26 @@ def infer_regime(ctx: dict[str, Any]) -> tuple[str, list[str]]:
     evidence: list[str] = []
 
     # #71: nothing measured at all -> indeterminate, never a guessed benign reading.
-    if all(i is None for i in (vix, hy_oas, curve, breadth, cross, momentum)):
+    if all(i is None for i in (vix, baa_spread, curve, breadth, cross, momentum)):
         return "indeterminate", []
 
     # Crisis / risk-off take priority
     if vix is not None and vix >= 40:
         evidence.append(f"VIX={vix:.1f} ≥ 40")
         return "crisis", evidence
-    if hy_oas is not None and hy_oas >= 7.0:
-        evidence.append(f"HY OAS={hy_oas:.2f} ≥ 7.0")
+    if baa_spread is not None and baa_spread >= 4.0:
+        evidence.append(f"Baa-10Y={baa_spread:.2f} ≥ 4.0")
         return "crisis", evidence
     if (vix is not None and vix >= 28) or (breadth is not None and breadth <= 0.35):
-        if vix is not None:
+        if vix is not None and vix >= 28:
             evidence.append(f"VIX={vix:.1f} ≥ 28")
-        if breadth is not None:
-            evidence.append(f"Breadth={breadth:.2f} ≤ 0.35")
+        if breadth is not None and breadth <= 0.35:
+            evidence.append(f"Breadth={breadth:.4f} ≤ 0.35")
         return "risk_off", evidence
 
     # Liquidity stress
-    if hy_oas is not None and hy_oas >= 5.0:
-        evidence.append(f"HY OAS={hy_oas:.2f} ≥ 5.0")
+    if baa_spread is not None and baa_spread >= 3.0:
+        evidence.append(f"Baa-10Y={baa_spread:.2f} ≥ 3.0")
         return "liquidity_stress", evidence
 
     # Stagflation: inverted curve + high-rate pressure + weak momentum

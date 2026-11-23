@@ -8,10 +8,17 @@ Complete set of Pydantic v2 models, isomorphic to the frontend Zod / JSON Schema
 """
 
 from .analysis import AnalysisDataset, AnalysisLineage, CaseStatement, SignalClaim
-from .calendar import CalendarDataset, CalendarEnvelope, CalendarEvent
+from .calendar import CalendarDataset, CalendarEnvelope, CalendarEvent, CalendarSourceStatus
 from .commodities import CommoditiesDataset, CommoditiesEnvelope, CommodityAsset
 from .crypto import CryptoAsset, CryptoDataset, CryptoEnvelope
-from .dashboard import DashboardAsset, DashboardEnvelope, DashboardPayload, DashboardSector
+from .dashboard import (
+    DashboardAsset,
+    DashboardEnvelope,
+    DashboardInstrument,
+    DashboardPayload,
+    DashboardSector,
+)
+from .energy import EnergyDataset, EnergyEnvelope, EnergyObservation
 from .envelope import (
     BaseEnvelope,
     ContractModel,
@@ -21,7 +28,14 @@ from .envelope import (
 )
 from .equities import EquitiesDataset, EquitiesEnvelope, EquityAsset
 from .factlayer import EvidenceRef, FactLayer
-from .macro import FedWatchRateProb, FedWatchSnapshot, MacroDataset, MacroEnvelope, MacroIndicator
+from .macro import (
+    FedWatchRateProb,
+    FedWatchSnapshot,
+    MacroDataset,
+    MacroEnvelope,
+    MacroFreshnessPolicy,
+    MacroIndicator,
+)
 from .metadata import ProviderResolution
 from .news import NewsDataset, NewsEnvelope, NewsItem, NewsTranslation, NewsTranslationsDataset
 from .risk import (
@@ -51,6 +65,7 @@ __all__ = [
     "CalendarDataset",
     "CalendarEnvelope",
     "CalendarEvent",
+    "CalendarSourceStatus",
     "CaseStatement",
     "CommoditiesDataset",
     "CommoditiesEnvelope",
@@ -63,12 +78,16 @@ __all__ = [
     "CrossAssetSignal",
     "DashboardAsset",
     "DashboardEnvelope",
+    "DashboardInstrument",
     "DashboardPayload",
     "DashboardSector",
     "DriverContribution",
     "EquitiesDataset",
     "EquitiesEnvelope",
     "EquityAsset",
+    "EnergyDataset",
+    "EnergyEnvelope",
+    "EnergyObservation",
     "EvidenceRef",
     "FactLayer",
     "FedWatchRateProb",
@@ -76,6 +95,7 @@ __all__ = [
     "FreshnessStatus",
     "MacroDataset",
     "MacroEnvelope",
+    "MacroFreshnessPolicy",
     "MacroIndicator",
     "MarketRegime",
     "MemoryProxy",

@@ -49,18 +49,22 @@ describe("mobile layout", () => {
     expect(firstChartIdx).toBeGreaterThan(riskIdx);
   });
 
-  it("Overview KPI strip uses mobile single-column / desktop four-column responsive classes", async () => {
+  it("Overview risk and credit rows use responsive three-column grids", async () => {
     installFixtureFetch();
     window.history.replaceState(null, "", "#/zh/overview");
     const { container } = renderApp();
     await screen.findByTestId("risk-score");
 
     const section = container.querySelector('[data-testid="risk-conclusion"]');
+    const credits = container.querySelector('[data-testid="credit-indicators"]');
     expect(section).not.toBeNull();
+    expect(credits).not.toBeNull();
     const cls = section?.getAttribute("class") ?? "";
+    const creditCls = credits?.getAttribute("class") ?? "";
     expect(cls).toContain("grid-cols-1");
-    expect(cls).toContain("md:grid-cols-2");
-    expect(cls).toContain("xl:grid-cols-4");
+    expect(cls).toContain("md:grid-cols-3");
+    expect(creditCls).toContain("grid-cols-1");
+    expect(creditCls).toContain("md:grid-cols-3");
   });
 
   it("open chart region: trend chart renders without card chrome (spec #23)", async () => {

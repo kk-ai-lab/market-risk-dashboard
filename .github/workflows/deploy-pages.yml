@@ -1,109 +1,426 @@
-# GitHub Pages deployment (Architecture §1.1: build + deploy only; no data collection, no Secrets)
-# Data collection is done by the local Scheduled Task and pushed to the repo; this workflow only consumes committed content.
 name: Deploy Pages
 
 on:
   push:
     branches: [dev, main]
+  schedule:
+    - cron: "*/15 * * * *"
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Collection or code-only publication
+        type: choice
+        options: [scheduled, code-only]
+        default: scheduled
+        required: true
 
-# Minimal CI permissions (Architecture §8.14)
 permissions:
   contents: read
 
-# Per-branch serialization: dev and main deploy independently and never cancel each
-# other; only pushes to the same branch cancel an in-flight Pages run.
 concurrency:
-  group: pages-${{ github.ref }}
-  cancel-in-progress: true
+  group: pages-publication
+  cancel-in-progress: false
+  queue: max
 
 jobs:
-  build:
+  prepare:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
-    # Fail hung runners instead of burning the 6h default (#190)
-    timeout-minutes: 20
+    timeout-minutes: 35
     permissions:
-      contents: read
+      actions: read
+      contents: write
+      pages: read
+    outputs:
+      mode: ${{ steps.preflight.outputs.mode }}
+      app_revision: ${{ steps.preflight.outputs.app_revision }}
+      resume: ${{ steps.preflight.outputs.resume }}
+      generation_id: ${{ steps.refresh.outputs.generation_id || steps.preflight.outputs.generation_id }}
+      manifest_sha256: ${{ steps.refresh.outputs.manifest_sha256 || steps.preflight.outputs.manifest_sha256 }}
+      producer_revision: ${{ steps.refresh.outputs.application_revision || steps.preflight.outputs.producer_revision }}
+      parent_id: ${{ steps.refresh.outputs.parent_id || steps.preflight.outputs.parent_id }}
+      artifact_id: ${{ steps.preflight.outputs.artifact_id || steps.pages-artifact.outputs.artifact_id }}
+      pages_build_version: ${{ steps.reserve.outputs.pages_build_version || steps.preflight.outputs.pages_build_version }}
+      site_url: ${{ steps.pages-url.outputs.url }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Checkout workflow revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
 
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
 
-      - name: Install pipeline validation dependencies
+      - name: Install pipeline dependencies
+        run: python -m pip install --constraint constraints/py312.txt -e ".[dev]"
+
+      - name: Resolve Pages URL
+        id: pages-url
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "url=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq .html_url)" >> "$GITHUB_OUTPUT"
+
+      - name: Reconcile publication state
+        id: preflight
+        env:
+          DATA_CLOUD_STATE_REPO: ${{ github.repository }}
+          DATA_CLOUD_STATE_BRANCH: cloud-state
+          DATA_CLOUD_STATE_TOKEN: ${{ github.token }}
+          PAGES_URL: ${{ steps.pages-url.outputs.url }}
+          PAGES_LEGACY_BOOTSTRAP_CONFIRMED: ${{ vars.PAGES_LEGACY_BOOTSTRAP_CONFIRMED }}
         run: |
-          python -m pip install --constraint constraints/py312.txt -e ".[dev]"
+          case "$GITHUB_EVENT_NAME" in
+            schedule) mode=scheduled ;;
+            workflow_dispatch) mode='${{ inputs.mode }}' ;;
+            *) mode=code-only ;;
+          esac
+          args=(preflight \
+            --mode "$mode" \
+            --event-ref "$GITHUB_REF" \
+            --event-sha "$GITHUB_SHA" \
+            --run-id "$GITHUB_RUN_ID" \
+            --site-url "$PAGES_URL")
+          if [[ "$PAGES_LEGACY_BOOTSTRAP_CONFIRMED" == "true" ]]; then
+            args+=(--allow-legacy-bootstrap)
+          fi
+          python -m pipeline.cloud_publication "${args[@]}"
 
-      - name: Run pipeline test suite
-        run: python -m pytest tests/pipeline/ --cov=pipeline --cov-report=term-missing
+      - name: Check out active application revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ steps.preflight.outputs.app_revision }}
+          persist-credentials: false
 
-      - name: F821 must fail the build
-        run: ruff check . --select F821
+      - name: Install application dependencies
+        if: steps.preflight.outputs.resume != 'true'
+        run: python -m pip install --constraint constraints/py312.txt -e ".[dev]"
 
-      - name: Setup Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - name: Collect and validate approved sources
+        id: refresh
+        if: steps.preflight.outputs.resume != 'true'
+        env:
+          DATA_CLOUD_STATE_REPO: ${{ github.repository }}
+          DATA_CLOUD_STATE_BRANCH: cloud-state
+          DATA_CLOUD_STATE_TOKEN: ${{ github.token }}
+          MODE: ${{ steps.preflight.outputs.mode }}
+          APP_REVISION: ${{ steps.preflight.outputs.app_revision }}
+          PAGES_URL: ${{ steps.pages-url.outputs.url }}
+          DATA_EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+          DATA_FRED_API_KEY: ${{ secrets.DATA_FRED_API_KEY }}
+          DATA_SEC_CONTACT_EMAIL: ${{ secrets.SEC_CONTACT_EMAIL }}
+        run: |
+          python -m pipeline.cloud_refresh \
+            --mode "$MODE" \
+            --app-revision "$APP_REVISION" \
+            --site-url "$PAGES_URL" \
+            --work-dir "$RUNNER_TEMP/cloud-refresh" > "$RUNNER_TEMP/cloud-refresh.json"
+          result="$RUNNER_TEMP/cloud-refresh.json"
+          echo "generation_id=$(jq -r .generation_id "$result")" >> "$GITHUB_OUTPUT"
+          echo "manifest_sha256=$(jq -r .manifest_sha256 "$result")" >> "$GITHUB_OUTPUT"
+          echo "application_revision=$(jq -r .application_revision "$result")" >> "$GITHUB_OUTPUT"
+          echo "parent_id=$(jq -r '.parent_id // empty' "$result")" >> "$GITHUB_OUTPUT"
+          echo "generation_dir=$(jq -r .generation_dir "$result")" >> "$GITHUB_OUTPUT"
+          echo "run_logs_dir=$(jq -r '.collection_logs_dir // empty' "$result")" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
+        if: steps.preflight.outputs.resume != 'true'
         run: npm ci
 
+      - name: Run pipeline tests for code changes
+        if: steps.preflight.outputs.resume != 'true' && steps.preflight.outputs.mode == 'code-only'
+        run: python -m pytest tests/pipeline/ --cov=pipeline --cov-report=term-missing
+
+      - name: Run Python lint for code changes
+        if: steps.preflight.outputs.resume != 'true' && steps.preflight.outputs.mode == 'code-only'
+        run: ruff check . --select F821
+
       - name: Audit production dependencies
+        if: steps.preflight.outputs.resume != 'true' && steps.preflight.outputs.mode == 'code-only'
         run: npm audit --omit=dev --audit-level=high
 
-      - name: Validate committed data (full Python authority)
-        run: python -m pipeline.validation.ci_checks --data-dir public/data
+      - name: Lint frontend for code changes
+        if: steps.preflight.outputs.resume != 'true' && steps.preflight.outputs.mode == 'code-only'
+        run: npm run lint
+
+      - name: Type check frontend for code changes
+        if: steps.preflight.outputs.resume != 'true' && steps.preflight.outputs.mode == 'code-only'
+        run: npm run typecheck
+
+      - name: Test frontend for code changes
+        if: steps.preflight.outputs.resume != 'true' && steps.preflight.outputs.mode == 'code-only'
+        run: npm test
 
       - name: Check generated contracts
+        if: steps.preflight.outputs.resume != 'true'
         run: npm run check:contracts
 
-      # PRD §20.1 build chain: check translation files → validate JSON Schema → ESLint → TS check → test → build → deploy
-      - name: Check translation files
+      - name: Check translations
+        if: steps.preflight.outputs.resume != 'true'
         run: npm run check:i18n
 
       - name: Check language isolation
+        if: steps.preflight.outputs.resume != 'true'
         run: npm run check:language
 
-      - name: Validate JSON data (Node structural companion)
-        run: npm run check:data
+      - name: Scan repository inputs for secrets
+        env:
+          DATA_CLOUD_STATE_TOKEN: ${{ github.token }}
+          MODE: ${{ steps.preflight.outputs.mode }}
+          RESUME: ${{ steps.preflight.outputs.resume }}
+          RUN_LOGS_DIR: ${{ steps.refresh.outputs.run_logs_dir }}
+        run: |
+          args=(--root .)
+          if [[ "$RESUME" != "true" ]]; then
+            if [[ "$MODE" == "scheduled" && -z "$RUN_LOGS_DIR" ]]; then
+              echo "Scheduled collection did not provide its run-log directory" >&2
+              exit 1
+            fi
+            if [[ -n "$RUN_LOGS_DIR" ]]; then
+              args+=(--run-logs-root "$RUN_LOGS_DIR")
+            fi
+          fi
+          node scripts/scan-secrets.mjs "${args[@]}"
 
-      - name: Lint
-        run: npm run lint
+      - name: Install candidate into Pages data tree
+        if: steps.preflight.outputs.resume != 'true'
+        run: |
+          generation_dir='${{ steps.refresh.outputs.generation_dir }}'
+          store="$(dirname "$(dirname "$generation_dir")")"
+          python -m scripts.install_cloud_generation --store "$store" --public-data public/data
 
-      - name: Type check
-        run: npm run typecheck
+      - name: Validate candidate data
+        if: steps.preflight.outputs.resume != 'true'
+        env:
+          GENERATION_DIR: ${{ steps.refresh.outputs.generation_dir }}
+        run: |
+          python -m pipeline.validation.ci_checks --data-dir "$GENERATION_DIR"
+          node scripts/validate-json.mjs --data-dir "$GENERATION_DIR"
 
-      - name: Test
-        run: npm test
-
-      - name: Build
+      - name: Build site
+        if: steps.preflight.outputs.resume != 'true'
+        env:
+          VITE_VERSIONED_DATA: "true"
         run: npm run build
 
-      - name: Secret scan (mandatory before artifact upload)
-        run: node scripts/scan-secrets.mjs --root .
+      - name: Copy the immutable generation into the build
+        if: steps.preflight.outputs.resume != 'true'
+        run: |
+          mkdir -p dist/data
+          cp -R public/data/. dist/data/
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+      - name: Scan the built site for secrets
+        if: steps.preflight.outputs.resume != 'true'
+        env:
+          DATA_CLOUD_STATE_TOKEN: ${{ github.token }}
+          RUN_LOGS_DIR: ${{ steps.refresh.outputs.run_logs_dir }}
+        run: |
+          args=(--root . --artifact-root dist)
+          if [[ -n "$RUN_LOGS_DIR" ]]; then
+            args+=(--run-logs-root "$RUN_LOGS_DIR")
+          fi
+          node scripts/scan-secrets.mjs "${args[@]}"
+
+      - name: Upload Pages artifact
+        id: pages-artifact
+        if: steps.preflight.outputs.resume != 'true'
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
         with:
           path: dist
+          retention-days: 5
+
+      - name: Wait for the newly uploaded Pages artifact to be visible
+        if: steps.preflight.outputs.resume != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.pages-artifact.outputs.artifact_id }}
+        run: |
+          if [[ ! "$ARTIFACT_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error title=Invalid Pages artifact ID::The upload action did not return a numeric artifact ID."
+            exit 1
+          fi
+          for attempt in {1..30}; do
+            indexed_id="$(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
+              --jq ".artifacts[]? | select(.id == $ARTIFACT_ID) | .id" 2>/dev/null || true)"
+            if [[ "$indexed_id" == "$ARTIFACT_ID" ]]; then
+              echo "Uploaded Pages artifact is visible to this run."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error title=Pages artifact not visible::Uploaded artifact did not appear in this run's artifact list within 30 seconds."
+          exit 1
+
+      - name: Download the exact Pages artifact
+        if: steps.preflight.outputs.resume == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          artifact-ids: ${{ steps.preflight.outputs.artifact_id }}
+          path: ${{ runner.temp }}/pages-artifact
+          merge-multiple: true
+          digest-mismatch: error
+
+      - name: Download the newly uploaded Pages artifact
+        if: steps.preflight.outputs.resume != 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          artifact-ids: ${{ steps.pages-artifact.outputs.artifact_id }}
+          path: ${{ runner.temp }}/pages-artifact
+          merge-multiple: true
+          digest-mismatch: error
+
+      - name: Validate the Pages artifact contents
+        env:
+          GENERATION_ID: ${{ steps.refresh.outputs.generation_id || steps.preflight.outputs.generation_id }}
+          MANIFEST_SHA256: ${{ steps.refresh.outputs.manifest_sha256 || steps.preflight.outputs.manifest_sha256 }}
+          PRODUCER_REVISION: ${{ steps.refresh.outputs.application_revision || steps.preflight.outputs.producer_revision }}
+          PARENT_ID: ${{ steps.refresh.outputs.parent_id || steps.preflight.outputs.parent_id }}
+          MODE: ${{ steps.preflight.outputs.mode }}
+          GEN_DIR: ${{ steps.refresh.outputs.generation_dir }}
+        run: |
+          args=(
+            --archive "$RUNNER_TEMP/pages-artifact/artifact.tar"
+            --generation-id "$GENERATION_ID"
+            --manifest-sha256 "$MANIFEST_SHA256"
+            --producer-revision "$PRODUCER_REVISION"
+          )
+          if [ -n "$PARENT_ID" ]; then
+            args+=(--parent-id "$PARENT_ID")
+          fi
+          if [ -n "$GEN_DIR" ]; then
+            args+=(--dist dist --generation-dir "$GEN_DIR")
+          fi
+          args+=(--extract-to "$RUNNER_TEMP/pages-payload")
+          python -m scripts.verify_pages_artifact "${args[@]}"
+
+      - name: Scan exact Pages artifact for secrets
+        env:
+          DATA_CLOUD_STATE_TOKEN: ${{ github.token }}
+          MODE: ${{ steps.preflight.outputs.mode }}
+          RESUME: ${{ steps.preflight.outputs.resume }}
+          RUN_LOGS_DIR: ${{ steps.refresh.outputs.run_logs_dir }}
+        run: |
+          args=(--root . --artifact-root "$RUNNER_TEMP/pages-payload")
+          if [[ "$RESUME" != "true" ]]; then
+            if [[ "$MODE" == "scheduled" && -z "$RUN_LOGS_DIR" ]]; then
+              echo "Scheduled collection did not provide its run-log directory" >&2
+              exit 1
+            fi
+            if [[ -n "$RUN_LOGS_DIR" ]]; then
+              args+=(--run-logs-root "$RUN_LOGS_DIR")
+            fi
+          fi
+          node scripts/scan-secrets.mjs "${args[@]}"
+
+      - name: Reserve the verified Pages artifact
+        id: reserve
+        if: steps.preflight.outputs.resume != 'true'
+        env:
+          DATA_CLOUD_STATE_REPO: ${{ github.repository }}
+          DATA_CLOUD_STATE_BRANCH: cloud-state
+          DATA_CLOUD_STATE_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.pages-artifact.outputs.artifact_id }}
+          GENERATION_DIR: ${{ steps.refresh.outputs.generation_dir }}
+        run: |
+          python -m pipeline.cloud_publication reserve \
+            --generation-dir "$GENERATION_DIR" \
+            --artifact-id "$ARTIFACT_ID" \
+            --run-id "$GITHUB_RUN_ID" \
+            --event-sha "$GITHUB_SHA"
 
   deploy:
-    needs: build
+    needs: prepare
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
-    # Fail hung runners instead of burning the 6h default (#190)
     timeout-minutes: 20
     permissions:
+      contents: write
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Check out the workflow revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      - name: Install deployment client dependency
+        run: python -m pip install --constraint constraints/py312.txt httpx
+
+      - name: Confirm publication revision is still the branch head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current_revision="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq .object.sha)"
+          if [[ "$current_revision" != "$GITHUB_SHA" ]]; then
+            echo "Publication event is no longer the branch head" >&2
+            exit 1
+          fi
+
+      - name: Deploy the reserved artifact
         id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+        env:
+          DATA_CLOUD_STATE_REPO: ${{ github.repository }}
+          DATA_CLOUD_STATE_BRANCH: cloud-state
+          DATA_CLOUD_STATE_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PAGES_ARTIFACT_ID: ${{ needs.prepare.outputs.artifact_id }}
+          PAGES_BUILD_VERSION: ${{ needs.prepare.outputs.pages_build_version }}
+          PAGES_URL: ${{ needs.prepare.outputs.site_url }}
+        run: |
+          python -m pipeline.pages_deployment \
+            --run-id "$GITHUB_RUN_ID" \
+            --artifact-id "$PAGES_ARTIFACT_ID" \
+            --build-version "$PAGES_BUILD_VERSION" \
+            --site-url "$PAGES_URL"
+
+  verify:
+    needs: [prepare, deploy]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+      pages: read
+    steps:
+      - name: Check out the active application revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.prepare.outputs.app_revision }}
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      - name: Install pipeline dependencies
+        run: python -m pip install --constraint constraints/py312.txt -e ".[dev]"
+
+      - name: Confirm Pages serves the reserved generation
+        env:
+          DATA_CLOUD_STATE_REPO: ${{ github.repository }}
+          DATA_CLOUD_STATE_BRANCH: cloud-state
+          DATA_CLOUD_STATE_TOKEN: ${{ github.token }}
+          PAGES_URL: ${{ needs.prepare.outputs.site_url }}
+        run: |
+          python -m pipeline.cloud_publication finish \
+            --run-id "$GITHUB_RUN_ID" \
+            --event-sha "$GITHUB_SHA" \
+            --site-url "$PAGES_URL"

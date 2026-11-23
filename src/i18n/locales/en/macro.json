@@ -17,10 +17,19 @@
     "volatility": "Volatility"
   },
   "indicator": {
+    "observationPeriod": "Observation month",
+    "observationDate": "Observation date",
+    "fetchedAt": "Fetched",
+    "freshnessUnavailable": "Source freshness unavailable for this legacy record",
     "name": "Indicator",
     "change1m": "MoM",
     "value": "Value",
     "unit": "Unit"
+  },
+  "sources": {
+    "BLS": "BLS",
+    "Treasury": "U.S. Treasury",
+    "FRED": "FRED"
   },
   "fedwatch": {
     "title": "FedWatch Rate Expectations",
@@ -42,6 +51,7 @@
     "dgs2": "2-Year Treasury Yield",
     "dfii10": "10-Year Real Yield",
     "dff": "Effective Federal Funds Rate",
+    "baa10y": "Baa Corporate Spread vs 10Y Treasury",
     "bamlh0a0hym2": "US High-Yield OAS",
     "bamlc0a0cm": "US Corporate OAS",
     "vixcls": "Volatility Index",

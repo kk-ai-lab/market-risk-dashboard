@@ -19,6 +19,8 @@ from typing import Any
 
 import pytest
 
+from pipeline.collectors.macro import SERIES_GROUPS
+from pipeline.schemas import registry
 from pipeline.validation.ci_checks import (
     ENVELOPE_MODELS,
     STANDALONE_MODELS,
@@ -51,6 +53,9 @@ from tests.pipeline.factories import (
 )
 
 ENVELOPE_FILENAMES: list[str] = sorted(ENVELOPE_MODELS)
+REQUIRED_ENVELOPE_FILENAMES: list[str] = sorted(
+    name for name, spec in registry.enveloped_specs().items() if registry.BY_FILENAME[name].required
+)
 STANDALONE_FILENAMES: list[str] = sorted(STANDALONE_MODELS)
 
 
@@ -173,6 +178,12 @@ def test_build_data_dir_writes_only_under_its_root(tmp_path: Path) -> None:
         for slice_name in ("30d", "90d", "daily", "index")
     }
     expected |= {
+        f"history/macro/{group}.{slice_name}.json"
+        for group in SERIES_GROUPS
+        for slice_name in ("30d", "90d")
+    }
+    expected.add("history/macro/index.json")
+    expected |= {
         "metadata/freshness.json",
         "metadata/sources.json",
         "metadata/schema-version.json",
@@ -199,7 +210,7 @@ def test_required_file_missing(empty_data_dir: Path, now: datetime) -> None:
     assert any("file missing (required dataset)" in e for e in report.errors), report.errors
 
 
-@pytest.mark.parametrize("filename", ENVELOPE_FILENAMES)
+@pytest.mark.parametrize("filename", REQUIRED_ENVELOPE_FILENAMES)
 def test_missing_single_dataset_detected(filename: str, make_data_dir: Any, now: datetime) -> None:
     """Each required dataset is individually required, not merely required as a group."""
     root = make_data_dir(latest={filename: REMOVE})
@@ -501,7 +512,7 @@ def test_risk_range_recheck_is_defence_in_depth(payload: dict[str, Any], expecte
 def test_analysis_pair_missing_one_side(make_data_dir: Any, now: datetime, missing_side: str) -> None:
     """Either side missing → bilingual missing error (#73: both branches pinned)."""
     root = make_data_dir(latest={missing_side: REMOVE})
-    report = run_all(root, now=now)
+    report = run_all(root, now=now, include_legacy_ai=True)
     assert any("missing bilingual analysis file" in e for e in report.errors), report.errors
 
 
@@ -524,7 +535,7 @@ def test_unknown_language_key_detected(
 ) -> None:
     """Unknown language analysis.fr.json → error."""
     write_json(synthetic_latest_dir / "analysis.fr.json", make_analysis(language="fr"))
-    report = run_all(synthetic_data_dir, now=now)
+    report = run_all(synthetic_data_dir, now=now, include_legacy_ai=True)
     assert any("unknown language key" in e for e in report.errors), report.errors
 
 
@@ -536,7 +547,7 @@ def test_bilingual_inconsistency_detected(
         synthetic_latest_dir / "analysis.en.json",
         make_analysis(language="en", market_state="different_value"),
     )
-    report = run_all(synthetic_data_dir, now=now)
+    report = run_all(synthetic_data_dir, now=now, include_legacy_ai=True)
     assert any(
         "AI bilingual conclusion mismatch" in e and "market_state" in e for e in report.errors
     ), report.errors
@@ -547,7 +558,7 @@ def test_bilingual_regime_mismatch_detected(
 ) -> None:
     """The two languages must agree on the market regime."""
     write_json(synthetic_latest_dir / "analysis.en.json", make_analysis(language="en", market_regime="crisis"))
-    report = run_all(synthetic_data_dir, now=now)
+    report = run_all(synthetic_data_dir, now=now, include_legacy_ai=True)
     assert any("market_regime mismatch" in e for e in report.errors), report.errors
 
 
@@ -556,7 +567,7 @@ def test_bilingual_confidence_mismatch_detected(
 ) -> None:
     """The two languages must report the same confidence."""
     write_json(synthetic_latest_dir / "analysis.en.json", make_analysis(language="en", confidence=0.31))
-    report = run_all(synthetic_data_dir, now=now)
+    report = run_all(synthetic_data_dir, now=now, include_legacy_ai=True)
     assert any("confidence mismatch" in e for e in report.errors), report.errors
 
 
@@ -568,7 +579,7 @@ def test_bilingual_evidence_refs_mismatch_detected(
         synthetic_latest_dir / "analysis.en.json",
         make_analysis(language="en", top_risk_drivers=[{"claim": "Unsourced claim.", "evidence_refs": []}]),
     )
-    report = run_all(synthetic_data_dir, now=now)
+    report = run_all(synthetic_data_dir, now=now, include_legacy_ai=True)
     assert any("evidence_refs set mismatch" in e for e in report.errors), report.errors
 
 
@@ -577,7 +588,7 @@ def test_bilingual_list_length_mismatch_detected(
 ) -> None:
     """Parallel lists must be structurally equivalent across languages."""
     write_json(synthetic_latest_dir / "analysis.en.json", make_analysis(language="en", watch_next=[]))
-    report = run_all(synthetic_data_dir, now=now)
+    report = run_all(synthetic_data_dir, now=now, include_legacy_ai=True)
     assert any("watch_next length mismatch" in e for e in report.errors), report.errors
 
 
@@ -589,16 +600,16 @@ def test_bilingual_number_mismatch_detected(
         synthetic_latest_dir / "analysis.en.json",
         make_analysis(language="en", summary="Total score 99.9 places the market in caution."),
     )
-    report = run_all(synthetic_data_dir, now=now)
+    report = run_all(synthetic_data_dir, now=now, include_legacy_ai=True)
     assert any("text number mismatch" in e for e in report.errors), report.errors
 
 
-def test_both_analysis_missing_is_degraded_warning(make_data_dir: Any, now: datetime) -> None:
+def test_legacy_both_analysis_missing_is_degraded_warning(make_data_dir: Any, now: datetime) -> None:
     """No AI briefing at all is degraded mode, a warning — it must not block publishing."""
     root = make_data_dir(
         latest={"analysis.zh-CN.json": REMOVE, "analysis.en.json": REMOVE}
     )
-    report = run_all(root, now=now)
+    report = run_all(root, now=now, include_legacy_ai=True)
     assert report.ok, report.errors
     assert any("AI briefing not generated" in w for w in report.warnings), report.warnings
 
@@ -608,7 +619,7 @@ def test_unparseable_analysis_reported_as_bilingual_failure(
 ) -> None:
     """A corrupt analysis file fails the bilingual stage instead of crashing the run."""
     (synthetic_latest_dir / "analysis.en.json").write_text("{", encoding="utf-8")
-    report = run_all(synthetic_data_dir, now=now)
+    report = run_all(synthetic_data_dir, now=now, include_legacy_ai=True)
     assert any("AI bilingual validation failed" in e for e in report.errors), report.errors
 
 
@@ -773,7 +784,7 @@ def test_warnings_alone_do_not_block_publishing(make_data_dir: Any, now: datetim
 def test_files_checked_counts_every_validated_file(synthetic_data_dir: Path, now: datetime) -> None:
     """files_checked covers latest/, history/ and metadata/ — not just latest/."""
     report = run_all(synthetic_data_dir, now=now)
-    assert report.files_checked == len(ENVELOPE_FILENAMES) + len(STANDALONE_FILENAMES) + 8 + 4
+    assert report.files_checked == len(ENVELOPE_FILENAMES) + 1 + 8 + 4
 
 
 # =====================================================================================

@@ -10,6 +10,7 @@ from typing import Any
 
 import httpx
 
+from pipeline.fred_access import Configured, NotConfigured, fred_access
 from pipeline.providers._util import _f
 from pipeline.providers.base import (
     BaseProvider,
@@ -41,6 +42,7 @@ SERIES_CATALOG: dict[str, dict[str, str]] = {
     "DFII10": {"label": "10-Year Real Yield", "unit": "pct", "frequency": "daily", "scale": "pct"},
     "DFF": {"label": "Effective Federal Funds Rate", "unit": "pct", "frequency": "daily", "scale": "pct"},
     # credit
+    "BAA10Y": {"label": "Moody's Baa Corporate Yield minus 10Y Treasury", "unit": "pct", "frequency": "daily", "scale": "pct"},
     "BAMLH0A0HYM2": {"label": "ICE BofA US High Yield OAS", "unit": "pct", "frequency": "daily", "scale": "pct"},
     "BAMLC0A0CM": {"label": "ICE BofA US Corporate OAS", "unit": "pct", "frequency": "daily", "scale": "pct"},
     # volatility (#84 §5: VIX belongs in its own group, not under rates)
@@ -81,13 +83,18 @@ class FredProvider(BaseProvider):
 
     def __init__(self, settings=None) -> None:
         super().__init__(settings)
-        self.api_key = self.settings.fred_api_key
-        from pipeline.providers.base import guarded_client
+        self.access = fred_access(self.settings)
+        self.api_key = (
+            self.access.key.get_secret_value() if isinstance(self.access, Configured) else None
+        )
+        self._client = None
+        if isinstance(self.access, Configured):
+            from pipeline.providers.base import guarded_client
 
-        self._client = guarded_client(set(self.hosts), timeout=15.0)
+            self._client = guarded_client(set(self.hosts), timeout=15.0)
 
     def health(self) -> ProviderHealth:
-        if not self.api_key:
+        if isinstance(self.access, NotConfigured) or self._client is None:
             return ProviderHealth(provider=self.name, ok=False, error="missing DATA_FRED_API_KEY", checked_at=None)
         started = time.monotonic()
         try:
@@ -107,7 +114,7 @@ class FredProvider(BaseProvider):
 
     def get_series(self, series_id: str, start: str | None = None, end: str | None = None,
                    limit: int | None = None, units: str = "lin") -> list[dict[str, Any]]:
-        if not self.api_key:
+        if not self.api_key or self._client is None:
             raise ProviderError("FRED: missing DATA_FRED_API_KEY (local .env)")
 
         def _fetch() -> dict[str, Any]:

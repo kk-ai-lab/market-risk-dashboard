@@ -1,29 +1,31 @@
 import { useTranslation } from "react-i18next";
-import { ArrowUpRight, CalendarClock, Layers, Minus, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowUpRight, CalendarClock, Info, Layers, Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { useDataset } from "@/hooks/useDataset";
-import { useAnalysisPair } from "@/hooks/useAnalysisPair";
+import { hasRiskEvidence } from "@/lib/riskEvidence";
+import { isOfficialAnnouncement } from "@/lib/officialAnnouncements";
+import { SnapshotTimestamp } from "@/components/dashboard/SnapshotTimestamp";
 import { RiskTrendSlice } from "@/schemas/history";
 import type { DashboardEnvelope, MacroEnvelope, NewsEnvelope } from "@/schemas";
 import { AssetHeatmap } from "@/charts/AssetHeatmap";
 import { RiskTrendChart } from "@/charts/RiskTrendChart";
 import { NewsCard } from "@/components/news/NewsCard";
 import { EventCard } from "@/components/calendar/EventCard";
-import { AIBrief } from "@/components/ai/AIBrief";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { Badge } from "@/components/ui/Badge";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/layout/StatusBadge";
+import { CoinMetricsAttribution } from "@/components/crypto/CoinMetricsAttribution";
 import { dirTone, dirClasses, regimeTone, riskLevelTone, riskTrendTone, toneClasses } from "@/lib/riskColors";
-import { RISK_DIMENSION_KEYS, RISK_INDICATOR_KEYS, RISK_LEVEL_KEYS, regimeKey } from "@/lib/riskLabels";
-import { formatChange, formatDateTime, formatNumber, formatPctPoints, formatRatio } from "@/lib/format";
+import { RISK_DIMENSION_KEYS, RISK_EVIDENCE_KEYS, RISK_INDICATOR_KEYS, RISK_LEVEL_KEYS, regimeKey } from "@/lib/riskLabels";
+import { formatChange, formatNumber, formatPctPoints, formatRatio } from "@/lib/format";
 import type { RiskDimensionKey } from "@/schemas";
 import type { HeatmapCell } from "@/charts/AssetHeatmap";
 
 /**
  * OverviewPage: dark-first terminal layout (spec #23 ticket #28 — reference implementation).
- * - KPI strip of 4 small cards (the only cards on the page besides the AI brief)
+ * - Risk KPI strip plus a separate credit-indicator row
  * - Charts live in open chart regions (surface-0 + section header + hairline, no card chrome)
  * - Drivers/catalysts/sectors/news are hairline-divided sections with tabular numerals
  * - Page footer: mono status line (generation time + freshness)
@@ -36,7 +38,6 @@ export default function OverviewPage() {
   const trendQ = useDataset<RiskTrendSlice>("risk", { slice: "30d" }, RiskTrendSlice);
   const macroQ = useDataset<MacroEnvelope>("macro");
   const newsQ = useDataset<NewsEnvelope>("news");
-  const analysisQ = useAnalysisPair();
   const dashboard = dashboardQ.data?.payload;
   const risk = dashboard?.risk;
 
@@ -47,31 +48,66 @@ export default function OverviewPage() {
     equity: t("heatmap.catEquities"),
     crypto: t("heatmap.catCrypto"),
     sector: t("heatmap.catSectors"),
+    index: t("heatmap.catIndices"),
+    sector_etf: t("heatmap.catSectorEtfs"),
   };
   const heatmapCells: HeatmapCell[] =
-    dashboard?.cross_asset.map((asset) => ({
-      asset: asset.asset,
-      category: categoryLabels[asset.category] ?? asset.category,
-      change1d: asset.change_1d,
-    })) ?? [];
+    dashboard
+      ? [
+          ...dashboard.cross_asset.map((asset) => ({
+            asset: asset.asset,
+            category: categoryLabels[asset.category] ?? asset.category,
+            change1d: asset.change_1d,
+            source: asset.source,
+            provider: null,
+            retrievedAt: null,
+            isProxy: false,
+            proxyOf: null,
+          })),
+          ...dashboard.index_performance.map((asset) => ({
+            asset: asset.symbol,
+            category: categoryLabels.index,
+            change1d: asset.change_1d,
+            source: asset.source,
+            provider: asset.provider,
+            retrievedAt: asset.retrieved_at,
+            isProxy: asset.is_proxy,
+            proxyOf: asset.proxy_of,
+          })),
+          ...dashboard.sector_etfs.map((asset) => ({
+            asset: asset.symbol,
+            category: categoryLabels.sector_etf,
+            change1d: asset.change_1d,
+            source: asset.source,
+            provider: asset.provider,
+            retrievedAt: asset.retrieved_at,
+            isProxy: asset.is_proxy,
+            proxyOf: asset.proxy_of,
+          })),
+        ]
+      : [];
   const catalysts = dashboard?.catalysts ?? [];
   const sectorBaskets = dashboard?.sector_performance ?? [];
 
-  const topNews = newsQ.data ? [...newsQ.data.payload.items].sort((a, b) => b.importance - a.importance).slice(0, 4) : [];
+  const topNews = newsQ.data
+    ? newsQ.data.payload.items.filter(isOfficialAnnouncement).sort((a, b) => b.importance - a.importance).slice(0, 4)
+    : [];
 
-  const riskTone = risk ? riskLevelTone(risk.risk_level) : "na";
-  const trendTone = risk ? riskTrendTone(risk.trend_1d) : "na";
+  const riskAvailable = risk ? hasRiskEvidence(risk) : false;
+  const riskTone = risk && riskAvailable ? riskLevelTone(risk.risk_level) : "na";
+  const trendTone = risk && riskAvailable ? riskTrendTone(risk.trend_1d) : "na";
   const TrendIcon =
-    risk?.trend_1d === null || risk?.trend_1d === undefined || risk.trend_1d === 0
+    !riskAvailable || risk?.trend_1d === null || risk?.trend_1d === undefined || risk.trend_1d === 0
       ? Minus
       : risk.trend_1d > 0
         ? TrendingUp
         : TrendingDown;
   const topDrivers = dashboard?.top_drivers ?? [];
 
-  // HY OAS (spec #28 KPI set): high-yield credit spread from the macro dataset when available
-  const hyOas =
-    macroQ.data?.payload.credit.find((ind) => ind.key === "bamlh0a0hym2" || /high yield oas/i.test(ind.label)) ?? null;
+  const creditIndicators = macroQ.data?.payload.credit ?? [];
+  const baaSpread = creditIndicators.find((indicator) => indicator.key === "baa10y") ?? null;
+  const hyOas = creditIndicators.find((indicator) => indicator.key === "bamlh0a0hym2") ?? null;
+  const igOas = creditIndicators.find((indicator) => indicator.key === "bamlc0a0cm") ?? null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -81,23 +117,25 @@ export default function OverviewPage() {
         </h1>
         <p className="text-xs text-muted-foreground">{t("subtitle")}</p>
         {dashboardQ.data ? (
-          <span className="ml-auto">
-            <StatusBadge status={dashboardQ.data.freshness_status} fromCache={dashboardQ.data.provenance?.from_cache} withDescription />
+          <span className="ml-auto flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">{t("snapshot.recordedStatus")}</span>
+            <StatusBadge dataset="dashboard" generatedAt={dashboardQ.data.generated_at} status={dashboardQ.data.freshness_status} fromCache={dashboardQ.data.provenance?.from_cache} withDescription />
           </span>
         ) : null}
       </header>
 
+      <SnapshotTimestamp generatedAt={dashboardQ.data?.generated_at} />
+
       {/* KPI strip: the only cards on this page (card policy) */}
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4" data-testid="risk-conclusion">
+      <section className="grid grid-cols-1 gap-3 md:grid-cols-3" data-testid="risk-conclusion">
         {dashboardQ.isLoading ? (
           <>
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
           </>
         ) : dashboardQ.isError ? (
-          <ErrorState onRetry={dashboardQ.refetch} className="md:col-span-2 xl:col-span-4" />
+          <ErrorState onRetry={dashboardQ.refetch} className="md:col-span-3" />
         ) : risk && dashboardQ.data ? (
           <>
             <KpiCard
@@ -105,17 +143,17 @@ export default function OverviewPage() {
               footer={
                 <span className={`inline-flex items-center gap-1 ${toneClasses(trendTone).text}`}>
                   <TrendIcon className="h-3 w-3" aria-hidden />
-                  {risk.trend_1d === null
+                  {!riskAvailable || risk.trend_1d === null
                     ? t("common:data.na")
                     : `${t("common:direction.dayChange")} ${formatPctPoints(risk.trend_1d, locale)}`}
                 </span>
               }
             >
               <span className={`text-2xl font-semibold tabular-nums ${toneClasses(riskTone).text}`} data-testid="risk-score">
-                {formatNumber(risk.total_score, locale)}
+                {riskAvailable ? formatNumber(risk.total_score, locale) : t("common:data.na")}
               </span>
               <Badge variant={riskTone} data-testid="risk-level">
-                {t(`risk:${RISK_LEVEL_KEYS[risk.risk_level]}`)}
+                {riskAvailable ? t(`risk:${RISK_LEVEL_KEYS[risk.risk_level]}`) : t(risk.evidence_state === null ? "risk:evidence.unknown" : "risk:evidence.insufficient")}
               </Badge>
             </KpiCard>
 
@@ -124,62 +162,114 @@ export default function OverviewPage() {
               footer={`${t("risk:score.confidence")} ${formatRatio(risk.confidence, locale)}`}
             >
               <span
-                className={`text-base font-medium ${toneClasses(regimeTone(risk.regime)).text}`}
+                className={`text-base font-medium ${toneClasses(riskAvailable ? regimeTone(risk.regime) : "na").text}`}
                 data-testid="market-regime"
               >
-                {t(`risk:${regimeKey(risk.regime)}`)}
+                {riskAvailable ? t(`risk:${regimeKey(risk.regime)}`) : t("risk:regime.noEvidence")}
               </span>
             </KpiCard>
 
             <KpiCard
               label={t("kpi.trend1d")}
               footer={
-                risk.trend_1w === null
+                !riskAvailable || risk.trend_1w === null
                   ? undefined
                   : `${t("kpi.oneWeek")} ${formatPctPoints(risk.trend_1w, locale)} · ${t("kpi.oneMonth")} ${risk.trend_1m === null ? t("common:data.na") : formatPctPoints(risk.trend_1m, locale)}`
               }
             >
               <span className={`text-2xl font-semibold tabular-nums ${toneClasses(trendTone).text}`}>
-                {risk.trend_1d === null ? t("common:data.na") : formatPctPoints(risk.trend_1d, locale)}
+                {!riskAvailable || risk.trend_1d === null ? t("common:data.na") : formatPctPoints(risk.trend_1d, locale)}
               </span>
             </KpiCard>
 
-            <KpiCard
-              label={t("kpi.hyOas")}
-              footer={
-                hyOas?.change_1m === null || hyOas?.change_1m === undefined
-                  ? undefined
-                  : `${t("kpi.oneMonth")} ${formatPctPoints(hyOas.change_1m, locale)}`
-              }
-            >
-              {hyOas ? (
-                <span
-                  className={`text-2xl font-semibold tabular-nums ${dirClasses(dirTone(hyOas.change_1m)).text}`}
-                >
-                  {formatNumber(hyOas.value, locale)}
-                  <span className="text-sm font-medium text-muted-foreground">%</span>
-                </span>
-              ) : (
-                <span className="text-base text-muted-foreground">{t("common:data.na")}</span>
-              )}
-            </KpiCard>
           </>
         ) : (
-          <EmptyState className="md:col-span-2 xl:col-span-4" />
+          <EmptyState className="md:col-span-3" />
         )}
       </section>
+
+      <section className="grid grid-cols-1 gap-3 md:grid-cols-3" data-testid="credit-indicators">
+        <KpiCard
+          label={t("kpi.baaSpread")}
+          footer={
+            <span className="flex flex-wrap items-center gap-x-1">
+              <span>{baaSpread?.attribution ?? t("kpi.baaAttribution")}</span>
+              <span>· {t("kpi.baaSpreadNote")}</span>
+              {baaSpread?.observation_date ? <span>· {t("kpi.observed")} {baaSpread.observation_date}</span> : null}
+            </span>
+          }
+          data-testid="credit-baa10y"
+        >
+          {baaSpread?.value !== null && baaSpread?.value !== undefined ? (
+            <span className={`text-2xl font-semibold tabular-nums ${dirClasses(dirTone(baaSpread.change_1m)).text}`}>
+              {formatNumber(baaSpread.value, locale)}<span className="text-sm font-medium text-muted-foreground">%</span>
+            </span>
+          ) : <span className="text-base text-muted-foreground">{t("kpi.notConfigured")}</span>}
+        </KpiCard>
+        <KpiCard
+          label={t("kpi.hyOas")}
+          footer={
+            <span className="flex flex-wrap items-center gap-x-1">
+              <span>{hyOas?.attribution ?? t("kpi.iceNote")}</span>
+              <span role="img" title={t("kpi.hyCitation")} aria-label={t("kpi.fullCitation")}>
+                <Info className="h-3 w-3" aria-hidden />
+              </span>
+              {hyOas?.observation_date ? <span>· {t("kpi.observed")} {hyOas.observation_date}</span> : null}
+              <span>· {t("kpi.displayOnlyNote")}</span>
+            </span>
+          }
+          data-testid="credit-hy-oas"
+        >
+          {hyOas?.value !== null && hyOas?.value !== undefined ? (
+            <span className={`text-2xl font-semibold tabular-nums ${dirClasses(dirTone(hyOas.change_1m)).text}`}>
+              {formatNumber(hyOas.value, locale)}<span className="text-sm font-medium text-muted-foreground">%</span>
+            </span>
+          ) : <span className="text-base text-muted-foreground">{t("kpi.notConfigured")}</span>}
+        </KpiCard>
+        <KpiCard
+          label={t("kpi.igOas")}
+          footer={
+            <span className="flex flex-wrap items-center gap-x-1">
+              <span>{igOas?.attribution ?? t("kpi.iceNote")}</span>
+              <span role="img" title={t("kpi.igCitation")} aria-label={t("kpi.fullCitation")}>
+                <Info className="h-3 w-3" aria-hidden />
+              </span>
+              {igOas?.observation_date ? <span>· {t("kpi.observed")} {igOas.observation_date}</span> : null}
+            </span>
+          }
+          data-testid="credit-ig-oas"
+        >
+          {igOas?.value !== null && igOas?.value !== undefined ? (
+            <span className={`text-2xl font-semibold tabular-nums ${dirClasses(dirTone(igOas.change_1m)).text}`}>
+              {formatNumber(igOas.value, locale)}<span className="text-sm font-medium text-muted-foreground">%</span>
+            </span>
+          ) : <span className="text-base text-muted-foreground">{t("kpi.notConfigured")}</span>}
+        </KpiCard>
+      </section>
+
+      {risk && dashboardQ.data ? (
+        <section className="rounded-md border border-hairline p-3 text-xs text-muted-foreground" data-testid="overview-risk-evidence">
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <span>{t("risk:evidence.title")}: <strong className="font-medium text-foreground">{risk.evidence_state === null ? t("risk:evidence.unknown") : t(`risk:${RISK_EVIDENCE_KEYS[risk.evidence_state]}`)}</strong></span>
+            <span>{t("risk:evidence.coverage")}: <strong className="font-medium tabular-nums text-foreground">{risk.evidence_coverage === null ? t("common:data.na") : formatRatio(risk.evidence_coverage, locale)}</strong></span>
+            <span>{t("risk:evidence.scoreRange")}: <strong className="font-medium tabular-nums text-foreground">{risk.score_lower_bound === null || risk.score_upper_bound === null ? t("common:data.na") : `${formatNumber(risk.score_lower_bound, locale)}–${formatNumber(risk.score_upper_bound, locale)}`}</strong></span>
+          </div>
+          <p className="mt-2 leading-relaxed">{t("risk:evidence.explanation")}</p>
+        </section>
+      ) : null}
 
       {/* Open chart region: risk trend (no card chrome) */}
       <section className="border-t border-hairline pt-4" data-testid="risk-trend-section">
         <div className="mb-2 flex items-baseline gap-2">
           <h2 className="text-sm font-medium text-foreground">{t("trend.title")}</h2>
         </div>
+        {trendQ.data?.some((point) => point.evidence_state === undefined) ? <p className="mb-2 text-xs text-muted-foreground">{t("trend.legacyEvidenceUnknown")}</p> : null}
         {trendQ.isLoading ? (
           <Skeleton className="h-64 w-full" />
         ) : trendQ.isError ? (
           <ErrorState onRetry={trendQ.refetch} />
-        ) : trendQ.data && trendQ.data.length > 0 ? (
-          <RiskTrendChart points={trendQ.data} />
+        ) : trendQ.data && trendQ.data.some((point) => point.evidence_state !== "insufficient_evidence") ? (
+          <RiskTrendChart points={trendQ.data.map((point) => ({ ...point, total_score: point.evidence_state === "insufficient_evidence" ? null : point.total_score }))} />
         ) : (
           <EmptyState title={t("trend.empty")} />
         )}
@@ -199,6 +289,9 @@ export default function OverviewPage() {
         ) : (
           <EmptyState title={t("heatmap.empty")} />
         )}
+        <div className="mt-3">
+          <CoinMetricsAttribution show={dashboard?.cross_asset.some((asset) => asset.category === "crypto" && asset.source === "coinmetrics") ?? false} />
+        </div>
       </section>
 
       {/* Top drivers (hairline table) + upcoming catalysts */}
@@ -227,6 +320,7 @@ export default function OverviewPage() {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-foreground">
                         {t(`risk:${RISK_INDICATOR_KEYS[driver.indicator_key] ?? "indicatorNames.unknown"}`)}
+                        {driver.is_proxy ? <Badge variant="outline" className="ml-1.5 px-1 py-0 text-xs">{t("risk:indicator.proxy")}</Badge> : null}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
                         {t(`risk:${RISK_DIMENSION_KEYS[driver.dimension_key as RiskDimensionKey]}`)}
@@ -306,10 +400,13 @@ export default function OverviewPage() {
         </div>
 
         <div>
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
-            <ArrowUpRight className="h-4 w-4 text-muted-foreground" aria-hidden />
-            {t("news.title")}
-          </h2>
+          <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+              {t("news.title")}
+            </h2>
+            <span className="text-xs text-muted-foreground">{t("news.attribution")}</span>
+          </div>
           {newsQ.isLoading ? (
             <Skeleton className="h-40 w-full" />
           ) : newsQ.isError ? (
@@ -326,18 +423,10 @@ export default function OverviewPage() {
         </div>
       </section>
 
-      {/* AI Market Brief (visually quarantined block) */}
-      <section className="border-t border-hairline pt-4" data-testid="ai-brief-section">
-        <AIBrief presentation={analysisQ.presentation} loading={analysisQ.isLoading} />
-      </section>
-
       {/* Mono status footer + compliance disclaimer */}
       {dashboardQ.data ? (
         <footer className="flex flex-col gap-1 border-t border-hairline pt-2">
           <div className="flex flex-wrap gap-4 font-mono text-xs text-muted-foreground">
-            <span>
-              {t("statusBar.generated")}: {formatDateTime(dashboardQ.data.generated_at, locale)}
-            </span>
             <span>
               {t("common:data.quality")}: <span className="tabular-nums">{formatRatio(dashboardQ.data.data_quality, locale)}</span>
             </span>

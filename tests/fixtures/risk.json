@@ -10,6 +10,7 @@
     "generated_at": "2026-08-03T10:00:00Z",
     "total_score": 52.3,
     "risk_level": "caution",
+    "evidence_state": "partial",
     "trend_1d": 1.4,
     "trend_1w": 3.2,
     "trend_1m": -2.1,
@@ -89,8 +90,8 @@
         "score": 40.0,
         "indicators": [
           {
-            "key": "hy_oas",
-            "label": "HY OAS",
+            "key": "baa10y_spread",
+            "label": "Baa-10Y Spread",
             "value": 3.4,
             "percentile": 45.0,
             "z_score": 0.1,
@@ -350,7 +351,7 @@
     "regime": "late_cycle",
     "regime_evidence": [
       "10Y-2Y spread near inversion",
-      "HY OAS widening"
+      "Baa spread pressure"
     ],
     "confidence": 0.72,
     "confidence_factors": {

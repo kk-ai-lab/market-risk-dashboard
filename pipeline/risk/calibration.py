@@ -1,6 +1,6 @@
 """Offline calibration engine (architecture §1.8 frozen: 2008/2018/2020 three segments).
 
-All data is freely available: FRED VIXCLS/BAMLH0A0HYM2/DGS10 + yfinance SPX history.
+Inputs: FRED VIXCLS/BAA10Y + yfinance SPX history.
 Evaluation metrics (PRD §15 subset): early-warning lead time, risk score change speed,
 maximum drawdown, future 5/10/20/30-day volatility, risk level stability.
 Calibration red line: before calibration completes, the UI must not call the risk score
@@ -22,7 +22,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from pipeline.risk.scoring import heuristic_risk_score
-from pipeline.schemas import MacroDataset, MacroIndicator
+from pipeline.schemas import CommoditiesDataset, CommodityAsset, MacroDataset, MacroIndicator
 
 CALIBRATION_WINDOWS = {
     "2008": {"start": "2008-08-01", "end": "2009-03-31", "note": "2008 financial crisis"},
@@ -33,7 +33,13 @@ CALIBRATION_WINDOWS = {
 # These are calibration-only evaluation constants. They do not alter the live model's
 # weights, thresholds, or confidence policy.
 PRODUCTION_CALIBRATION_HORIZONS = (5, 10, 20, 30)
-CALIBRATION_MARKET_SYMBOLS = ("SPY", "IWM", "SOXX", "XLY", "XLP", "HYG", "IEF")
+# The market series the replay needs to observe every input it evaluates. GC=F/HG=F are here
+# because two of the eight production cross-asset signals are commodity-based (copper down,
+# gold up, PRD §14.7): without their closes the replay can only observe 5 of the 8 signals and
+# the calibration evidence for the 15%-weight cross_asset dimension is structurally incomplete.
+# A panel that lacks them simply yields an unobserved signal, exactly as before — the panel,
+# not this constant, decides what the replay can see.
+CALIBRATION_MARKET_SYMBOLS = ("SPY", "IWM", "SOXX", "XLY", "XLP", "HYG", "IEF", "GC=F", "HG=F")
 CALIBRATION_ALERT_SCORE = 60.0
 CALIBRATION_EVENT_HORIZON = 20
 CALIBRATION_EVENT_DRAWDOWN = -0.10
@@ -42,7 +48,7 @@ CALIBRATION_MACRO_GROUPS = {
     "dgs2": "rates",
     "dfii10": "rates",
     "dtwexbgs": "fx",
-    "bamlh0a0hym2": "credit",
+    "baa10y": "credit",
     "bamlc0a0cm": "credit",
     "vixcls": "volatility",
     "walcl": "liquidity",
@@ -53,7 +59,7 @@ CALIBRATION_MACRO_LABELS = {
     "dgs2": "2Y Yield",
     "dfii10": "10Y Real Rate",
     "dtwexbgs": "Dollar Index",
-    "bamlh0a0hym2": "HY OAS",
+    "baa10y": "Baa-10Y Spread",
     "bamlc0a0cm": "IG OAS",
     "vixcls": "VIX",
     "walcl": "Fed Balance Sheet",
@@ -61,11 +67,11 @@ CALIBRATION_MACRO_LABELS = {
 }
 
 
-def composite_score(vix: float | None, hy: float | None, drawdown: float | None) -> float:
-    """Simplified composite risk score (0-100): weighted combination of VIX + HY OAS + drawdown."""
+def composite_score(vix: float | None, baa_spread: float | None, drawdown: float | None) -> float:
+    """Simplified composite risk score (0-100): weighted combination of VIX + Baa-10Y + drawdown."""
     scores = [
         heuristic_risk_score("vix", vix),
-        heuristic_risk_score("hy_oas", hy),
+        heuristic_risk_score("baa10y_spread", baa_spread),
         heuristic_risk_score("drawdown_52w", drawdown),
     ]
     present = [s for s in scores if s is not None]
@@ -77,7 +83,7 @@ def composite_score(vix: float | None, hy: float | None, drawdown: float | None)
 def evaluate_segment(
     dates: list[str],
     vix_series: list[float | None],
-    hy_series: list[float | None],
+    baa_series: list[float | None],
     spx_series: list[float],
     segment: str,
 ) -> dict[str, Any]:
@@ -86,7 +92,7 @@ def evaluate_segment(
     for i in range(len(dates)):
         drawdown = _drawdown(spx_series[: i + 1])
         scores.append(composite_score(vix_series[i] if i < len(vix_series) else None,
-                                      hy_series[i] if i < len(hy_series) else None,
+                                      baa_series[i] if i < len(baa_series) else None,
                                       drawdown))
 
     peak_idx = spx_series.index(max(spx_series)) if spx_series else 0
@@ -110,10 +116,11 @@ def evaluate_segment(
             speed_days = i - start_idx
             break
 
-    # Future 5/10/20/30-day volatility (after the peak)
-    future_vol: dict[str, float | None] = {}
+    forward_daily_return_std_pct: dict[str, float | None] = {}
     for horizon in (5, 10, 20, 30):
-        future_vol[f"vol_{horizon}d"] = _future_vol(spx_series, peak_idx, horizon)
+        forward_daily_return_std_pct[f"{horizon}d"] = _forward_daily_return_std_pct(
+            spx_series, peak_idx, horizon
+        )
 
     # Risk level stability: number of switches across the 40/60 thresholds
     switches = 0
@@ -132,7 +139,7 @@ def evaluate_segment(
         "max_drawdown_pct": round(max_dd * 100.0, 2) if max_dd is not None else None,
         "early_warning_days_vs_peak": early_warning_days,
         "speed_40_to_60_days": speed_days,
-        "future_vol": future_vol,
+        "forward_daily_return_std_pct": forward_daily_return_std_pct,
         "level_switches": switches,
         "score_first": scores[0] if scores else None,
         "score_max": max(scores) if scores else None,
@@ -162,10 +169,8 @@ def _max_drawdown(series: list[float]) -> float | None:
     return worst
 
 
-def _future_vol(series: list[float], start: int, horizon: int) -> float | None:
-    import math
-
-    window = series[start : start + horizon]
+def _forward_daily_return_std_pct(series: list[float], start: int, horizon: int) -> float | None:
+    window = series[start : start + horizon + 1]
     if len(window) < 3:
         return None
     returns = [(window[i] - window[i - 1]) / window[i - 1] for i in range(1, len(window)) if window[i - 1] != 0]
@@ -297,18 +302,60 @@ def _point_in_time_market_history(panel: dict[str, Any], index: int) -> dict[str
     }
 
 
+#: Commodity series whose closes feed the copper/gold confirmation signals (PRD §14.7).
+CALIBRATION_COMMODITY_SYMBOLS = {"GC=F": "Gold", "HG=F": "Copper"}
+
+
+def _point_in_time_commodities(histories: dict[str, list[dict[str, Any]]]) -> Any:
+    """Build the commodities dataset seam the live pipeline hands to ``build_risk_context``.
+
+    The live path reads ``commodities.payload.assets[].change_1d``; a replay has only closing
+    prices, so the 1d change is derived from the last two closes at or before the score date —
+    the same definition the live commodity cards publish. A symbol without two closes is
+    omitted rather than filled with a benign zero, so a missing series stays an unobserved
+    signal instead of a false "not triggered". The ``.payload`` seam matches the envelope the
+    live collector hands over (``build_risk_context`` reads ``commodities.payload``).
+    """
+    assets: list[CommodityAsset] = []
+    for symbol, name in sorted(CALIBRATION_COMMODITY_SYMBOLS.items()):
+        rows = histories.get(symbol) or []
+        closes = [float(row["close"]) for row in rows if isinstance(row.get("close"), (int, float))]
+        if len(closes) < 2 or not closes[-2]:
+            continue
+        assets.append(
+            CommodityAsset(
+                symbol=symbol,
+                name=name,
+                price=closes[-1],
+                change_1d=round((closes[-1] - closes[-2]) / closes[-2] * 100.0, 4),
+                source="calibration_panel",
+                updated_at=f"{rows[-1]['date']}T00:00:00Z",
+            )
+        )
+    return SimpleNamespace(payload=CommoditiesDataset(assets=assets))
+
+
 def _point_in_time_context(
     panel: dict[str, Any],
     index: int,
     previous_score: float | None,
     previous_dimensions: dict[str, float] | None,
+    derived_history_enabled: bool = False,
 ) -> dict[str, Any]:
     """Build the same context seam used by the live pipeline, using only rows through ``index``."""
+    from pipeline.indicators.derived_series import derive_report
     from pipeline.run import build_risk_context
 
     macro = SimpleNamespace(payload=_macro_payload(panel, index))
     empty_dataset = SimpleNamespace(payload=SimpleNamespace(assets=[]))
     histories = _point_in_time_market_history(panel, index)
+    series_history = _point_in_time_series_history(panel, index)
+    # #D3: the derived value histories read only rows dated at or before ``index``, so enabling
+    # the gate cannot leak a future close into an earlier score. With it off nothing is
+    # computed, which keeps the replay byte-identical to the pre-#D3 behaviour.
+    derived_series_report = (
+        derive_report(histories, series_history) if derived_history_enabled else None
+    )
     source_metadata = panel.get("source_metadata", {})
     market_source = source_metadata.get("sources", {}).get("market", "calibration_panel")
     provenance = {"provider": str(market_source)}
@@ -316,13 +363,19 @@ def _point_in_time_context(
         macro=macro,
         equities=empty_dataset,
         crypto=empty_dataset,
-        commodities=empty_dataset,
+        # Commodity closes decide two of the eight production confirmation signals (copper
+        # down, gold up). Before this seam existed the replay always passed an empty
+        # commodities dataset, so those two signals were permanently unobserved and the
+        # cross-asset evidence was measured on 5 of 8 inputs. A panel without the symbols
+        # still yields an empty dataset, so nothing changes for a panel that lacks them.
+        commodities=_point_in_time_commodities(histories),
         histories=histories,
         qualities=[1.0],
         prev_total_score=previous_score,
         prev_dim_scores=previous_dimensions,
         risk_history=[],
-        series_history=_point_in_time_series_history(panel, index),
+        series_history=series_history,
+        derived_series_report=derived_series_report,
         market_provenance=provenance,
         macro_provenance={"provider": str(source_metadata.get("sources", {}).get("macro", "calibration_panel"))},
         crypto_provenance=provenance,
@@ -617,7 +670,15 @@ def replay_production_path(panel: dict[str, Any], settings: Any | None = None) -
     previous_score: float | None = None
     previous_dimensions: dict[str, float] | None = None
     for index, date_value in enumerate(dates):
-        result = model.score(_point_in_time_context(normalized, index, previous_score, previous_dimensions))
+        result = model.score(
+            _point_in_time_context(
+                normalized,
+                index,
+                previous_score,
+                previous_dimensions,
+                derived_history_enabled=model.derived_history_enabled,
+            )
+        )
         path = _path_identity(result)
         if normalized["evaluate"][index]:
             observations.append(

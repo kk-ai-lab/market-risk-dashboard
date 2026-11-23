@@ -12,7 +12,7 @@ source_status is written by the Collector into metadata/sources.json.
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlparse
@@ -21,7 +21,7 @@ import feedparser
 import httpx
 
 from pipeline.config.models import NewsSource
-from pipeline.providers._util import UA
+from pipeline.providers._util import UA, declared_user_agent
 from pipeline.providers.base import (
     BaseProvider,
     ProviderError,
@@ -37,30 +37,40 @@ class RssNewsProvider(BaseProvider):
     domain = "news"
     hosts = ("rss",)
 
-    def __init__(self, settings=None) -> None:
+    def __init__(self, settings=None, *, collection_plan=None) -> None:
         super().__init__(settings)
-        # #102: sources come from the VALIDATED news_sources config (single shape,
-        # extra="forbid"); per-source `enabled` is preserved by the model.
+        self.collection_plan = collection_plan or (
+            self.settings.load_public_source_policy().collection_plan()
+            if self.settings.approved_sources_only else None
+        )
         config = self.settings.load_news_sources_config()
-        self.sources = [s for s in config.sources if s.enabled]
-        # S-3: outbound allowlist = the synthetic bucket + every configured source host;
+        allowed_feeds = self.collection_plan.news_feeds() if self.collection_plan is not None else None
+        self.sources = [
+            source for source in config.sources
+            if source.enabled and (allowed_feeds is None or source.id in allowed_feeds)
+        ]
+        self._request_sources = [
+            source for source in self.sources
+            if not (source.requires_declared_ua and not self.settings.sec_contact_email)
+        ]
+        # S-3: outbound allowlist = the synthetic bucket + every requestable source host;
         # sources marked `trust: relay` vouch only for their explicit redirect targets.
         # #124: the allowlist covers the FULL fallback chain, not just the primary URL —
         # otherwise a legitimate fallback fetch would be blocked by our own guard.
         chain_hosts = {
-            urlparse(u).hostname for s in self.sources for u in s.chain_urls if urlparse(u).hostname
+            urlparse(u).hostname for s in self._request_sources for u in s.chain_urls if urlparse(u).hostname
         }
         allowed = set(self.hosts) | chain_hosts
         relay_hosts = {
             urlparse(u).hostname
-            for s in self.sources
+            for s in self._request_sources
             if s.trust == "relay"
             for u in s.chain_urls
             if urlparse(u).hostname
         }
         relay_target_hosts = {
             host.lower()
-            for s in self.sources
+            for s in self._request_sources
             if s.trust == "relay"
             for host in s.redirect_hosts
         }
@@ -111,11 +121,32 @@ class RssNewsProvider(BaseProvider):
             # single retry layer still covers whole-batch transients.
             urls = source.chain_urls
             source_id = str(source.id or urlparse(source.url).netloc)
+            if source.requires_declared_ua and not self.settings.sec_contact_email:
+                detail = "DATA_SEC_CONTACT_EMAIL is not configured; no request was sent"
+                self.source_status[source_id] = {
+                    "ok": False,
+                    "degraded": True,
+                    "from_cache": False,
+                    "state": "not_configured",
+                    "error_code": "provider_auth_failed",
+                    "error": detail,
+                    "detail": detail,
+                    "updated_at": now_utc(),
+                }
+                errors.append(f"{source_id}: {detail}")
+                continue
             served = False
             last_error: Exception | None = None
             for url in urls:
                 try:
-                    raw, channel_link = self._fetch_feed(url)
+                    user_agent = (
+                        declared_user_agent(self.settings.sec_contact_email)
+                        if source.requires_declared_ua and self.settings.sec_contact_email else None
+                    )
+                    raw, channel_link = (
+                        self._fetch_feed(url, user_agent=user_agent)
+                        if user_agent else self._fetch_feed(url)
+                    )
                     normalized: list[dict[str, Any]] = []
                     invalid_entries = 0
                     for entry in raw:
@@ -166,7 +197,7 @@ class RssNewsProvider(BaseProvider):
             raise ProviderError("RSS all sources failed: " + "; ".join(errors))
         return items
 
-    def _fetch_feed(self, url: str) -> tuple[list[Any], str | None]:
+    def _fetch_feed(self, url: str, *, user_agent: str | None = None) -> tuple[list[Any], str | None]:
         """Single-attempt fetch (#103/D-6): classification at the one boundary, retries in
         ProviderRegistry.call — the per-source retry loop and per-source cache are gone.
 
@@ -174,7 +205,10 @@ class RssNewsProvider(BaseProvider):
         linkless flash feeds (财联社 telegraph), which publish no per-item URLs at all.
         """
         try:
-            resp = self._client.get(url)
+            resp = (
+                self._client.get(url, headers={"User-Agent": user_agent})
+                if user_agent else self._client.get(url)
+            )
         except httpx.RequestError as exc:
             raise ProviderError.from_exception(exc, detail=f"RSS {url}") from exc
         if resp.status_code != 200:
@@ -206,10 +240,10 @@ def _entry_date(entry: Any) -> str | None:
                 parsed = parsedate_to_datetime(raw)
             if parsed:
                 if hasattr(parsed, "tm_year"):
-                    parsed = datetime(*parsed[:6], tzinfo=timezone.utc)
+                    parsed = datetime(*parsed[:6], tzinfo=UTC)
                 elif parsed.tzinfo is None:
-                    parsed = parsed.replace(tzinfo=timezone.utc)
-                return parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    parsed = parsed.replace(tzinfo=UTC)
+                return parsed.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         except Exception:  # noqa: BLE001
             continue
     return None
@@ -221,7 +255,7 @@ def _is_absolute_http(parsed) -> bool:
 
 
 def _normalize_entry(
-    entry: Any, source: "NewsSource", source_id: str,
+    entry: Any, source: NewsSource, source_id: str,
     max_chars: int = 160, channel_link: str | None = None,
 ) -> dict[str, Any] | None:
     title = _clean_text(entry.get("title", ""))
@@ -241,6 +275,7 @@ def _normalize_entry(
         "title": title,
         "source": str(source.name or source_id),
         "source_id": source_id,
+        "guid": str(entry.get("id") or entry.get("guid") or "").strip() or None,
         "url": link,
         "published_at": published,
         "lang": source.lang,

@@ -10,24 +10,39 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Sequence
+from typing import Sequence
+
+# Shared curve for relative-strength measurements.
+_RELATIVE_STRENGTH_RULE: list[tuple[float, float]] = [
+    (-25, 95), (-10, 75), (0, 55), (10, 40), (20, 25), (35, 15)
+]
 
 # Heuristic mapping table: key → [(threshold, score)], interpolated by value ascending
 HEURISTIC_RULES: dict[str, list[tuple[float, float]]] = {
     "vix": [(10, 5), (15, 20), (20, 40), (25, 60), (30, 75), (40, 90), (50, 98)],
-    "hy_oas": [(2.0, 10), (3.0, 30), (4.0, 55), (5.0, 70), (6.0, 85), (8.0, 95)],
+    # Baa-10Y full-history quantiles mapped onto the same 0-100 points as the table it
+    # replaces. The level is an investment-grade spread: 1.56 is calm, 3.32 is a crisis.
+    "baa10y_spread": [(1.56, 10), (1.81, 30), (2.20, 55), (2.53, 70), (2.91, 85), (3.32, 95)],
     "ig_oas": [(0.8, 10), (1.2, 30), (1.6, 50), (2.0, 70), (2.5, 85), (3.5, 95)],
     "dgs10": [(2.0, 40), (3.0, 45), (4.0, 50), (4.5, 60), (5.0, 70), (6.0, 85)],
     "real_rate_dfii10": [(0.0, 20), (0.5, 35), (1.0, 50), (1.5, 65), (2.0, 80), (2.5, 90)],
     "yield_curve_10y2y": [(-0.5, 95), (0.0, 75), (0.5, 55), (1.0, 40), (1.5, 30), (2.0, 25)],
     "dollar_index": [(95, 30), (100, 40), (105, 55), (110, 70), (115, 85)],
+    "sahm_style_labor_stress": [(0.0, 15), (0.25, 40), (0.50, 75), (0.75, 90), (1.0, 97)],
     "breadth_above_ma200": [(0.2, 95), (0.4, 75), (0.5, 60), (0.6, 45), (0.7, 30), (0.85, 15)],
     "new_highs_ratio": [(0.0, 90), (0.1, 70), (0.3, 50), (0.5, 35), (0.7, 20), (0.9, 10)],
     "new_lows_ratio": [(0.0, 5), (0.1, 25), (0.3, 50), (0.5, 70), (0.7, 85), (0.9, 95)],
-    "price_vs_ma200": [(-25, 95), (-10, 75), (0, 55), (10, 40), (20, 25), (35, 15)],
+    "price_vs_ma200": _RELATIVE_STRENGTH_RULE,
     "drawdown_52w": [(-40, 98), (-25, 88), (-15, 75), (-8, 60), (-3, 45), (0, 30), (5, 20)],
     "momentum_3m": [(-30, 95), (-15, 80), (-5, 65), (0, 55), (10, 40), (20, 25), (40, 10)],
     "realized_vol": [(10, 10), (15, 30), (20, 50), (30, 70), (40, 85), (60, 95)],
+    # Cross-asset confirmation is already a proportion of triggered signals. Convert that
+    # 0–1 share directly to the model's 0–100 risk-score scale.
+    "cross_asset_confirmation": [(0.0, 0.0), (1.0, 100.0)],
+    # Relative performance is measured in percentage points. Reuse the established
+    # price-vs-MA200 response curve so underperformance raises risk and outperformance lowers it.
+    "small_cap_relative": _RELATIVE_STRENGTH_RULE,
+    "semis_relative": _RELATIVE_STRENGTH_RULE,
     "mfi": [(20, 90), (30, 70), (50, 50), (70, 30), (80, 15)],
     "rsi14": [(20, 80), (30, 65), (45, 50), (60, 35), (75, 25), (90, 15)],
 }

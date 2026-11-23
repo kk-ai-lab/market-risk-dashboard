@@ -14,11 +14,16 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+from math import isfinite
 from typing import Any
 
 from pipeline.degrade import degrade_factor
+from pipeline.macro_history import treasury_window_rows
+from pipeline.metadata import oldest_source_timestamp
 from pipeline.risk import confidence as conf_mod
 from pipeline.risk import regime as regime_mod
+from pipeline.risk.labor_signal import MonthlyUnemploymentRate, derive_sahm_style_labor_stress
 from pipeline.risk.scoring import compute_indicator_score
 from pipeline.schemas import (
     BreadthSnapshot,
@@ -33,6 +38,7 @@ from pipeline.schemas import (
 )
 from pipeline.settings import Settings
 from pipeline.utils import now_utc
+from pipeline.validation.freshness import aggregate_freshness
 
 DIMENSION_LABELS = {
     "macro": "Macro",
@@ -49,13 +55,43 @@ CANONICAL_MACRO_GROUPS = {
     "vixcls": "volatility",
 }
 
+MACRO_OBSERVATIONS = {
+    "real_rate_dfii10": (("rates", "dfii10"),),
+    "yield_curve_10y2y": (("rates", "dgs10"), ("rates", "dgs2")),
+    "dollar_index": (("fx", "dtwexbgs"),),
+    "dgs10": (("rates", "dgs10"),),
+    "sahm_style_labor_stress": (("labor", "unrate"),),
+    "fed_balance_sheet": (("liquidity", "walcl"),),
+    "reverse_repo": (("liquidity", "rrpontsyd"),),
+    "baa10y_spread": (("credit", "baa10y"),),
+    "ig_oas": (("credit", "bamlc0a0cm"),),
+    "vix": (("volatility", "vixcls"),),
+}
+
+
+def _attach_macro_observations(dimensions: list[RiskDimension], macro: Any) -> None:
+    for dimension in dimensions:
+        for indicator in dimension.indicators:
+            keys = MACRO_OBSERVATIONS.get(indicator.key)
+            if not keys or indicator.value is None:
+                continue
+            inputs = [next((item for item in getattr(macro, group, []) if item.key == key), None) for group, key in keys]
+            if any(item is None for item in inputs):
+                continue
+            indicator.source = inputs[0].source if len({item.source for item in inputs}) == 1 else "unavailable"
+            indicator.observation_date = inputs[0].observation_date if all(item.observation_date == inputs[0].observation_date for item in inputs) else None
+            indicator.observation_period = inputs[0].observation_period if all(item.observation_period == inputs[0].observation_period for item in inputs) else None
+            indicator.fetched_at = oldest_source_timestamp(item.fetched_at for item in inputs)
+            indicator.updated_at = oldest_source_timestamp(item.updated_at for item in inputs)
+            indicator.status = aggregate_freshness(item.status for item in inputs)
+
 DEFAULT_DISCLAIMER = "This indicator is a modeled estimate of market stress based on historical data and current market signals. Data trust is not statistical confidence, a calibrated probability, or investment advice."
 
 # Indicator key → 5Y history series source (FRED series key; tuple means a composite series, e.g. term spread)
 INDICATOR_HISTORY_SERIES: dict[str, str | tuple[str, str]] = {
     "real_rate_dfii10": "dfii10",
     "yield_curve_10y2y": ("dgs10", "dgs2"),
-    "hy_oas": "bamlh0a0hym2",
+    "baa10y_spread": "baa10y",
     "ig_oas": "bamlc0a0cm",
     "dollar_index": "dtwexbgs",
     "dgs10": "dgs10",
@@ -64,6 +100,30 @@ INDICATOR_HISTORY_SERIES: dict[str, str | tuple[str, str]] = {
     "vix": "vixcls",
     "realized_vol": None,  # computed: no independent 5Y series (heuristic fallback)
 }
+
+# Keys whose history is *derived* from the collected market histories rather than read from a
+# FRED series (#D3, pipeline/indicators/derived_series.py). With
+# `scoring.derived_history.enabled` they take the same percentile primary path as the FRED
+# inputs; with it off they use HEURISTIC_RULES. The heuristic table now also covers the three
+# keys that previously landed on the constant fallback 50.0.
+DERIVED_HISTORY_KEYS: frozenset[str] = frozenset(
+    {
+        # volatility
+        "realized_vol",
+        # trend
+        "price_vs_ma200",
+        "drawdown_52w",
+        "momentum_3m",
+        # equity_structure
+        "breadth_above_ma200",
+        "new_highs_ratio",
+        "new_lows_ratio",
+        "small_cap_relative",
+        "semis_relative",
+        # cross_asset
+        "cross_asset_confirmation",
+    }
+)
 
 
 def _ind(
@@ -88,6 +148,10 @@ def _ind(
     )
 
 
+def counts_as_risk_evidence(indicator: RiskIndicator) -> bool:
+    return indicator.value is not None and indicator.score_included
+
+
 class RiskModel:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or Settings()
@@ -100,8 +164,18 @@ class RiskModel:
         cw = raw.get("confidence", {}).get("weights", {})
         self.conf_weights = {k: float(v) for k, v in cw.items()}
         scoring_cfg = raw.get("scoring", {})
-        self.percentile_window_years = int(scoring_cfg.get("percentile_window_years", 5))
+        history_window_years = scoring_cfg.get("percentile_window_years", 5)
+        if type(history_window_years) is not int or not 1 <= history_window_years <= 5:
+            raise ValueError("scoring.percentile_window_years must be an integer between 1 and 5")
+        self.percentile_window_years = history_window_years
         self.fallback_percentile = float(scoring_cfg.get("fallback_percentile", 50.0))
+        derived_cfg = scoring_cfg.get("derived_history", {}) or {}
+        if not isinstance(derived_cfg, dict):
+            raise ValueError("risk scoring.derived_history must be a mapping")
+        # #D3. Off by default: moving a computed input off the hand-drawn table and onto a
+        # distribution changes published scores, which is a calibration decision (see
+        # `calibration_policy`), not something wiring up data may do on its own.
+        self.derived_history_enabled = bool(derived_cfg.get("enabled", False))
         evidence_cfg = raw.get("evidence", {})
         self.insufficient_evidence_threshold = float(
             evidence_cfg.get("insufficient_coverage_threshold", 0.5)
@@ -131,7 +205,10 @@ class RiskModel:
     def _series_values(self, ctx: dict[str, Any], series_key: str) -> list[float]:
         """Extract the 5Y-window values of a series from series_history (ascending, latest last)."""
         series_history = ctx.get("series_history", {}) or {}
-        rows = series_history.get(series_key) or []
+        rows = treasury_window_rows(
+            series_history.get(series_key) or [], years=self.percentile_window_years,
+            as_of_date=date.fromisoformat(ctx["_as_of_date"]) if ctx.get("_as_of_date") else None,
+        )
         values = [
             float(r["value"])
             for r in rows
@@ -140,7 +217,19 @@ class RiskModel:
         return values[-self._max_history_samples:]
 
     def _indicator_history(self, ctx: dict[str, Any], key: str) -> list[float] | None:
-        """Indicator key → 5Y history values (composite series aligned by date and differenced; None when no source)."""
+        """Indicator key → 5Y history values (composite series aligned by date and differenced; None when no source).
+
+        Derived keys (``DERIVED_HISTORY_KEYS``) read the value history the pipeline computed
+        from the collected market histories (#D3). They are accepted only when the model opted
+        in, so a caller that publishes them while ``scoring.derived_history.enabled`` is false
+        cannot move a published score.
+        """
+        if key in DERIVED_HISTORY_KEYS:
+            if not self.derived_history_enabled:
+                return None
+            values = (ctx.get("derived_indicator_series") or {}).get(key) or []
+            return list(values) if values else None
+
         spec = INDICATOR_HISTORY_SERIES.get(key)
         if spec is None:
             return None
@@ -150,12 +239,15 @@ class RiskModel:
 
         # Composite series: e.g. 10Y-2Y term spread = DGS10 - DGS2 (aligned by date)
         series_history = ctx.get("series_history", {}) or {}
-        maps: list[dict[str, float]] = []
+        maps: list[dict[str, tuple[float, str]]] = []
         for series_key in spec:
-            rows = series_history.get(series_key) or []
+            rows = treasury_window_rows(
+                series_history.get(series_key) or [], years=self.percentile_window_years,
+                as_of_date=date.fromisoformat(ctx["_as_of_date"]) if ctx.get("_as_of_date") else None,
+            )
             maps.append(
                 {
-                    str(r.get("date", "")): float(r["value"])
+                    str(r.get("date", "")): (float(r["value"]), str(r.get("source", "FRED")))
                     for r in rows
                     if isinstance(r.get("value"), (int, float)) and not isinstance(r.get("value"), bool)
                 }
@@ -163,7 +255,7 @@ class RiskModel:
         if len(maps) < 2 or not maps[0] or not maps[1]:
             return None
         common = sorted(set(maps[0]) & set(maps[1]))
-        diffs = [round(maps[0][d] - maps[1][d], 6) for d in common]
+        diffs = [round(maps[0][d][0] - maps[1][d][0], 6) for d in common if maps[0][d][1] == maps[1][d][1]]
         return diffs[-self._max_history_samples:] if diffs else None
 
     # ---- Per-dimension indicators ----
@@ -174,18 +266,67 @@ class RiskModel:
         dgs10 = rates.get("dgs10")
         dfii10 = rates.get("dfii10")
         dgs2 = rates.get("dgs2")
-        curve = (dgs10.value - dgs2.value) if (dgs10 and dgs2 and dgs10.value is not None and dgs2.value is not None) else None
+        curve = _curve_value(ctx)
         dollar = next((m for m in getattr(macro, "fx", []) if m.key == "dtwexbgs"), None)
         return [
             _ind("real_rate_dfii10", "10Y Real Rate", dfii10.value if dfii10 else None, "higher_is_riskier", "FRED", self._indicator_weight("macro", "real_rate_dfii10"),
                  history=self._indicator_history(ctx, "real_rate_dfii10")),
-            _ind("yield_curve_10y2y", "10Y-2Y Curve", curve, "lower_is_riskier", "FRED", self._indicator_weight("macro", "yield_curve_10y2y"),
+            _ind("yield_curve_10y2y", "10Y-2Y Curve", curve, "lower_is_riskier", dgs10.source if dgs10 and dgs2 and dgs10.source == dgs2.source else "unavailable", self._indicator_weight("macro", "yield_curve_10y2y"),
                  history=self._indicator_history(ctx, "yield_curve_10y2y")),
             _ind("dollar_index", "Dollar Index", dollar.value if dollar else None, "higher_is_riskier", "FRED", self._indicator_weight("macro", "dollar_index"),
                  history=self._indicator_history(ctx, "dollar_index")),
-            _ind("dgs10", "10Y Yield", dgs10.value if dgs10 else None, "neutral", "FRED", self._indicator_weight("macro", "dgs10"),
+            _ind("dgs10", "10Y Yield", dgs10.value if dgs10 else None, "neutral", dgs10.source if dgs10 else "unavailable", self._indicator_weight("macro", "dgs10"),
                  history=self._indicator_history(ctx, "dgs10")),
+            self._labor_stress_indicator(ctx),
         ]
+
+    def _labor_stress_indicator(self, ctx: dict[str, Any]) -> RiskIndicator:
+        unemployment = next((item for item in getattr(ctx.get("macro"), "labor", []) if item.key == "unrate"), None)
+        approved = unemployment is not None and unemployment.source == "BLS"
+        as_of = date.fromisoformat(ctx.get("_as_of_date") or now_utc()[:10])
+        observations: list[MonthlyUnemploymentRate] = []
+        if approved:
+            for row in (ctx.get("series_history") or {}).get("unrate", []):
+                if not isinstance(row, dict) or row.get("source") not in (None, "BLS"):
+                    continue
+                raw_value = row.get("value")
+                if isinstance(raw_value, bool) or not isinstance(raw_value, (int, float)):
+                    continue
+                raw_date = row.get("date")
+                if not isinstance(raw_date, str):
+                    continue
+                try:
+                    period = date.fromisoformat(raw_date)
+                    if period.isoformat() != raw_date:
+                        continue
+                    observations.append(MonthlyUnemploymentRate(period, float(raw_value)))
+                except (OverflowError, ValueError):
+                    continue
+        points = derive_sahm_style_labor_stress(observations, as_of=as_of)
+        latest = points[-1] if points else None
+        value = (
+            latest.value_pp
+            if latest is not None and approved and unemployment.value is not None
+            and latest.period.strftime("%Y-%m") == unemployment.observation_period
+            else None
+        )
+        try:
+            cutoff = as_of.replace(year=as_of.year - self.percentile_window_years)
+        except ValueError:
+            cutoff = as_of.replace(year=as_of.year - self.percentile_window_years, day=28)
+        indicator = _ind(
+            "sahm_style_labor_stress", "Sahm-style Labor Stress", value,
+            "higher_is_riskier", "BLS" if approved else "unavailable",
+            self._indicator_weight("macro", "sahm_style_labor_stress"),
+            history=[point.value_pp for point in points if point.period >= cutoff],
+        )
+        if approved:
+            indicator.observation_period = unemployment.observation_period
+            indicator.fetched_at = unemployment.fetched_at
+            indicator.updated_at = unemployment.updated_at
+            indicator.status = unemployment.status
+        indicator.score_included = value is not None and indicator.status in {"fresh", "delayed"}
+        return indicator
 
     def _liquidity_indicators(self, ctx: dict[str, Any]) -> list[RiskIndicator]:
         macro = ctx.get("macro")
@@ -197,8 +338,8 @@ class RiskModel:
                  history=self._indicator_history(ctx, "fed_balance_sheet")),
             _ind("reverse_repo", "Reverse Repo", rr.value if rr else None, "neutral", "FRED", self._indicator_weight("liquidity_credit", "reverse_repo"),
                  history=self._indicator_history(ctx, "reverse_repo")),
-            _ind("hy_oas", "HY OAS", _first_value(ctx, "credit", "bamlh0a0hym2"), "higher_is_riskier", "FRED", self._indicator_weight("liquidity_credit", "hy_oas"),
-                 history=self._indicator_history(ctx, "hy_oas")),
+            _ind("baa10y_spread", "Baa-10Y Spread", _first_value(ctx, "credit", "baa10y"), "higher_is_riskier", "FRED", self._indicator_weight("liquidity_credit", "baa10y_spread"),
+                 history=self._indicator_history(ctx, "baa10y_spread")),
             _ind("ig_oas", "IG OAS", _first_value(ctx, "credit", "bamlc0a0cm"), "higher_is_riskier", "FRED", self._indicator_weight("liquidity_credit", "ig_oas"),
                  history=self._indicator_history(ctx, "ig_oas")),
         ]
@@ -206,11 +347,21 @@ class RiskModel:
     def _equity_structure_indicators(self, ctx: dict[str, Any]) -> list[RiskIndicator]:
         breadth = ctx.get("breadth", {})
         return [
-            _ind("breadth_above_ma200", "Breadth > MA200", breadth.get("breadth_above_ma200"), "lower_is_riskier", "computed", self._indicator_weight("equity_structure", "breadth_above_ma200"), is_proxy=True),
-            _ind("new_highs_ratio", "New Highs Ratio", breadth.get("new_highs_ratio"), "lower_is_riskier", "computed", self._indicator_weight("equity_structure", "new_highs_ratio"), is_proxy=True),
-            _ind("new_lows_ratio", "New Lows Ratio", breadth.get("new_lows_ratio"), "higher_is_riskier", "computed", self._indicator_weight("equity_structure", "new_lows_ratio"), is_proxy=True),
-            _ind("small_cap_relative", "Small Cap Rel", breadth.get("small_cap_relative"), "lower_is_riskier", "computed", self._indicator_weight("equity_structure", "small_cap_relative"), is_proxy=True),
-            _ind("semis_relative", "Semis Rel", breadth.get("semis_relative"), "lower_is_riskier", "computed", self._indicator_weight("equity_structure", "semis_relative"), is_proxy=True),
+            _ind("breadth_above_ma200", "Breadth > MA200", breadth.get("breadth_above_ma200"), "lower_is_riskier", "computed",
+                 self._indicator_weight("equity_structure", "breadth_above_ma200"),
+                 history=self._indicator_history(ctx, "breadth_above_ma200"), is_proxy=True),
+            _ind("new_highs_ratio", "New Highs Ratio", breadth.get("new_highs_ratio"), "lower_is_riskier", "computed",
+                 self._indicator_weight("equity_structure", "new_highs_ratio"),
+                 history=self._indicator_history(ctx, "new_highs_ratio"), is_proxy=True),
+            _ind("new_lows_ratio", "New Lows Ratio", breadth.get("new_lows_ratio"), "higher_is_riskier", "computed",
+                 self._indicator_weight("equity_structure", "new_lows_ratio"),
+                 history=self._indicator_history(ctx, "new_lows_ratio"), is_proxy=True),
+            _ind("small_cap_relative", "Small Cap Rel", breadth.get("small_cap_relative"), "lower_is_riskier", "computed",
+                 self._indicator_weight("equity_structure", "small_cap_relative"),
+                 history=self._indicator_history(ctx, "small_cap_relative"), is_proxy=True),
+            _ind("semis_relative", "Semis Rel", breadth.get("semis_relative"), "lower_is_riskier", "computed",
+                 self._indicator_weight("equity_structure", "semis_relative"),
+                 history=self._indicator_history(ctx, "semis_relative"), is_proxy=True),
         ]
 
     def _volatility_indicators(self, ctx: dict[str, Any]) -> list[RiskIndicator]:
@@ -218,22 +369,32 @@ class RiskModel:
         return [
             _ind("vix", "VIX", vix, "higher_is_riskier", "FRED", self._indicator_weight("volatility", "vix"),
                  history=self._indicator_history(ctx, "vix")),
-            _ind("realized_vol", "Realized Vol", ctx.get("trend", {}).get("realized_vol"), "higher_is_riskier", "computed", self._indicator_weight("volatility", "realized_vol")),
+            _ind("realized_vol", "Realized Vol", ctx.get("trend", {}).get("realized_vol"), "higher_is_riskier", "computed",
+                 self._indicator_weight("volatility", "realized_vol"),
+                 history=self._indicator_history(ctx, "realized_vol")),
         ]
 
     def _cross_asset_indicators(self, ctx: dict[str, Any]) -> list[RiskIndicator]:
         # 9-signal confirmation hit rate (MVP simplified): cross-asset risk confirmation
         cross = ctx.get("cross_asset", {})
         return [
-            _ind("cross_asset_confirmation", "Cross-asset Confirmation", cross.get("confirmation"), "higher_is_riskier", "computed", self._indicator_weight("cross_asset", "cross_asset_confirmation"), is_proxy=True),
+            _ind("cross_asset_confirmation", "Cross-asset Confirmation", cross.get("confirmation"), "higher_is_riskier", "computed",
+                 self._indicator_weight("cross_asset", "cross_asset_confirmation"),
+                 history=self._indicator_history(ctx, "cross_asset_confirmation"), is_proxy=True),
         ]
 
     def _trend_indicators(self, ctx: dict[str, Any]) -> list[RiskIndicator]:
         trend = ctx.get("trend", {})
         return [
-            _ind("price_vs_ma200", "Price vs MA200", trend.get("price_vs_ma200"), "lower_is_riskier", "computed", self._indicator_weight("trend", "price_vs_ma200")),
-            _ind("drawdown_52w", "52W Drawdown", trend.get("drawdown_52w"), "lower_is_riskier", "computed", self._indicator_weight("trend", "drawdown_52w")),
-            _ind("momentum_3m", "3M Momentum", trend.get("momentum_3m"), "lower_is_riskier", "computed", self._indicator_weight("trend", "momentum_3m")),
+            _ind("price_vs_ma200", "Price vs MA200", trend.get("price_vs_ma200"), "lower_is_riskier", "computed",
+                 self._indicator_weight("trend", "price_vs_ma200"),
+                 history=self._indicator_history(ctx, "price_vs_ma200")),
+            _ind("drawdown_52w", "52W Drawdown", trend.get("drawdown_52w"), "lower_is_riskier", "computed",
+                 self._indicator_weight("trend", "drawdown_52w"),
+                 history=self._indicator_history(ctx, "drawdown_52w")),
+            _ind("momentum_3m", "3M Momentum", trend.get("momentum_3m"), "lower_is_riskier", "computed",
+                 self._indicator_weight("trend", "momentum_3m"),
+                 history=self._indicator_history(ctx, "momentum_3m")),
         ]
 
     # ---- Main flow ----
@@ -249,10 +410,11 @@ class RiskModel:
         }
 
         prev_dim_scores: dict[str, float] = ctx.get("_prev_dim_scores") or {}
-        proxy_discount = conf_mod.proxy_discount_factor()
+        proxy_discount = conf_mod.proxy_discount_factor(self.settings)
         dimensions, dimension_bounds, available_indicator_count = self._build_dimensions(
             ctx, builders, prev_dim_scores, proxy_discount
         )
+        _attach_macro_observations(dimensions, ctx.get("macro"))
         self._renormalize_dimensions(dimensions)
 
         denom = sum(d.effective_weight for d in dimensions) or 1.0
@@ -268,7 +430,7 @@ class RiskModel:
         # Regime
         regime_ctx = {
             "vix": _series_value(ctx, "vixcls"),
-            "hy_oas": _first_value(ctx, "credit", "bamlh0a0hym2"),
+            "baa10y_spread": _first_value(ctx, "credit", "baa10y"),
             "yield_curve_10y2y": _curve_value(ctx),
             "breadth_above_ma200": ctx.get("breadth", {}).get("breadth_above_ma200"),
             "cross_asset_confirmation": ctx.get("cross_asset", {}).get("confirmation"),
@@ -279,7 +441,7 @@ class RiskModel:
         # Trend: compare with the most recent risk history (run.py injects prev_total_score + risk_history)
         prev_score = ctx.get("_prev_total_score")
         trend_1d = round(total_score - prev_score, 2) if prev_score is not None else None
-        trend_1w, trend_1m = _history_trends(total_score, ctx.get("_risk_history"))
+        trend_1w, trend_1m = _history_trends(total_score, ctx.get("_risk_history"), ctx.get("_as_of_date"))
 
         # Confidence
         data_quality = float(ctx.get("data_quality", 1.0))
@@ -355,8 +517,8 @@ class RiskModel:
         available_count = 0
         for dim_key, builder in builders.items():
             indicators = builder(ctx)
-            available = [indicator for indicator in indicators if indicator.value is not None]
-            missing = [indicator.key for indicator in indicators if indicator.value is None]
+            available = [indicator for indicator in indicators if counts_as_risk_evidence(indicator)]
+            missing = [indicator.key for indicator in indicators if not counts_as_risk_evidence(indicator)]
             available_count += len(available)
             total_indicator_weight = sum(indicator.weight for indicator in indicators) or 1.0
             available_weight = sum(indicator.weight for indicator in available)
@@ -371,7 +533,7 @@ class RiskModel:
                 if available else 0.0
             )
             observed_weight = sum(indicator.risk_score * indicator.weight for indicator in available)
-            missing_weight = sum(indicator.weight for indicator in indicators if indicator.value is None)
+            missing_weight = sum(indicator.weight for indicator in indicators if not counts_as_risk_evidence(indicator))
             bounds[dim_key] = (
                 round(max(0.0, min(100.0, observed_weight / total_indicator_weight)), 2),
                 round(max(0.0, min(100.0, (observed_weight + 100.0 * missing_weight) / total_indicator_weight)), 2),
@@ -390,7 +552,7 @@ class RiskModel:
                     indicators=indicators,
                     coverage=round(raw_coverage, 4),
                     effective_coverage=round(effective_coverage, 4),
-                    trend=_dim_trend(dim_score, prev_scores.get(dim_key)),
+                    trend=_dim_trend(dim_score, prev_scores.get(dim_key)) if available else "unknown",
                     evidence_state=evidence_state,
                     missing_indicators=missing,
                 )
@@ -422,7 +584,7 @@ class RiskModel:
         degrade_discount = degrade_factor() if data_quality < 1.0 else 1.0
         drivers: list[DriverContribution] = []
         for dimension in dimensions:
-            available = [indicator for indicator in dimension.indicators if indicator.value is not None]
+            available = [indicator for indicator in dimension.indicators if counts_as_risk_evidence(indicator)]
             weight_sum = sum(indicator.weight for indicator in available) or 1.0
             for indicator in available:
                 drivers.append(
@@ -455,40 +617,39 @@ class RiskModel:
 
 
 def _dim_trend(score: float, prev_score: float | None) -> str:
-    """Dimension trend (P2-11): compare with the previous day's score; no previous day → flat."""
     if prev_score is None:
-        return "flat"
+        return "unknown"
     if abs(score - prev_score) < 0.01:
         return "flat"
     return "rising" if score > prev_score else "falling"
 
 
-def _history_trends(total_score: float, rows: Any) -> tuple[float | None, float | None]:
-    """trend_1w / trend_1m: computed from the risk history series (None when history is insufficient).
-
-    rows are the prior rows of history/risk/daily.json (excluding today); 1w ≈ 5 trading days, 1m ≈ 21.
-    """
+def _history_trends(total_score: float, rows: Any, as_of_date: str | None = None) -> tuple[float | None, float | None]:
     if not rows or not isinstance(rows, list):
         return None, None
-    try:
-        last_score = float(rows[-1]["total_score"])
-        trend_1w = round(total_score - last_score, 2)
-    except (KeyError, TypeError, ValueError, IndexError):
-        trend_1w = None
-    if len(rows) >= 6:
+    observations: list[tuple[date, float]] = []
+    for row in rows:
         try:
-            week_ago = float(rows[-6]["total_score"])
-            trend_1w = round(total_score - week_ago, 2)
-        except (KeyError, TypeError, ValueError, IndexError):
-            trend_1w = None
-    trend_1m = None
-    if len(rows) >= 22:
-        try:
-            month_ago = float(rows[-22]["total_score"])
-            trend_1m = round(total_score - month_ago, 2)
-        except (KeyError, TypeError, ValueError, IndexError):
-            trend_1m = None
-    return trend_1w, trend_1m
+            raw_score = row["total_score"]
+            if isinstance(raw_score, bool):
+                continue
+            observed = date.fromisoformat(row["date"])
+            value = float(raw_score)
+            if isfinite(value):
+                observations.append((observed, value))
+        except (KeyError, TypeError, ValueError):
+            continue
+    today = date.fromisoformat(as_of_date or now_utc()[:10])
+
+    def change(days: int) -> float | None:
+        target = today - timedelta(days=days)
+        candidates = [(observed, value) for observed, value in observations if target - timedelta(days=3) <= observed <= target]
+        if not candidates:
+            return None
+        _, value = max(candidates, key=lambda item: item[0])
+        return round(total_score - value, 2)
+
+    return change(7), change(30)
 
 
 def _parse_thresholds(raw: dict[str, Any]) -> list[tuple[RiskLevel, Any]]:
@@ -544,6 +705,10 @@ def _curve_value(ctx: dict[str, Any]) -> float | None:
     rates = {m.key: m for m in getattr(macro, "rates", [])}
     dgs10 = rates.get("dgs10")
     dgs2 = rates.get("dgs2")
-    if dgs10 and dgs2 and dgs10.value is not None and dgs2.value is not None:
+    if dgs10 and dgs2 and dgs10.value is not None and dgs2.value is not None and dgs10.source == dgs2.source:
+        day10 = dgs10.observation_date or (dgs10.updated_at[:10] if dgs10.updated_at else None)
+        day2 = dgs2.observation_date or (dgs2.updated_at[:10] if dgs2.updated_at else None)
+        if day10 is None or day10 != day2:
+            return None
         return round(dgs10.value - dgs2.value, 4)
     return None

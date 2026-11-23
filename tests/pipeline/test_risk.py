@@ -8,14 +8,14 @@ import pytest
 
 from pipeline.risk import confidence as conf_mod
 from pipeline.risk import regime as regime_mod
-from pipeline.risk.model import RiskModel
-from pipeline.risk.model import _parse_thresholds
+from pipeline.risk.model import RiskModel, _parse_thresholds
 from pipeline.risk.scoring import (
     compute_indicator_score,
     heuristic_risk_score,
     percentile_rank,
     z_score,
 )
+from pipeline.risk_context import read_prev_risk
 from pipeline.schemas import (
     CommoditiesEnvelope,
     CryptoEnvelope,
@@ -26,6 +26,8 @@ from pipeline.schemas import (
     RiskIndicator,
     RiskModelResult,
 )
+from pipeline.settings import Settings
+from pipeline.storage import StorageWriter
 
 
 def test_heuristic_risk_score_bounds() -> None:
@@ -43,6 +45,17 @@ def test_percentile_rank_and_zscore() -> None:
     z = z_score(50, history)
     assert z is not None and abs(z) < 0.2
     assert z_score(50, []) is None  # too few samples
+
+
+@pytest.mark.parametrize("years", [0, 6, True, 5.0])
+def test_risk_model_rejects_unsupported_history_windows(monkeypatch, years) -> None:
+    settings = Settings(_env_file=None)
+    config = settings.load_risk_model()
+    config["scoring"]["percentile_window_years"] = years
+    monkeypatch.setattr(Settings, "load_risk_model", lambda self: config)
+
+    with pytest.raises(ValueError, match="percentile_window_years must be an integer between 1 and 5"):
+        RiskModel(settings)
 
 
 def test_compute_indicator_score_percentile_primary() -> None:
@@ -71,14 +84,110 @@ def test_compute_indicator_score_heuristic_fallback() -> None:
 
 
 def test_regime_crisis_on_vix_40() -> None:
-    regime, evidence = regime_mod.infer_regime({"vix": 45.0, "hy_oas": 3.0})
+    regime, evidence = regime_mod.infer_regime({"vix": 45.0, "baa10y_spread": 3.0})
     assert regime == "crisis"
     assert evidence
 
 
+def test_regime_crisis_on_baa_spread_4() -> None:
+    """Model 1.2.0: an investment-grade spread at 4.00 is crisis-level credit stress."""
+    regime, evidence = regime_mod.infer_regime({"baa10y_spread": 4.0})
+    assert regime == "crisis"
+    assert evidence and "Baa-10Y=4.00 ≥ 4.0" in evidence[0]
+
+
+def test_regime_liquidity_stress_on_baa_spread_3() -> None:
+    """Model 1.2.0: 3.00 is the liquidity-stress floor, below the 4.00 crisis floor."""
+    regime, evidence = regime_mod.infer_regime({"baa10y_spread": 3.0})
+    assert regime == "liquidity_stress"
+    assert evidence and "Baa-10Y=3.00 ≥ 3.0" in evidence[0]
+
+
+def test_regime_baa_spread_below_the_stress_floors_stays_benign() -> None:
+    """2.99 must not fire either credit branch (thresholds are inclusive floors)."""
+    regime, _ = regime_mod.infer_regime({"vix": 22.0, "baa10y_spread": 2.99})
+    assert regime not in ("crisis", "liquidity_stress")
+
+
+def test_intraday_refresh_compares_risk_with_the_previous_day(tmp_path, monkeypatch) -> None:
+    writer = StorageWriter(tmp_path / "data")
+    yesterday = {"date": "2026-11-12", "model_version": "1.1.0", "total_score": 60, "evidence_state": "partial", "dim_scores": {"macro": 40}, "dim_evidence_states": {"macro": "partial"}}
+    today = {"date": "2026-11-13", "model_version": "1.1.0", "total_score": 65, "evidence_state": "complete", "dim_scores": {"macro": 45}, "dim_evidence_states": {"macro": "complete"}}
+    writer.write_slices("risk", [yesterday, today])
+    previous, dimensions, history = read_prev_risk(writer, model_version="1.1.0", as_of_date="2026-11-13")
+    assert previous == 60
+    assert dimensions == {"macro": 40.0}
+    assert history == [yesterday]
+    writer.write_slices("risk", [{**today, "total_score": 68}])
+    assert read_prev_risk(writer, model_version="1.1.0", as_of_date="2026-11-13")[0] == 60
+    assert read_prev_risk(writer, model_version="1.1.0", as_of_date="2026-11-14")[0] == 68
+    monkeypatch.setattr("pipeline.risk_context.now_utc", lambda: "2026-11-13T12:00:00Z")
+    assert read_prev_risk(writer, model_version="1.1.0")[0] == 60
+
+
+def test_previous_risk_excludes_insufficient_evidence_from_history(tmp_path) -> None:
+    writer = StorageWriter(tmp_path / "data")
+    writer.write_slices("risk", [
+        {"date": "2026-11-10", "model_version": "1.1.0", "total_score": 60, "evidence_state": "partial"},
+        {"date": "2026-11-11", "model_version": "1.1.0", "total_score": 5, "evidence_state": "insufficient_evidence"},
+    ])
+    previous, _, history = read_prev_risk(writer, model_version="1.1.0", as_of_date="2026-11-12")
+    assert previous is None
+    assert [row["date"] for row in history] == ["2026-11-10"]
+    assert read_prev_risk(writer, model_version="1.1.0", as_of_date="2026-11-11")[0] == 60
+
+
+def test_legacy_history_and_unobserved_dimensions_are_not_comparison_baselines(tmp_path) -> None:
+    writer = StorageWriter(tmp_path / "data")
+    writer.write_slices("risk", [
+        {"date": "2026-11-01", "total_score": 1},
+        {"date": "2026-11-10", "model_version": "1.1.0", "total_score": 40, "evidence_state": "partial"},
+        {"date": "2026-11-11", "model_version": "1.1.0", "total_score": 50, "evidence_state": "partial",
+         "dim_scores": {"macro": 0, "volatility": 30},
+         "dim_evidence_states": {"macro": "insufficient_evidence", "volatility": "complete"}},
+    ])
+    previous, dimensions, history = read_prev_risk(writer, model_version="1.1.0", as_of_date="2026-11-12")
+    assert previous == 50
+    assert dimensions == {"volatility": 30.0}
+    assert [row["date"] for row in history] == ["2026-11-10", "2026-11-11"]
+    writer.write_slices("risk", [{"date": "2026-11-11", "model_version": "1.1.0", "total_score": 50,
+                                   "evidence_state": "partial", "dim_scores": {"macro": 0}}])
+    assert read_prev_risk(writer, model_version="1.1.0", as_of_date="2026-11-12")[1] is None
+
+
+def test_corrupt_risk_history_does_not_become_a_baseline() -> None:
+    class History:
+        def read_history(self, *_args):
+            return [
+                {"date": "2026-11-10", "model_version": "1.1.0", "total_score": 30, "evidence_state": "partial"},
+                {"date": "2026-11-11", "model_version": "1.1.0", "total_score": "bad", "evidence_state": "complete"},
+                {"date": "2026-11-09", "model_version": "1.1.0", "total_score": 1, "evidence_state": []},
+                None,
+            ]
+
+    previous, dimensions, rows = read_prev_risk(History(), model_version="1.1.0", as_of_date="2026-11-12")
+    assert previous is None and dimensions is None
+    assert [row["date"] for row in rows] == ["2026-11-10"]
+
+
+@pytest.mark.parametrize(
+    ("context", "expected"),
+    [
+        ({"vix": 17.49, "breadth_above_ma200": 0.3484}, ["Breadth=0.3484 ≤ 0.35"]),
+        ({"vix": 28, "breadth_above_ma200": 0.7}, ["VIX=28.0 ≥ 28"]),
+        ({"vix": 28, "breadth_above_ma200": 0.35}, ["VIX=28.0 ≥ 28", "Breadth=0.3500 ≤ 0.35"]),
+        ({"breadth_above_ma200": 0.35}, ["Breadth=0.3500 ≤ 0.35"]),
+    ],
+)
+def test_risk_off_evidence_contains_only_triggered_conditions(context, expected) -> None:
+    regime, evidence = regime_mod.infer_regime(context)
+    assert regime == "risk_off"
+    assert evidence == expected
+
+
 def test_regime_goldilocks() -> None:
     # low vol + positive momentum + healthy breadth + non-extreme curve → goldilocks
-    regime, _ = regime_mod.infer_regime({"vix": 12.0, "hy_oas": 2.5, "yield_curve_10y2y": 0.3, "breadth_above_ma200": 0.7, "momentum_3m": 8.0})
+    regime, _ = regime_mod.infer_regime({"vix": 12.0, "baa10y_spread": 2.5, "yield_curve_10y2y": 0.3, "breadth_above_ma200": 0.7, "momentum_3m": 8.0})
     assert regime in ("goldilocks", "risk_on")
 
 
@@ -107,7 +216,7 @@ def _macro_with_rates(*, value: float | None = None) -> MacroDataset:
                 make_macro_indicator(key="dgs2", label="2Y", value=3.8, source="FRED"),
                 make_macro_indicator(key="dfii10", label="Real", value=1.9, source="FRED"),
             ],
-            credit=[make_macro_indicator(key="bamlh0a0hym2", label="HY", value=4.5, source="FRED")],
+            credit=[make_macro_indicator(key="baa10y", label="Baa-10Y", value=2.5, source="FRED")],
             volatility=[make_macro_indicator(key="vixcls", label="VIX", value=25.0, unit="index", source="FRED")],
             fx=[],
         )
@@ -134,17 +243,17 @@ def test_risk_model_produces_valid_result() -> None:
     assert 0 <= result.confidence <= 1
     assert len(result.dimensions) == 6
     assert result.top_drivers  # has top drivers
-    assert result.calibration_policy_version == "1.0.0"
+    assert result.calibration_policy_version == "1.1.0"
     assert result.calibration_status == "provisional"
     assert "definitive probability" not in result.disclaimer or "modeled estimate" in result.disclaimer
 
 
 def test_golden_score_preserves_current_outputs() -> None:
     result = RiskModel().score(_synthetic_context())
-    assert result.total_score == 54.7
+    assert result.total_score == 57.74
     assert result.risk_level == "caution"
     assert [driver.indicator_key for driver in result.top_drivers] == [
-        "hy_oas", "cross_asset_confirmation", "real_rate_dfii10", "vix", "yield_curve_10y2y"
+        "baa10y_spread", "cross_asset_confirmation", "real_rate_dfii10", "vix", "yield_curve_10y2y"
     ]
 
 
@@ -156,7 +265,7 @@ def test_risk_evidence_state_and_bounds_are_published() -> None:
     assert result.score_lower_bound <= result.total_score <= result.score_upper_bound
     macro = next(d for d in result.dimensions if d.key == "macro")
     assert macro.evidence_state == "partial"
-    assert macro.missing_indicators == ["dollar_index"]
+    assert macro.missing_indicators == ["dollar_index", "sahm_style_labor_stress"]
 
 
 def test_missing_evidence_is_insufficient_with_full_deterministic_bounds() -> None:
@@ -170,6 +279,8 @@ def test_missing_evidence_is_insufficient_with_full_deterministic_bounds() -> No
 
 
 def test_complete_evidence_collapses_bounds_to_point_estimate(monkeypatch) -> None:
+    from datetime import date
+
     from tests.pipeline.factories import make_envelope, make_macro_indicator, make_macro_payload
 
     # Treat the proxy inputs as fully trusted for this semantic test; their proxy disclosure
@@ -182,7 +293,7 @@ def test_complete_evidence_collapses_bounds_to_point_estimate(monkeypatch) -> No
             make_macro_indicator(key="dfii10", label="Real", value=1.9, source="FRED"),
         ],
         credit=[
-            make_macro_indicator(key="bamlh0a0hym2", label="HY", value=4.5, source="FRED"),
+            make_macro_indicator(key="baa10y", label="Baa-10Y", value=2.5, source="FRED"),
             make_macro_indicator(key="bamlc0a0cm", label="IG", value=1.2, source="FRED"),
         ],
         volatility=[make_macro_indicator(key="vixcls", label="VIX", value=25.0, unit="index", source="FRED")],
@@ -191,9 +302,26 @@ def test_complete_evidence_collapses_bounds_to_point_estimate(monkeypatch) -> No
             make_macro_indicator(key="rrpontsyd", label="RRP", value=100.0, source="FRED"),
         ],
         fx=[make_macro_indicator(key="dtwexbgs", label="Dollar", value=98.0, source="FRED")],
+        labor=[make_macro_indicator(
+            key="unrate", label="Unemployment Rate", value=3.5, unit="pct", source="BLS",
+            observation_period="2026-08",
+        )],
     )
     ctx = _synthetic_context()
     ctx["macro"] = MacroEnvelope.model_validate(make_envelope("macro", payload=payload)).payload
+    ctx["_as_of_date"] = "2026-08-04"
+    start_year, start_month = 2025, 6
+    ctx["series_history"] = {
+        "unrate": [
+            {
+                "date": date(start_year + year_offset, month_index + 1, 1).isoformat(),
+                "value": 3.5,
+                "source": "BLS",
+            }
+            for offset in range(15)
+            for year_offset, month_index in [divmod(start_month - 1 + offset, 12)]
+        ]
+    }
 
     result = RiskModel().score(ctx)
 
@@ -334,7 +462,13 @@ def test_cross_asset_signals_are_null_aware_and_new_proxies_are_diagnostic_only(
         prev_total_score=None,
         prev_dim_scores=None,
         risk_history=[],
-        series_history={},
+        # The Baa signal fires on its 5Y percentile, so it is only observable with history.
+        series_history={
+            "baa10y": [
+                {"date": f"2026-11-0{day}", "value": value}
+                for day, value in enumerate([2.0, 2.1, 2.2, 2.3, 2.4], start=1)
+            ]
+        },
         market_provenance={"provider": "yfinance", "used_fallback": True},
     )
 
@@ -353,6 +487,39 @@ def test_cross_asset_signals_are_null_aware_and_new_proxies_are_diagnostic_only(
     new_signal = next(signal for signal in result.cross_asset_signals if signal.key == "hy_treasury_relative")
     assert new_signal.is_proxy is True
     assert new_signal.production_scoring is False
+
+
+def test_baa_spread_signal_requires_a_top_decile_five_year_percentile() -> None:
+    """Baa-10Y uses the 5Y percentile, not a fixed level: 2.5 is only a hit when it is
+    at or above the 90th percentile of its own history, and unobservable without history."""
+    from pipeline.run import _build_risk_context
+
+    empty = SimpleNamespace(payload=SimpleNamespace(assets=[]))
+
+    def baa_signal(history_values: list[float]) -> dict:
+        context = _build_risk_context(
+            macro=SimpleNamespace(payload=_macro_with_rates()),  # credit baa10y = 2.5
+            equities=empty,
+            crypto=empty,
+            commodities=empty,
+            histories={},
+            qualities=[1.0],
+            prev_total_score=None,
+            prev_dim_scores=None,
+            risk_history=[],
+            series_history={
+                "baa10y": [
+                    {"date": f"2026-{index // 28 + 1:02d}-{index % 28 + 1:02d}", "value": value}
+                    for index, value in enumerate(history_values)
+                ]
+            },
+            market_provenance={"provider": "yfinance"},
+        )
+        return {row["key"]: row for row in context["cross_asset"]["signals"]}["baa_spread_widening"]
+
+    assert baa_signal([1.0] * 60)["triggered"] is True  # 100th percentile
+    assert baa_signal([1.0] * 30 + [4.0] * 30)["triggered"] is False  # 50th percentile
+    assert baa_signal([])["triggered"] is None  # no history → not observable
 
 
 def test_cross_asset_missing_inputs_do_not_count_as_benign() -> None:
@@ -379,6 +546,91 @@ def test_cross_asset_missing_inputs_do_not_count_as_benign() -> None:
     assert cross_asset.coverage == 0.0
 
 
+def test_bitcoin_signal_uses_symbol_even_when_crypto_assets_are_shuffled() -> None:
+    from pipeline.run import _build_risk_context
+
+    empty = SimpleNamespace(payload=SimpleNamespace(assets=[]))
+    crypto = SimpleNamespace(
+        payload=SimpleNamespace(
+            assets=[
+                SimpleNamespace(symbol="ADA", change_1d=8.0),
+                SimpleNamespace(symbol="ETH", change_1d=3.0),
+                SimpleNamespace(symbol="BTC", change_1d=-0.8),
+            ]
+        )
+    )
+    context = _build_risk_context(
+        macro=SimpleNamespace(
+            payload=MacroDataset(
+                rates=[], credit=[], volatility=[], inflation=[], labor=[], liquidity=[], fx=[], fedwatch=None,
+            )
+        ),
+        equities=empty,
+        crypto=crypto,
+        commodities=empty,
+        histories={},
+        qualities=[1.0],
+        prev_total_score=None,
+        prev_dim_scores=None,
+        risk_history=[],
+        series_history={},
+    )
+
+    bitcoin_down = next(
+        signal for signal in context["cross_asset"]["signals"] if signal["key"] == "bitcoin_down"
+    )
+    assert bitcoin_down["value"] == -0.8
+    assert bitcoin_down["triggered"] is True
+
+
+def test_bitcoin_signal_stays_unknown_when_btc_is_missing() -> None:
+    from pipeline.run import _build_risk_context
+
+    empty = SimpleNamespace(payload=SimpleNamespace(assets=[]))
+    crypto = SimpleNamespace(
+        payload=SimpleNamespace(
+            assets=[
+                SimpleNamespace(symbol="ETH", change_1d=-0.8),
+                SimpleNamespace(symbol="SOL", change_1d=-1.2),
+            ]
+        )
+    )
+    context = _build_risk_context(
+        macro=SimpleNamespace(
+            payload=MacroDataset(
+                rates=[], credit=[], volatility=[], inflation=[], labor=[], liquidity=[], fx=[], fedwatch=None,
+            )
+        ),
+        equities=empty,
+        crypto=crypto,
+        commodities=empty,
+        histories={},
+        qualities=[1.0],
+        prev_total_score=None,
+        prev_dim_scores=None,
+        risk_history=[],
+        series_history={},
+    )
+
+    bitcoin_down = next(
+        signal for signal in context["cross_asset"]["signals"] if signal["key"] == "bitcoin_down"
+    )
+    assert bitcoin_down["value"] is None
+    assert bitcoin_down["triggered"] is None
+
+
+def test_dimension_trend_requires_observations_on_both_days() -> None:
+    ctx = _synthetic_context()
+    result = RiskModel().score(ctx)
+    assert all(dimension.trend == "unknown" for dimension in result.dimensions)
+    ctx["_prev_dim_scores"] = {dimension.key: dimension.score for dimension in result.dimensions}
+    result = RiskModel().score(ctx)
+    assert all(
+        dimension.trend == ("unknown" if dimension.evidence_state == "insufficient_evidence" else "flat")
+        for dimension in result.dimensions
+    )
+
+
 def test_risk_model_dimension_trend_computed() -> None:
     """P2-11: after _prev_dim_scores injection the dimension trend is not always flat and the direction is correct."""
     ctx = _synthetic_context()
@@ -396,18 +648,24 @@ def test_risk_model_dimension_trend_computed() -> None:
     assert any(d.trend != "flat" for d in result.dimensions)
 
 
-def test_risk_model_trend_1w_1m_from_history() -> None:
-    """P2-11: after _risk_history injection trend_1w/trend_1m are computable."""
+def test_risk_model_trend_1w_1m_from_history(monkeypatch) -> None:
+    monkeypatch.setattr("pipeline.risk.model.now_utc", lambda: "2026-06-30T12:00:00Z")
     ctx = _synthetic_context()
-    rows = [
-        {"date": f"2026-06-{i:02d}", "total_score": 30.0 + (i % 3)}
-        for i in range(1, 25)
-    ]
+    rows = [{"date": "2026-05-29", "total_score": 30.0}, {"date": "2026-06-22", "total_score": 32.0}]
     ctx["_risk_history"] = rows
     ctx["_prev_total_score"] = rows[-1]["total_score"]
     result = RiskModel().score(ctx)
-    assert result.trend_1w is not None
-    assert result.trend_1m is not None
+    assert result.trend_1w == round(result.total_score - 32.0, 2)
+    assert result.trend_1m == round(result.total_score - 30.0, 2)
+
+
+def test_risk_trends_do_not_label_recent_or_sparse_history_as_a_week_or_month(monkeypatch) -> None:
+    monkeypatch.setattr("pipeline.risk.model.now_utc", lambda: "2026-06-30T12:00:00Z")
+    ctx = _synthetic_context()
+    ctx["_risk_history"] = [{"date": "2026-06-29", "total_score": 40.0}, {"date": "2026-05-01", "total_score": 20.0}]
+    result = RiskModel().score(ctx)
+    assert result.trend_1w is None
+    assert result.trend_1m is None
 
 
 def test_risk_model_level_thresholds() -> None:
@@ -482,16 +740,16 @@ def test_inverted_curve_scores_high_risk() -> None:
     )
 
 
-def test_hy_oas_counted_once_in_a_scored_result() -> None:
-    """hy_oas appears in exactly one dimension of a scored result, at weight 10.0."""
+def test_baa10y_spread_counted_once_in_a_scored_result() -> None:
+    """baa10y_spread appears in exactly one dimension of a scored result, at weight 10.0."""
     result = _risk_result()
     sites = [
         (dim.key, ind.weight)
         for dim in result.dimensions
         for ind in dim.indicators
-        if ind.key == "hy_oas"
+        if ind.key == "baa10y_spread"
     ]
-    assert sites == [("liquidity_credit", 10.0)], f"hy_oas must be scored once at 10.0, found {sites}"
+    assert sites == [("liquidity_credit", 10.0)], f"baa10y_spread must be scored once at 10.0, found {sites}"
 
 
 def test_ig_oas_is_scored_under_liquidity_credit() -> None:
@@ -509,12 +767,12 @@ def test_ig_oas_is_scored_under_liquidity_credit() -> None:
             seen[ind.key] = dim.key
 
 
-def test_macro_dimension_has_exactly_four_indicators() -> None:
-    """After the hy_oas/ig_oas removals, macro is rates + curve + dollar + nominal yield."""
+def test_macro_dimension_has_exactly_five_indicators() -> None:
     result = _risk_result()
     macro = next(d for d in result.dimensions if d.key == "macro")
     assert {i.key for i in macro.indicators} == {
         "real_rate_dfii10", "yield_curve_10y2y", "dollar_index", "dgs10",
+        "sahm_style_labor_stress",
     }
 
 
@@ -523,8 +781,8 @@ def test_macro_dimension_has_exactly_four_indicators() -> None:
 
 def _liquidity_only_context() -> dict:
     """A synthetic context where the ONLY available indicators live in liquidity_credit:
-    hy_oas (weight 10.0) and fed_balance_sheet (weight 5.0), both scoring exactly 50
-    (hy_oas heuristic maps 3.8 -> 50; fed_balance_sheet has no heuristic and falls back).
+    baa10y_spread (weight 10.0) and fed_balance_sheet (weight 5.0), both scoring ~50
+    (the Baa heuristic maps 2.122 -> 50; fed_balance_sheet has no heuristic and falls back).
     The old computation credited both with the dimension's whole weight, making them
     indistinguishable in the driver list.
     """
@@ -533,7 +791,7 @@ def _liquidity_only_context() -> dict:
 
     payload = make_macro_payload(
         rates=[],
-        credit=[make_macro_indicator(key="bamlh0a0hym2", label="HY", value=3.8, source="FRED")],
+        credit=[make_macro_indicator(key="baa10y", label="Baa-10Y", value=2.122, source="FRED")],
         liquidity=[make_macro_indicator(key="walcl", label="Fed Balance Sheet", value=8.2e6, source="FRED")],
         fx=[],
     )
@@ -563,24 +821,25 @@ def test_driver_contribution_uses_indicator_weight() -> None:
 
     hy = next(d for d in result.dimensions if d.key == "liquidity_credit")
     scores = {i.key: i.risk_score for i in hy.indicators if i.value is not None}
-    assert scores["hy_oas"] == scores["fed_balance_sheet"] == 50.0
+    assert scores["baa10y_spread"] == pytest.approx(50.0, abs=0.2)
+    assert scores["fed_balance_sheet"] == 50.0
 
     expected = _expected_contributions(result)
     # Both liquidity indicators land in the published top-5 (they are the only drivers).
-    assert drivers["hy_oas"] == pytest.approx(expected["hy_oas"], rel=1e-3)
+    assert drivers["baa10y_spread"] == pytest.approx(expected["baa10y_spread"], rel=1e-3)
     assert drivers["fed_balance_sheet"] == pytest.approx(expected["fed_balance_sheet"], rel=1e-3)
-    # hy_oas (10.0) outranks fed_balance_sheet (5.0) by exactly the weight ratio.
-    assert drivers["hy_oas"] > drivers["fed_balance_sheet"]
-    assert abs(drivers["hy_oas"] / drivers["fed_balance_sheet"] - 2.0) < 1e-3
+    # baa10y_spread (10.0) outranks fed_balance_sheet (5.0) by exactly the weight ratio.
+    assert drivers["baa10y_spread"] > drivers["fed_balance_sheet"]
+    assert abs(drivers["baa10y_spread"] / drivers["fed_balance_sheet"] - 2.0) < 1e-3
 
 
 def test_same_dimension_different_weights_differ() -> None:
     """The specific defect: same dimension, same score, different weight -> different
-    contribution. hy_oas (10.0) and fed_balance_sheet (5.0) are no longer identical."""
+    contribution. baa10y_spread (10.0) and fed_balance_sheet (5.0) are no longer identical."""
     result = RiskModel().score(_liquidity_only_context())
     drivers = {d.indicator_key: d.contribution for d in result.top_drivers}
-    assert drivers["hy_oas"] != drivers["fed_balance_sheet"]
-    assert drivers["hy_oas"] == pytest.approx(2.0 * drivers["fed_balance_sheet"], rel=1e-3)
+    assert drivers["baa10y_spread"] != drivers["fed_balance_sheet"]
+    assert drivers["baa10y_spread"] == pytest.approx(2.0 * drivers["fed_balance_sheet"], rel=1e-3)
 
 
 def test_contributions_reconcile_with_composite() -> None:
@@ -611,7 +870,7 @@ def test_driver_ordering_is_pinned() -> None:
     result = RiskModel().score(_synthetic_context())
     keys = [d.indicator_key for d in result.top_drivers]
     # The pinned ordering after #68 (indicator-share contributions, sorted descending).
-    assert keys == ["hy_oas", "cross_asset_confirmation", "real_rate_dfii10", "vix", "yield_curve_10y2y"], (
+    assert keys == ["baa10y_spread", "cross_asset_confirmation", "real_rate_dfii10", "vix", "yield_curve_10y2y"], (
         f"top-driver ordering drifted: {keys}"
     )
     assert all(
@@ -714,6 +973,16 @@ def test_discount_uses_shared_constant(monkeypatch) -> None:
     assert es.effective_coverage == pytest.approx(0.5, abs=1e-4)
 
 
+def test_model_uses_its_own_proxy_discount_configuration() -> None:
+    configured = Settings().load_risk_model()
+    configured["confidence"]["proxy_discount_factor"] = 0.3
+    model = RiskModel(SimpleNamespace(load_risk_model=lambda: configured))
+    result = model.score(_synthetic_context())
+    equity = next(d for d in result.dimensions if d.key == "equity_structure")
+    assert equity.coverage == 1.0
+    assert equity.effective_coverage == pytest.approx(0.3, abs=1e-4)
+
+
 # ---------- #71: the regime says indeterminate when nothing fired ----------
 
 def test_empty_context_yields_indeterminate() -> None:
@@ -771,7 +1040,7 @@ def test_dollar_index_removal_changes_no_regime() -> None:
             make_macro_indicator(key="dgs2", label="2Y", value=3.8, source="FRED"),
             make_macro_indicator(key="dfii10", label="Real", value=1.9, source="FRED"),
         ],
-        credit=[make_macro_indicator(key="bamlh0a0hym2", label="HY", value=4.5, source="FRED")],
+        credit=[make_macro_indicator(key="baa10y", label="Baa-10Y", value=2.5, source="FRED")],
         volatility=[make_macro_indicator(key="vixcls", label="VIX", value=25.0, unit="index", source="FRED")],
         fx=[make_macro_indicator(key="dtwexbgs", label="Dollar", value=98.0, source="FRED")],
     )
@@ -782,3 +1051,22 @@ def test_dollar_index_removal_changes_no_regime() -> None:
     r_without = RiskModel().score(without)
     assert r_with.regime == r_without.regime
     assert r_with.regime_evidence == r_without.regime_evidence
+
+
+def test_macro_risk_indicators_keep_source_observation_and_worst_status() -> None:
+    from pipeline.schemas import MacroIndicator
+
+    macro = MacroDataset(rates=[
+        MacroIndicator(key="dgs10", label="10Y", value=4.2, source="source", updated_at="2026-11-12T00:00:00Z", status="fresh"),
+        MacroIndicator(key="dgs2", label="2Y", value=4.0, source="source", updated_at="2026-11-11T00:00:00Z", status="delayed"),
+    ])
+    result = RiskModel().score({"macro": macro})
+    indicators = {i.key: i for d in result.dimensions for i in d.indicators}
+    assert indicators["dgs10"].updated_at == "2026-11-12T00:00:00Z"
+    assert indicators["dgs10"].status == "fresh"
+    assert indicators["yield_curve_10y2y"].value is None
+    assert indicators["yield_curve_10y2y"].status == "missing"
+    macro.rates[1].updated_at = None
+    result = RiskModel().score({"macro": macro})
+    indicators = {i.key: i for d in result.dimensions for i in d.indicators}
+    assert indicators["yield_curve_10y2y"].updated_at is None

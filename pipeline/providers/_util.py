@@ -6,10 +6,19 @@ import math
 from datetime import UTC, datetime
 from typing import Any
 
+from pipeline import __version__
+
 UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 )
+
+
+def declared_user_agent(contact: str) -> str:
+    return (
+        f"market-risk-dashboard/{__version__} "
+        f"(+https://github.com/kk-ai-lab/market-risk-dashboard; {contact})"
+    )
 
 
 def _f(value: Any) -> float | None:

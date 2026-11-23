@@ -39,6 +39,51 @@ def test_write_dataset_and_slices(tmp_path: Path) -> None:
     assert len(json.loads((tmp_path / "data/history/risk/90d.json").read_text())) == 90
 
 
+def test_writer_exposes_immutable_latest_output_receipt(tmp_path: Path) -> None:
+    from pipeline.schemas import MacroEnvelope
+    from tests.pipeline.factories import make_envelope
+
+    writer = StorageWriter(tmp_path / "data")
+    assert writer.written_latest_outputs == frozenset()
+
+    writer.write_dataset("macro", MacroEnvelope.model_validate(make_envelope("macro")))
+    writer.write_standalone("facts", {"generated_at": "2026-11-17T12:00:00Z"})
+    writer.write_json(writer.metadata_dir / "receipt-test.json", {"ignored": True})
+
+    outputs = writer.written_latest_outputs
+    assert outputs == frozenset({"latest/macro.json", "latest/facts.json"})
+    assert isinstance(outputs, frozenset)
+
+
+def test_writer_does_not_receipt_failed_latest_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    writer = StorageWriter(tmp_path / "data")
+
+    def fail_replace(*_args, **_kwargs):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr("pipeline.storage.writer.os.replace", fail_replace)
+    with pytest.raises(OSError, match="replace failed"):
+        writer.write_standalone("facts", {"generated_at": "2026-11-17T12:00:00Z"})
+
+    assert writer.written_latest_outputs == frozenset()
+
+
+def test_writer_does_not_receipt_latest_output_rolled_back_with_atomic_group(
+    tmp_path: Path,
+) -> None:
+    writer = StorageWriter(tmp_path / "data")
+
+    with writer.atomic_group() as group:
+        writer.write_standalone("facts", {"generated_at": "2026-11-17T12:00:00Z"})
+        assert writer.written_latest_outputs == frozenset({"latest/facts.json"})
+        group.rollback()
+
+    assert not (writer.latest_dir / "facts.json").exists()
+    assert writer.written_latest_outputs == frozenset()
+
+
 def test_history_dedupe_by_date(tmp_path: Path) -> None:
     writer = StorageWriter(tmp_path / "data")
     writer.write_slices("risk", [{"date": "2026-08-03", "total_score": 50.0}])
@@ -256,7 +301,10 @@ def test_validate_all_generated_documents_pass(tmp_path: Path) -> None:
     # factory should fail loudly here rather than silently lower the count.
     from pipeline.schemas import registry
 
-    expected = sum(len(spec.filenames) for spec in registry.DATASETS)
+    expected = sum(
+        len(spec.filenames) for spec in registry.DATASETS
+        if spec.key not in registry.LEGACY_AI_DATASET_KEYS
+    )
     assert report.files_checked == expected
 
 
@@ -705,10 +753,17 @@ def test_free_text_degraded_note_makes_the_run_unclean(tmp_path: Path) -> None:
 _RUN_START = "2026-08-04T00:00:00Z"
 
 
-def _write_freshness(data_dir: Path, statuses: dict[str, str], *, updated_at: str = _RUN_START) -> None:
+def _write_freshness(
+    data_dir: Path,
+    statuses: dict[str, str],
+    *,
+    updated_at: str = _RUN_START,
+    reasons: dict[str, tuple[str, str]] | None = None,
+) -> None:
     """Seed metadata/freshness.json the way a run would leave it."""
     from pipeline.schemas.envelope import SCHEMA_VERSION
 
+    reasons = reasons or {}
     path = data_dir / "metadata" / "freshness.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -716,7 +771,11 @@ def _write_freshness(data_dir: Path, statuses: dict[str, str], *, updated_at: st
             {
                 "schema_version": SCHEMA_VERSION,
                 "datasets": {
-                    name: {"status": status, "reason": "", "updated_at": updated_at}
+                    name: {
+                        "status": status,
+                        "reason": {"code": reasons.get(name, ("ok", ""))[0], "detail": reasons.get(name, ("ok", ""))[1]},
+                        "updated_at": updated_at,
+                    }
                     for name, status in statuses.items()
                 },
             }
@@ -740,6 +799,69 @@ def test_dataset_health_names_missing_and_degraded_datasets(tmp_path: Path) -> N
     assert health["failed"] == ["sectors"]
     assert health["degraded"] == ["crypto"]
     assert health["skipped"] == []
+
+
+def test_dataset_health_skips_only_explicit_source_policy_omissions(tmp_path: Path) -> None:
+    from pipeline.run import dataset_health
+
+    data_dir = tmp_path / "data"
+    _write_freshness(
+        data_dir,
+        {"equities": "missing", "sectors": "missing", "crypto": "missing"},
+        reasons={
+            "equities": ("source_policy_excluded", "No approved source configured"),
+            "sectors": ("not_collected_this_run", "collector produced no record"),
+            "crypto": ("all_providers_failed", "Coin Metrics unavailable"),
+        },
+    )
+
+    health = dataset_health(StorageWriter(data_dir), "market-only", run_started_at=_RUN_START)
+
+    assert health == {
+        "failed": ["sectors", "crypto", "commodities"],
+        "degraded": [],
+        "skipped": ["equities", "energy", "macro", "calendar", "news", "risk", "dashboard", "factlayer"],
+    }
+
+
+def test_dataset_health_degrades_derived_missing_only_in_full_scope(tmp_path: Path) -> None:
+    from pipeline.run import FULL_RUN_DATASETS, dataset_health
+
+    data_dir = tmp_path / "data"
+    statuses = {name: "fresh" for name in FULL_RUN_DATASETS}
+    statuses.update({"factlayer": "missing", "dashboard": "missing", "sectors": "missing"})
+    _write_freshness(
+        data_dir,
+        statuses,
+        reasons={
+            "factlayer": ("input_dataset_unhealthy", "aggregated from inputs"),
+            "dashboard": ("input_dataset_unhealthy", "aggregated from inputs"),
+            "sectors": ("all_providers_failed", "quotes unavailable"),
+        },
+    )
+
+    health = dataset_health(StorageWriter(data_dir), "full", run_started_at=_RUN_START)
+
+    assert health["failed"] == ["sectors"]
+    assert health["degraded"] == ["dashboard", "factlayer"]
+    assert health["skipped"] == []
+
+
+def test_dataset_health_keeps_fact_layer_input_failure_in_fact_layer_scope(tmp_path: Path) -> None:
+    from pipeline.run import FULL_RUN_DATASETS, dataset_health
+
+    data_dir = tmp_path / "data"
+    _write_freshness(
+        data_dir,
+        {"factlayer": "missing"},
+        reasons={"factlayer": ("input_dataset_unhealthy", "latest inputs are unhealthy")},
+    )
+
+    health = dataset_health(StorageWriter(data_dir), "fact-layer", run_started_at=_RUN_START)
+
+    assert health["failed"] == ["factlayer"]
+    assert health["degraded"] == []
+    assert health["skipped"] == [name for name in FULL_RUN_DATASETS if name != "factlayer"]
 
 
 def test_dataset_health_reports_a_clean_full_run_as_clean(tmp_path: Path) -> None:
@@ -788,7 +910,7 @@ def test_dataset_health_reports_datasets_a_partial_command_skipped(tmp_path: Pat
 
     assert health["failed"] == []
     assert health["degraded"] == []
-    assert health["skipped"] == ["macro", "calendar", "news", "risk", "dashboard", "factlayer"]
+    assert health["skipped"] == ["energy", "macro", "calendar", "news", "risk", "dashboard", "factlayer"]
 
 
 def test_dataset_health_treats_an_unrecorded_attempt_as_failed(tmp_path: Path) -> None:
@@ -820,10 +942,10 @@ def test_dataset_health_treats_a_stale_fresh_entry_from_a_previous_run_as_failed
 
     health = dataset_health(StorageWriter(data_dir), "full", run_started_at="2026-08-05T00:00:00Z")
 
-    assert health["failed"] == list(FULL_RUN_DATASETS), (
+    assert health["failed"] == [name for name in FULL_RUN_DATASETS if name != "energy"], (
         "yesterday's fresh entries must not hide datasets that never wrote this run"
     )
-    assert health["degraded"] == []
+    assert health["degraded"] == ["energy"]
 
 
 def test_dataset_health_accepts_entries_written_during_this_run(tmp_path: Path) -> None:
@@ -846,7 +968,8 @@ def test_dataset_health_before_the_first_run_fails_everything(tmp_path: Path) ->
 
     health = dataset_health(StorageWriter(tmp_path / "data"), "full", run_started_at=_RUN_START)
 
-    assert health["failed"] == list(FULL_RUN_DATASETS)
+    assert health["failed"] == [name for name in FULL_RUN_DATASETS if name != "energy"]
+    assert health["degraded"] == ["energy"]
 
 
 def test_partial_command_writes_a_run_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -979,9 +1102,15 @@ class TestPerDatasetDegradation:
         commodities non-degraded; news (and the fact layer, which aggregates its inputs)
         degrade. This is the exact cascade the old single global flag produced wrongly."""
         import pipeline.run as run_mod
-        from pipeline.schemas import CalendarDataset, CommoditiesDataset, CryptoDataset, EquitiesDataset, MacroDataset, NewsDataset, SectorsDataset
+        from pipeline.schemas import (
+            CalendarDataset,
+            MacroDataset,
+            MacroIndicator,
+            NewsDataset,
+        )
+        from pipeline.schemas.energy import EnergyDataset
 
-        now = "2026-08-04T12:00:00Z"
+        now = run_mod.now_utc()
 
         def _news_only_collection(command: str) -> dict:
             from pipeline.schemas import NewsItem
@@ -990,7 +1119,7 @@ class TestPerDatasetDegradation:
             # market collector is HEALTHY — its own degraded list is empty.
             results["market_meta"]["degraded"] = []
             results["degraded"] = ["RSS sources degraded: clschina, wallstreetcn"]
-            results["macro"] = MacroDataset(rates=[], credit=[], volatility=[], inflation=[], labor=[], liquidity=[], fx=[])
+            results["macro"] = MacroDataset(rates=[MacroIndicator(key="dgs10", label="10Y yield", value=4.2, source="FRED")])
             results["macro_meta"] = {"data_quality": 1.0, "degraded": [], "provider": {"provider": "fred", "used_fallback": False, "from_cache": False}}
             # one row: degraded-with-data is "degraded", not "missing" (#89).
             results["news"] = NewsDataset(items=[NewsItem(id="n1", title="test", source="cnbc", url="https://example.com", published_at=now, importance=1.0, summary="s", sentiment="neutral")])
@@ -999,6 +1128,20 @@ class TestPerDatasetDegradation:
             results["calendar"] = CalendarDataset(events=[])
             results["calendar_meta"] = {"data_quality": 1.0, "degraded": [], "provider_outcome": {"provider": "fmp", "used_fallback": False, "from_cache": False}}
             results["calendar_degraded"] = False
+            results["energy"] = EnergyDataset(
+                observations=[],
+                collection_status="not_configured",
+                observation_age="unknown",
+                last_attempt_at=now,
+                last_successful_fetch_at=None,
+            )
+            results["energy_meta"] = {
+                "data_quality": 0.0,
+                "degraded": True,
+                "provider": "unavailable",
+                "error_code": "provider_auth_failed",
+                "detail": "DATA_EIA_API_KEY is not configured; no request was sent",
+            }
             return results
 
         data_dir = tmp_path / "data"
@@ -1009,6 +1152,18 @@ class TestPerDatasetDegradation:
         )
         monkeypatch.setattr(run_mod, "_run_collection", _news_only_collection)
         assert run_mod.main(["--full"]) == 0
+
+        from pipeline.cloud_refresh import (
+            _read_collection_output_receipt,
+            expected_latest_outputs,
+        )
+
+        artifacts_dir = tmp_path / "artifacts"
+        report_path = next((artifacts_dir / "logs").glob("run-report-*.json"))
+        run_report = json.loads(report_path.read_text(encoding="utf-8"))
+        assert set(run_report["written_latest_outputs"]) >= expected_latest_outputs()
+        receipt = _read_collection_output_receipt(artifacts_dir)
+        assert receipt.latest_paths >= expected_latest_outputs()
 
         freshness = json.loads((data_dir / "metadata" / "freshness.json").read_text(encoding="utf-8"))
         for key in ("equities", "sectors", "crypto", "commodities"):

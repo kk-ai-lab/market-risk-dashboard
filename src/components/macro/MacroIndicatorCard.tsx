@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/layout/StatusBadge";
 import { formatDateTime, formatNumber, formatUnitSuffix } from "@/lib/format";
+import { macroObservationTimestamp } from "@/lib/freshness";
 import type { MacroIndicator } from "@/schemas";
 
 /**
@@ -14,12 +15,24 @@ export interface MacroIndicatorCardProps {
 export function MacroIndicatorCard({ indicator }: MacroIndicatorCardProps) {
   const { t, i18n } = useTranslation("macro");
   const locale = i18n.language;
+  const sourceLabel = t(`sources.${indicator.source}`, { defaultValue: indicator.source });
+  const observationAt = macroObservationTimestamp(
+    indicator.observation_date,
+    indicator.observation_period,
+    indicator.updated_at,
+  );
+  const timeBasedStatus = ["fresh", "delayed", "stale"].some((status) => status === indicator.status);
+  const badgeStatus = !indicator.freshness_policy && timeBasedStatus ? "degraded" : indicator.status;
 
   return (
     <Card className="h-full" data-testid="macro-card">
       <CardHeader className="pb-2">
         <CardTitle className="text-xs">{t(`indicatorNames.${indicator.key}`, { defaultValue: t("indicatorNames.unknown") })}</CardTitle>
-        <StatusBadge status={indicator.status} />
+        <StatusBadge
+          status={badgeStatus}
+          observationAt={observationAt}
+          observationPolicy={indicator.freshness_policy}
+        />
       </CardHeader>
       <CardContent className="flex flex-col gap-1">
         <p className="text-2xl font-bold tabular-nums">
@@ -32,8 +45,12 @@ export function MacroIndicatorCard({ indicator }: MacroIndicatorCardProps) {
             : `${t("indicator.change1m")} ${indicator.change_1m > 0 ? "+" : ""}${formatNumber(indicator.change_1m, locale)}${formatUnitSuffix(indicator.unit, locale)}`}
         </p>
         {indicator.updated_at ? (
-          <p className="text-xs text-muted-foreground">{formatDateTime(indicator.updated_at, locale)}</p>
+          <p className="text-xs tabular-nums text-muted-foreground">{formatDateTime(indicator.updated_at, locale)}</p>
         ) : null}
+        {indicator.observation_period ? <p className="text-xs tabular-nums text-muted-foreground">{t("indicator.observationPeriod")}: {indicator.observation_period} · {sourceLabel}</p> : null}
+        {indicator.observation_date ? <p className="text-xs tabular-nums text-muted-foreground">{t("indicator.observationDate")}: {indicator.observation_date} · {sourceLabel}</p> : null}
+        {indicator.fetched_at ? <p className="text-xs tabular-nums text-muted-foreground">{t("indicator.fetchedAt")}: {formatDateTime(indicator.fetched_at, locale)}</p> : null}
+        {!indicator.freshness_policy && timeBasedStatus ? <p className="text-xs text-muted-foreground">{t("indicator.freshnessUnavailable")}</p> : null}
       </CardContent>
     </Card>
   );

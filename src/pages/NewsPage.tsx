@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/layout/StatusBadge";
 import { formatNumber } from "@/lib/format";
+import { isOfficialAnnouncement } from "@/lib/officialAnnouncements";
 import { cn } from "@/lib/utils";
 
 /**
@@ -42,7 +43,7 @@ export default function NewsPage() {
     }
   }, [filter]);
 
-  const allItems = newsQ.data?.payload.items ?? [];
+  const allItems = (newsQ.data?.payload.items ?? []).filter(isOfficialAnnouncement);
   const filtered = allItems.filter((item) => {
     if (filter === "all") return true;
     if (filter === "high") return item.importance >= 70;
@@ -56,11 +57,12 @@ export default function NewsPage() {
           {t("title")}
         </h1>
         <p className="text-xs text-muted-foreground">{t("subtitle")}</p>
+        <p className="w-full text-xs text-muted-foreground">{t("attribution")}</p>
         {newsQ.data ? (
           <div className="ml-auto flex items-center gap-3">
-            <StatusBadge status={newsQ.data.freshness_status} fromCache={newsQ.data.provenance?.from_cache} />
+            <StatusBadge dataset="news" generatedAt={newsQ.data.generated_at} status={newsQ.data.freshness_status} fromCache={newsQ.data.provenance?.from_cache} />
             <span className="text-xs text-muted-foreground">
-              {t("total")}: {formatNumber(newsQ.data.payload.total, locale)}
+              {t("total")}: {formatNumber(allItems.length, locale)}
             </span>
           </div>
         ) : null}

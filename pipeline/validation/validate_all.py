@@ -63,15 +63,15 @@ def validate_all(latest_dir: Path, strict: bool = True) -> ValidationReport:
     Two directions, both required (S-4):
 
     - **every registered file must be present and valid** — subject to ``spec.required``, since
-      the AI-authored files (``analysis.*``, ``news.zh-translations.json``) are produced by a
-      different automation and their absence is a degraded mode, not a broken run
+      the historical AI-authored files (``analysis.*``, ``news.zh-translations.json``) are
+      excluded from production validation
     - **every file present must be registered** — previously an unregistered file was simply
       never looked at, which is how 7 of 25 published files went unvalidated while the log
       cheerfully reported "checked 18 files"
 
     ``strict=False`` is retained for callers of the historical API; requiredness is still
-    fail-closed and comes from the canonical registry. Optional AI-authored files remain a
-    degraded warning when absent.
+    fail-closed and comes from the canonical registry. Historical AI files can be checked
+    explicitly with ``ci_checks.run_all(..., include_legacy_ai=True)``.
     """
     from pipeline.validation.ci_checks import run_latest
 

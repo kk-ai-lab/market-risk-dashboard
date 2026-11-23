@@ -6,6 +6,7 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   // GitHub Pages project site deployment path (frozen, architecture §1.2)
   base: "/market-risk-dashboard/",
+  publicDir: process.env.VITE_VERSIONED_DATA === "true" ? false : "public",
   plugins: [react()],
   resolve: {
     alias: {

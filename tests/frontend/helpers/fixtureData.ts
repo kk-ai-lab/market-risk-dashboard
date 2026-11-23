@@ -31,14 +31,42 @@ export const macroFixture = {
     ],
     credit: [
       {
-        key: "bamlh0a0hym2",
-        label: "ICE BofA US High Yield OAS",
+        key: "baa10y",
+        label: "Baa Corporate Spread vs 10Y Treasury",
         value: 3.42,
         previous: 3.5,
         change_1m: -0.08,
         unit: "pct",
         source: "FRED",
+        attribution: "Moody's via FRED",
         updated_at: "2026-08-03T09:30:00Z",
+        observation_date: "2026-08-03",
+        status: "fresh",
+      },
+      {
+        key: "bamlh0a0hym2",
+        label: "US High-Yield OAS",
+        value: 3.21,
+        previous: 3.3,
+        change_1m: -0.09,
+        unit: "pct",
+        source: "FRED",
+        attribution: "ICE BofA US High Yield Index Option-Adjusted Spread. Source: ICE Data Indices, LLC, via FRED",
+        updated_at: "2026-08-03T09:30:00Z",
+        observation_date: "2026-08-03",
+        status: "fresh",
+      },
+      {
+        key: "bamlc0a0cm",
+        label: "US Corporate OAS",
+        value: 0.91,
+        previous: 0.94,
+        change_1m: -0.03,
+        unit: "pct",
+        source: "FRED",
+        attribution: "ICE BofA US Corporate Index Option-Adjusted Spread. Source: ICE Data Indices, LLC, via FRED",
+        updated_at: "2026-08-03T09:30:00Z",
+        observation_date: "2026-08-03",
         status: "fresh",
       },
     ],
@@ -309,6 +337,25 @@ export const commoditiesFixture = {
   },
 };
 
+export const energyFixture = {
+  generated_at: "2026-11-16T15:00:00Z",
+  schema_version: "1.0.0",
+  source: "eia",
+  provenance: { provider: "eia", used_fallback: false, from_cache: false },
+  source_updated_at: null,
+  freshness_status: "missing",
+  data_quality: 0,
+  payload: {
+    series_id: "WCESTUS1",
+    unit: "thousand_barrels",
+    observations: [],
+    collection_status: "not_configured",
+    observation_age: "unknown",
+    last_attempt_at: "2026-11-16T15:00:00Z",
+    last_successful_fetch_at: null,
+  },
+};
+
 export const newsFixture = {
   generated_at: "2026-08-03T10:00:00Z",
   schema_version: "1.0.0",
@@ -321,17 +368,17 @@ export const newsFixture = {
     items: [
       {
         id: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
-        title: "Fed signals patience on rate cuts as inflation lingers",
+        title: "Federal Reserve releases corrected minutes",
         title_zh: null,
-        source: "CNBC",
-        url: "https://www.cnbc.com/2026/08/03/fed-patience.html",
+        source: "Federal Reserve",
+        source_id: "fed",
+        url: "https://www.federalreserve.gov/releases/2026/08/03.htm",
         published_at: "2026-08-03T09:00:00Z",
         categories: ["monetary_policy"],
         assets: ["NVDA", "BTC"],
         importance: 85.0,
         sentiment: "neutral",
-        summary:
-          "Federal Reserve officials signal patience on rate cuts while inflation remains above target.",
+        summary: "The Federal Reserve released corrected meeting minutes.",
         impact_window: "1w",
       },
     ],
@@ -397,6 +444,7 @@ export const dashboardFixture = {
       generated_at: "2026-08-03T10:00:00Z",
       total_score: 52.3,
       risk_level: "caution",
+      evidence_state: "partial",
       trend_1d: 1.4,
       trend_1w: 3.2,
       trend_1m: -2.1,
@@ -434,8 +482,8 @@ export const dashboardFixture = {
           score: 40.0,
           indicators: [
             {
-              key: "hy_oas",
-              label: "HY OAS",
+              key: "baa10y_spread",
+              label: "Baa-10Y Spread",
               value: 3.4,
               percentile: 45.0,
               z_score: 0.1,
@@ -623,7 +671,7 @@ export const dashboardFixture = {
         note: "MVP breadth uses index proxies (SPY/IWM/SOXX)",
       },
       regime: "late_cycle",
-      regime_evidence: ["10Y-2Y spread near inversion", "HY OAS widening"],
+      regime_evidence: ["10Y-2Y spread near inversion", "Baa spread pressure"],
       confidence: 0.72,
       confidence_factors: { data_quality: 0.9, coverage: 0.83, consistency: 0.6 },
       disclaimer:
@@ -660,7 +708,7 @@ export const dashboardFixture = {
     ],
     cross_asset: [
       { asset: "NVDA", category: "equity", change_1d: 1.2 },
-      { asset: "BTC", category: "crypto", change_1d: -0.5 },
+      { asset: "BTC", category: "crypto", change_1d: -0.5, source: "coingecko" },
     ],
     catalysts: [
       {

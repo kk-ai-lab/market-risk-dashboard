@@ -15,6 +15,11 @@ from .envelope import BaseEnvelope, ContractModel, FreshnessStatus, UTCDateTime
 MacroUnit = Literal["pct", "bps", "index", "usd", "ratio", "level"]
 
 
+class MacroFreshnessPolicy(ContractModel):
+    delayed_after_minutes: int = Field(gt=0)
+    stale_after_minutes: int = Field(gt=0)
+
+
 class MacroIndicator(ContractModel):
     """A single macro indicator (raw numeric storage, architecture §8.3)."""
 
@@ -25,8 +30,13 @@ class MacroIndicator(ContractModel):
     change_1m: float | None = None
     unit: MacroUnit = "level"
     source: str = Field(min_length=1)
+    attribution: str | None = None
     updated_at: UTCDateTime | None = None
+    observation_date: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])$")
+    observation_period: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
+    fetched_at: UTCDateTime | None = None
     status: FreshnessStatus = "fresh"
+    freshness_policy: MacroFreshnessPolicy | None = None
 
 
 class FedWatchRateProb(ContractModel):

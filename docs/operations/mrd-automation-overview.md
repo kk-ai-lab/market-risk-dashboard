@@ -1,9 +1,16 @@
 # MRD Automation Overview
 
+> **Historical record, updated 2026-11-15:** the schedules below describe WorkBuddy jobs as
+> observed in August 2026; they are not the current cloud publisher. AI brief generation has been
+> retired from the public dashboard. This repository does not manage or disable external
+> WorkBuddy schedules. The proposed GitHub Actions cloud publisher remains unpublished; see
+> `docs/operations/cloud-refresh-plan.md`.
+
 Consolidated map of the **WorkBuddy automations** that keep the Market Risk
 Dashboard's `public/data` fresh and bilingual. There are **four logical tasks / five
-scheduled entries** (Data Pipeline Refresh is split into two single-hour runs). All are
-ACTIVE and run on the **machine-local schedule (Dublin, Europe/Dublin — currently IST = UTC+1)**.
+scheduled entries** (Data Pipeline Refresh is split into two single-hour runs). The original
+snapshot marked these tasks active on the **machine-local schedule (Dublin, Europe/Dublin —
+currently IST = UTC+1)**.
 
 > Detailed procedures live in the sibling manuals:
 > - Pipeline / data refresh → `docs/operations/scheduled-task.md`

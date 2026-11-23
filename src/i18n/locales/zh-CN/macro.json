@@ -17,10 +17,19 @@
     "volatility": "波动率"
   },
   "indicator": {
+    "observationPeriod": "观测月份",
+    "observationDate": "观测日期",
+    "fetchedAt": "采集时间",
+    "freshnessUnavailable": "此旧记录未提供来源时效规则",
     "name": "指标",
     "change1m": "月环比",
     "value": "数值",
     "unit": "单位"
+  },
+  "sources": {
+    "BLS": "美国劳工统计局（BLS）",
+    "Treasury": "美国财政部（Treasury）",
+    "FRED": "FRED"
   },
   "fedwatch": {
     "title": "利率预期",
@@ -42,6 +51,7 @@
     "dgs2": "两年期国债收益率",
     "dfii10": "十年期实际收益率",
     "dff": "有效联邦基金利率",
+    "baa10y": "Baa级公司债利差（对10年期美债）",
     "bamlh0a0hym2": "美国高收益债利差",
     "bamlc0a0cm": "美国企业债利差",
     "vixcls": "波动率指数",

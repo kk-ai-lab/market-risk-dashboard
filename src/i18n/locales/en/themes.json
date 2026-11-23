@@ -20,9 +20,40 @@
     "marketCap": "Total market cap",
     "dominance": "BTC dominance",
     "volume24h": "24h volume",
+    "referenceDisclosure": "Prices for BTC, ETH, SOL, ADA, XRP, DOGE, BNB, LINK, LTC, and AVAX are Coin Metrics market-wide reference rates, not exchange last trades. Daily changes appear only when an exact 24-hour reference is available.",
+    "observedAt": "Source observation",
     "riskOn": "Risk On",
     "riskOff": "Risk Off",
     "neutral": "Neutral"
+  },
+  "energy": {
+    "title": "Weekly U.S. crude inventory",
+    "riskContextTitle": "Energy supply context",
+    "description": "EIA weekly U.S. ending stocks of crude oil, excluding the Strategic Petroleum Reserve.",
+    "riskContextNote": "Context only; excluded from the risk score and its coverage.",
+    "statusLabel": "Energy data status",
+    "collection": {
+      "not_configured": "Not configured",
+      "available": "Available",
+      "empty": "No observations",
+      "degraded": "Refresh degraded"
+    },
+    "age": {
+      "unknown": "Age unknown",
+      "within_window": "Within 14 days",
+      "overdue": "Overdue"
+    },
+    "level": "Inventory level",
+    "unit": "thousand barrels",
+    "weeklyChange": "Change from prior week",
+    "weekEnding": "Week ending",
+    "lastRetrieved": "Last successful retrieval",
+    "lastCheck": "Last check: {{time}}",
+    "checkTime": "Last check: {{time}}",
+    "ageRule": "14-day age threshold is a dashboard rule, not an EIA release promise.",
+    "attribution": "Source: EIA · WCESTUS1",
+    "noObservations": "EIA returned no weekly observations.",
+    "waitingForData": "EIA collection is not configured or no data is available yet."
   },
   "ai_infrastructure": "AI Infrastructure",
   "ai_software": "AI Software",

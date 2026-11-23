@@ -7,11 +7,13 @@ YAML loading utilities; used by Collectors since T03.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
+from threading import Lock
 from typing import TYPE_CHECKING, Any
 
 import yaml
-from pydantic import Field
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 if TYPE_CHECKING:  # pragma: no cover - import-time only, resolves the lazy-typed annotations
@@ -19,7 +21,9 @@ if TYPE_CHECKING:  # pragma: no cover - import-time only, resolves the lazy-type
     # lazy inside each loader to avoid the module-level cycle (config.models → degrade →
     # settings).
     from pipeline.config.models import (
+        InstrumentsConfig,
         NewsSourcesConfig,
+        PublicSourcePolicy,
         SourcesConfig,
         ThemesConfig,
         UniverseConfig,
@@ -42,15 +46,41 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    fred_api_key: str | None = Field(default=None, description="FRED API key (local .env)")
+    fred_api_key: SecretStr | None = Field(default=None, description="FRED API key (local .env)")
+    sec_contact_email: str | None = Field(default=None, description="SEC feed contact address (DATA_SEC_CONTACT_EMAIL)")
+    eia_api_key: SecretStr | None = Field(default=None, description="EIA API key (local .env or cloud secret)")
     coingecko_api_key: str | None = Field(default=None, description="CoinGecko Demo key")
     fmp_api_key: str | None = Field(default=None, description="FMP free-tier key")
+    coinmetrics_enabled: bool = Field(default=False, description="Opt in to Coin Metrics Community BTC/ETH reference rates for noncommercial publication (CC BY-NC 4.0)")
+    treasury_enabled: bool = Field(default=False, description="Opt in to the local Treasury daily yield snapshot")
+    bls_enabled: bool = Field(default=False, description="Use the local BLS snapshot for supported macro indicators")
+    approved_sources_only: bool = Field(default=False, description="Restrict collection and cache replay to config/public_sources.yaml")
+
+    bls_cloud_enabled: bool = Field(default=False, description="Opt in to the durable cloud BLS ledger instead of the local snapshot")
+    treasury_cloud_enabled: bool = Field(default=False, description="Opt in to the durable cloud Treasury ledger instead of the local snapshot")
+    fred_cloud_enabled: bool = Field(default=False, description="Opt in to the durable cloud FRED observation snapshot")
+    cloud_state_repo: str | None = Field(default=None, description="Explicit owner/repository for the pre-provisioned cloud-state branch")
+    cloud_state_branch: str = Field(default="cloud-state", description="Pre-provisioned shared state branch; never reset while writers run")
+    cloud_state_token: SecretStr | None = Field(default=None, description="Credential with contents write access to the cloud-state branch")
+    bls_checkpoint_path: str = Field(default="bls/ledger.json", description="Pre-provisioned cloud BLS ledger path")
+    treasury_checkpoint_path: str = Field(default="treasury/ledger.json", description="Pre-provisioned cloud Treasury ledger path")
+    fred_checkpoint_path: str = Field(default="fred/snapshot.json", description="Pre-provisioned cloud FRED observation path")
 
     # Directories (relative to project root)
     project_root: Path = PROJECT_ROOT
     config_dir: Path = PROJECT_ROOT / "config"
     data_dir: Path = PROJECT_ROOT / "public" / "data"
     artifacts_dir: Path = PROJECT_ROOT / "artifacts"
+
+    @field_validator("sec_contact_email", mode="before")
+    @classmethod
+    def _valid_sec_contact_email(cls, value: object) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        email = str(value).strip()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            raise ValueError("DATA_SEC_CONTACT_EMAIL must be a valid email address")
+        return email
 
     # ---- YAML config loading ----
 
@@ -99,11 +129,24 @@ class Settings(BaseSettings):
 
         return load_config(self.config_dir / "sources.yaml", SourcesConfig)
 
+    def load_public_source_policy(self) -> PublicSourcePolicy:
+        """Validated allowlist for public redistribution and provider/cache access."""
+        from pipeline.config.models import PublicSourcePolicy, load_config
+
+        return load_config(self.config_dir / "public_sources.yaml", PublicSourcePolicy)
+
     def load_universe_config(self) -> "UniverseConfig":
         """Validated universe.yaml — no theme tags (#102)."""
         from pipeline.config.models import UniverseConfig, load_config
 
         return load_config(self.config_dir / "universe.yaml", UniverseConfig)
+
+    def load_instruments_config(self) -> InstrumentsConfig:
+        from pipeline.config.models import InstrumentsConfig, load_config
+
+        config = load_config(self.config_dir / "instruments.yaml", InstrumentsConfig)
+        self.load_public_source_policy().validate_instrument_chains(config)
+        return config
 
     def load_themes_config(self) -> "ThemesConfig":
         """Validated themes.yaml: constituents resolve in universe.yaml and the #86 taxonomy
@@ -184,5 +227,19 @@ class Settings(BaseSettings):
         return load_config(self.config_dir / "news_sources.yaml", NewsSourcesConfig)
 
 
-# Module-level singleton (reused by run.py and Collectors since T03)
-settings = Settings()
+_settings_lock = Lock()
+
+if TYPE_CHECKING:
+    settings: Settings
+
+
+def __getattr__(name: str) -> Any:
+    if name != "settings":
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    with _settings_lock:
+        instance = globals().get("settings")
+        if instance is None:
+            instance = Settings()
+            globals()["settings"] = instance
+        return instance
