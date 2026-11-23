@@ -172,7 +172,7 @@ class TreasuryProvider(BaseProvider):
                 forward = (((1 + breakeven_10) ** 10 / (1 + breakeven_5) ** 5) ** 0.2 - 1) * 100
                 forward_values.append({"date": day, "value": forward})
             combined["T5YIFR"] = forward_values
-        output = {series_id: combined.get(series_id, []) for series_id in requested}
+        output = {series_id: combined.get(series_id, []) for series_id in series_ids}
         if any(not rows for rows in output.values()):
             raise ProviderError("Treasury: requested maturity missing or empty")
         return {
