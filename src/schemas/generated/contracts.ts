@@ -360,6 +360,7 @@ export const DashboardInstrument = z
     change_1d: z.number().finite().nullable().default(null),
     source: z.string().nullable().default(null),
     provider: z.string().nullable().default(null),
+    retrieved_at: utcDateTime.nullable().default(null),
     is_proxy: z.boolean().default(false),
     proxy_of: z.string().nullable().default(null),
   })

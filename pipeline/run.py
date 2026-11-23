@@ -555,7 +555,9 @@ def _run_collection(command: str) -> dict[str, Any]:
 
     if need_market:
         t0 = time.monotonic()
-        market_options = {"collection_plan": collection_plan} if collection_plan is not None else {}
+        market_options = {"previous_dashboard": StorageWriter(settings.data_dir).read_latest("dashboard")}
+        if collection_plan is not None:
+            market_options["collection_plan"] = collection_plan
         mc = MarketCollector(registry, universe, settings, **market_options)
         market = mc.collect()
         results.update(

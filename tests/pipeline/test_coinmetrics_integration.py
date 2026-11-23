@@ -113,13 +113,13 @@ def test_market_command_persists_stale_reference_price_consistently(tmp_path, mo
         cached_registry.cache_dir = tmp_path / "cache"
         cached_registry.max_retries = 0
         cached = payload()
-        cached["assets"][0]["updated_at"] = "2026-01-01T10:00:00Z"
+        cached["assets"][0]["updated_at"] = "2026-01-01T08:00:00Z"
         cached["assets"][1]["updated_at"] = "2026-01-01T11:59:00Z"
         cached_registry._save_last_good("crypto", "crypto_market", "get_crypto_market", cached, "coinmetrics")
         monkeypatch.setattr(run, "build_registry", lambda settings: cached_registry)
     with respx.mock:
         route = respx.get(CM_URL).respond(503 if from_cache else 200, json={"data": [
-            {"asset": "btc", "ReferenceRateUSD": "95000", "time": "2026-01-01T10:00:00Z"},
+            {"asset": "btc", "ReferenceRateUSD": "95000", "time": "2026-01-01T08:00:00Z"},
             {"asset": "eth", "ReferenceRateUSD": "3000", "time": "2026-01-01T11:59:00Z"},
         ]})
         assert run.main(["--market-only"]) == 0
@@ -127,7 +127,7 @@ def test_market_command_persists_stale_reference_price_consistently(tmp_path, mo
     crypto = json.loads((s.data_dir / "latest" / "crypto.json").read_text())
     freshness = json.loads((s.data_dir / "metadata" / "freshness.json").read_text())["datasets"]["crypto"]
     sources = json.loads((s.data_dir / "metadata" / "sources.json").read_text())["domains"]["crypto"]
-    assert crypto["source_updated_at"] == "2026-01-01T10:00:00Z"
+    assert crypto["source_updated_at"] == "2026-01-01T08:00:00Z"
     expected_status = "degraded" if from_cache else "stale"
     assert crypto["freshness_status"] == freshness["status"] == expected_status
     assert crypto["provenance"]["from_cache"] is from_cache
@@ -139,7 +139,7 @@ def test_market_command_persists_stale_reference_price_consistently(tmp_path, mo
 
 @pytest.mark.parametrize("generated,observed,status", [
     ("2026-01-01T12:00:00Z", "2026-01-01T11:59:00Z", "fresh"),
-    ("2026-01-01T10:00:00Z", "2026-01-01T11:59:00Z", "stale"),
+    ("2026-01-01T10:00:00Z", "2026-01-01T11:59:00Z", "delayed"),
     ("2026-01-01T12:00:00Z", None, "stale"),
     ("2026-01-01T12:00:00Z", "2026-01-01T12:01:00Z", "stale"),
 ])

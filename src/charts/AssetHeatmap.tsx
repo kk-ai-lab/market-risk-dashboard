@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatChange } from "@/lib/format";
+import { formatChange, formatDateTime } from "@/lib/format";
 
 /**
  * AssetHeatmap: category-first cross-asset change grid.
@@ -13,6 +13,7 @@ export interface HeatmapCell {
   change1d: number | null;
   source?: string | null;
   provider?: string | null;
+  retrievedAt?: string | null;
   isProxy?: boolean;
   proxyOf?: string | null;
 }
@@ -103,6 +104,11 @@ export function AssetHeatmap({ cells }: AssetHeatmapProps) {
                         {[cell.source, cell.provider].filter(Boolean).join(" · ")}
                       </span>
                     ) : null}
+                    {cell.retrievedAt ? (
+                      <span className="mt-1 break-words text-xs text-muted-foreground">
+                        {t("heatmap.retrievedAt", { time: formatDateTime(cell.retrievedAt, locale) })}
+                      </span>
+                    ) : null}
                     {cell.isProxy ? (
                       <span className="mt-1 text-xs text-muted-foreground">
                         {t("heatmap.proxyDisclosure", { symbol: cell.proxyOf ?? cell.asset })}
@@ -139,6 +145,7 @@ export function AssetHeatmap({ cells }: AssetHeatmapProps) {
                     <td className="break-words py-1.5 pl-2">
                       {[cell.source, cell.provider].filter(Boolean).join(" · ") || t("common:data.na")}
                       {cell.isProxy ? ` · ${t("heatmap.proxyDisclosure", { symbol: cell.proxyOf ?? cell.asset })}` : ""}
+                      {cell.retrievedAt ? <div className="text-xs text-muted-foreground">{t("heatmap.retrievedAt", { time: formatDateTime(cell.retrievedAt, locale) })}</div> : null}
                     </td>
                   </tr>
                 );

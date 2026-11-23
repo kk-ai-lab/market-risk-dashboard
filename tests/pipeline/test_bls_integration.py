@@ -122,13 +122,16 @@ def test_full_pipeline_writes_bls_sources_and_reuses_snapshot(tmp_path, monkeypa
     configured = Settings(_env_file=None, bls_enabled=True, data_dir=tmp_path / "data", artifacts_dir=tmp_path / "artifacts")
     payloads = {key: datasets.require(key).model.model_fields["payload"].annotation.model_validate(builder()) for key, builder in PAYLOAD_BUILDERS.items()}
     market = {key: payloads[key] for key in ("equities", "sectors", "crypto", "commodities")}
-    market.update(histories={}, degraded=[], provider_status={}, data_quality=1.0)
+    market.update(
+        histories={}, degraded=[], provider_status={}, data_quality=1.0,
+        index_performance=[], sector_etfs=[],
+    )
     registry = _FakeRegistry(_all_series_rows())
     monkeypatch.setattr(run, "settings", configured)
     monkeypatch.setattr(run, "build_registry", lambda _settings: registry)
     monkeypatch.setattr(bls, "BlsProvider", CountedProvider)
     monkeypatch.setattr(MacroCollector, "_collect_fedwatch", lambda self: None)
-    monkeypatch.setattr(run, "MarketCollector", lambda *args: SimpleNamespace(collect=lambda: market))
+    monkeypatch.setattr(run, "MarketCollector", lambda *args, **kwargs: SimpleNamespace(collect=lambda: market))
     for name, key in (("CalendarCollector", "calendar"), ("NewsCollector", "news")):
         monkeypatch.setattr(run, name, lambda *args, key=key: SimpleNamespace(
             collect=lambda: (payloads[key], {"degraded": [], "provider_status": {}, "data_quality": 1.0}),

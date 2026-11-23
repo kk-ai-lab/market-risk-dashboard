@@ -23,6 +23,7 @@
     "catIndices": "Indices",
     "catSectorEtfs": "SPDR sector ETFs",
     "source": "Source / provider",
+    "retrievedAt": "Retrieved {{time}}",
     "proxyDisclosure": "Proxy for {{symbol}}"
   },
   "trend": {

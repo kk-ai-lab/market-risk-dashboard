@@ -7,7 +7,10 @@ Any Provider failure → degradation chain → degraded, does not interrupt.
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from typing import Any, NamedTuple
+
+from pydantic import ValidationError
 
 from pipeline.config.models import ApprovedCollectionPlan, ConfigError, theme_history_symbols
 from pipeline.indicators.technical import technical_snapshot
@@ -85,21 +88,22 @@ INDEX_HISTORIES = {
 
 
 class MarketCollector:
-    def __init__(self, registry: ProviderRegistry, universe: AssetUniverse, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None) -> None:
+    def __init__(self, registry: ProviderRegistry, universe: AssetUniverse, settings: Settings | None = None, *, collection_plan: ApprovedCollectionPlan | None = None, previous_dashboard: dict[str, Any] | None = None) -> None:
         self.registry = registry
         self.universe = universe
         self.settings = settings or Settings()
-        self.collection_plan = collection_plan or (
-            self.settings.load_public_source_policy().collection_plan()
-            if self.settings.approved_sources_only else None
-        )
         self.instruments = self.settings.load_instruments_config()
         self.source_policy = self.settings.load_public_source_policy()
+        self.collection_plan = collection_plan or (
+            self.source_policy.collection_plan()
+            if self.settings.approved_sources_only else None
+        )
         # #102 (C-1): the sector/theme taxonomy lives in config/themes.yaml, not in this
         # module. Loading it validates every constituent resolves in universe.yaml and
         # raises ConfigError before any provider is constructed. Labels are nowhere here —
         # the frontend renders t(themes.<key>).
         self.themes = self.settings.load_themes_config()
+        self.previous_dashboard = previous_dashboard or {}
         # theme membership, reversed: symbol → theme keys, to populate EquityAsset.theme
         # (the payload keeps the field; universe.yaml no longer carries theme tags, D-8).
         self._symbol_to_themes: dict[str, list[str]] = {}
@@ -190,6 +194,7 @@ class MarketCollector:
                 and any(
                     grant.provider == "yfinance" and grant.registry_domain == "quotes"
                     and "equities" in grant.datasets
+                    and (not grant.methods or "get_history" in grant.methods)
                     and key[1] in grant.instrument_symbols
                     for grant in self.collection_plan.grants
                 )
@@ -582,6 +587,15 @@ class MarketCollector:
     def _collect_overview_instruments(self) -> tuple[list[DashboardInstrument], list[DashboardInstrument]]:
         """Resolve configured overview rows through explicitly granted source rungs."""
         policy_plan = self.source_policy.collection_plan()
+        previous_payload = self.previous_dashboard.get("payload", {})
+        previous_rows = {
+            row.key: row
+            for field in ("index_performance", "sector_etfs")
+            for raw in (previous_payload.get(field, []) if isinstance(previous_payload, dict) else [])
+            if isinstance(raw, dict)
+            for row in [self._dashboard_instrument(raw)]
+            if row is not None
+        }
         indices: list[DashboardInstrument] = []
         sector_etfs: list[DashboardInstrument] = []
         for key, instrument in self.instruments.instruments.items():
@@ -593,10 +607,16 @@ class MarketCollector:
             if self.collection_plan is not None and not self.collection_plan.allows_dataset(dataset):
                 target.append(DashboardInstrument(key=key, symbol=instrument.chain[0].symbol))
                 continue
+            previous = previous_rows.get(key)
+            if previous is not None and self._overview_row_is_within_cadence(previous, instrument, policy_plan):
+                target.append(previous)
+                continue
             errors: list[str] = []
             for index, rung in enumerate(instrument.chain):
-                grant = policy_plan.grant_for_rung(rung.source, rung.symbol)
-                if grant is None or dataset not in grant.datasets:
+                grant = policy_plan.grant_for_rung(
+                    rung.source, rung.symbol, dataset=dataset, method="get_quote"
+                )
+                if grant is None:
                     raise ConfigError(
                         f"instruments.yaml: {key} rung {rung.source}/{rung.symbol} "
                         f"does not grant dataset {dataset}"
@@ -612,6 +632,7 @@ class MarketCollector:
                         request_key,
                         args=(rung.symbol,),
                         authorization_dataset=dataset,
+                        use_cache=False,
                     )
                 except ProviderError as exc:
                     errors.append(str(exc))
@@ -623,6 +644,7 @@ class MarketCollector:
                     change_1d=quote.change_1d,
                     source=grant.attribution or quote.source,
                     provider=str(out["meta"].get("provider", grant.provider)),
+                    retrieved_at=now_utc(),
                     is_proxy=bool(rung.proxy_of or quote.is_proxy),
                     proxy_of=rung.proxy_of,
                 )
@@ -634,6 +656,46 @@ class MarketCollector:
                     self.provider_status.setdefault("overview_instruments", {})[key] = errors[-1]
             target.append(row)
         return indices, sector_etfs
+
+    @staticmethod
+    def _dashboard_instrument(value: dict[str, Any]) -> DashboardInstrument | None:
+        try:
+            return DashboardInstrument.model_validate(value)
+        except ValidationError:
+            return None
+
+    @staticmethod
+    def _overview_row_is_within_cadence(
+        row: DashboardInstrument, instrument: Any, policy_plan: Any
+    ) -> bool:
+        if row.retrieved_at is None:
+            return False
+        matching_rung = next(
+            (
+                rung for rung in instrument.chain
+                if rung.symbol == row.symbol and rung.proxy_of == row.proxy_of
+            ),
+            None,
+        )
+        if matching_rung is None:
+            return False
+        grant = policy_plan.grant_for_rung(
+            matching_rung.source,
+            matching_rung.symbol,
+            dataset="overview",
+            method="get_quote",
+        )
+        if grant is None or row.provider != grant.provider:
+            return False
+        try:
+            retrieved = datetime.fromisoformat(row.retrieved_at.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        if retrieved.tzinfo is None:
+            return False
+        current_time = datetime.fromisoformat(now_utc().replace("Z", "+00:00"))
+        age_minutes = (current_time - retrieved).total_seconds() / 60
+        return 0 <= age_minutes < grant.cadence_minutes
 
     def _prefetch_theme_series(self) -> None:
         """Fetch every symbol behind the sector/theme series once, in a bounded thread pool.

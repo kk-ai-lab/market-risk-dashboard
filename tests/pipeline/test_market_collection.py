@@ -23,7 +23,10 @@ class _HistoryRegistry:
     def resolved_provider(self, domain: str):
         return {"provider": "test-provider", "used_fallback": False, "from_cache": False}
 
-    def call_provider(self, domain, provider_name, method, key, args=(), kwargs=None, *, authorization_dataset=None):
+    def call_provider(
+        self, domain, provider_name, method, key, args=(), kwargs=None,
+        *, authorization_dataset=None, use_cache=True,
+    ):
         return self.call(domain, method, key, args, kwargs)
 
     def call(self, domain: str, method: str, key: str, args=(), kwargs=None):

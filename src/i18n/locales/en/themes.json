@@ -20,7 +20,7 @@
     "marketCap": "Total market cap",
     "dominance": "BTC dominance",
     "volume24h": "24h volume",
-    "referenceDisclosure": "Prices for BTC, ETH, SOL, ADA, XRP, DOGE, BNB, LINK, LTC, and AVAX are Coin Metrics market-wide reference rates, not exchange last trades. This source does not provide 24-hour changes.",
+    "referenceDisclosure": "Prices for BTC, ETH, SOL, ADA, XRP, DOGE, BNB, LINK, LTC, and AVAX are Coin Metrics market-wide reference rates, not exchange last trades. Daily changes appear only when an exact 24-hour reference is available.",
     "observedAt": "Source observation",
     "riskOn": "Risk On",
     "riskOff": "Risk Off",

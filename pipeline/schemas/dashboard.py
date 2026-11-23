@@ -10,7 +10,7 @@ from __future__ import annotations
 from pydantic import Field
 
 from .calendar import CalendarEvent
-from .envelope import BaseEnvelope, ContractModel
+from .envelope import BaseEnvelope, ContractModel, UTCDateTime
 from .risk import DriverContribution, MarketRegime, RiskModelResult
 
 
@@ -38,6 +38,7 @@ class DashboardInstrument(ContractModel):
     change_1d: float | None = None
     source: str | None = None
     provider: str | None = None
+    retrieved_at: UTCDateTime | None = None
     is_proxy: bool = False
     proxy_of: str | None = None
 

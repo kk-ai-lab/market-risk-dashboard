@@ -5,6 +5,7 @@ sources:
     provider: yfinance
     registry_domain: quotes
     datasets: [equities]
+    methods: [get_history]
     instrument_symbols: [SPY, IWM, SOXX]
     license_id: Yahoo-personal-use
     license_url: https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html
@@ -23,7 +24,7 @@ sources:
     license_url: https://creativecommons.org/licenses/by-nc/4.0/
     attribution: "Data provided by Coin Metrics Community Network Data. Modified from source."
     permitted_use: noncommercial
-    cadence_minutes: 15
+    cadence_minutes: 60
   bls:
     provider: bls
     registry_domain: null
@@ -128,22 +129,11 @@ sources:
     provider: yfinance
     registry_domain: quotes
     datasets: [overview]
+    methods: [get_quote]
     instrument_symbols: [^GSPC, ^IXIC, ^DJI, ^RUT, ^VIX, SPY, QQQ, DIA, IWM, VIXY, XLB, XLC, XLE, XLF, XLI, XLK, XLP, XLRE, XLU, XLV, XLY]
     license_id: Yahoo-Finance-terms
     license_url: https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html
     attribution: Yahoo Finance
-    permitted_use: personal-use
-    accepted_by: Kai
-    accepted_on: 2026-11-23
-    cadence_minutes: 480
-  fmp_overview:
-    provider: fmp_quotes
-    registry_domain: quotes
-    datasets: [overview]
-    instrument_symbols: [^GSPC, ^IXIC, ^DJI, ^RUT, ^VIX, SPY, QQQ, DIA, IWM, VIXY, XLB, XLC, XLE, XLF, XLI, XLK, XLP, XLRE, XLU, XLV, XLY]
-    license_id: Financial-Modeling-Prep-terms
-    license_url: https://site.financialmodelingprep.com/terms-of-service
-    attribution: Financial Modeling Prep
     permitted_use: personal-use
     accepted_by: Kai
     accepted_on: 2026-11-23

@@ -214,8 +214,9 @@ describe("route rendering (fixtures data)", () => {
       key: `index_${index}`,
       symbol: index === 0 ? "SPY" : symbol,
       change_1d: 0.5,
-      source: index === 0 ? "Financial Modeling Prep" : "Yahoo Finance",
-      provider: index === 0 ? "fmp_quotes" : "yfinance",
+      source: "Yahoo Finance",
+      provider: "yfinance",
+      retrieved_at: "2026-11-23T12:00:00Z",
       is_proxy: index === 0,
       proxy_of: index === 0 ? "^GSPC" : null,
     }));
@@ -225,6 +226,7 @@ describe("route rendering (fixtures data)", () => {
       change_1d: -0.25,
       source: "Yahoo Finance",
       provider: "yfinance",
+      retrieved_at: "2026-11-23T12:00:00Z",
       is_proxy: false,
       proxy_of: null,
     }));
@@ -239,9 +241,14 @@ describe("route rendering (fixtures data)", () => {
         + dashboard.payload.index_performance.length
         + dashboard.payload.sector_etfs.length,
     );
-    expect(within(heatmap).getAllByText(locale === "en" ? "SPDR sector ETFs" : "SPDR 板块 ETF").length).toBeGreaterThan(0);
+    expect(within(heatmap).getAllByText(locale === "en" ? "SPDR sector ETFs" : "板块交易型基金").length).toBeGreaterThan(0);
     expect(within(heatmap).getAllByText(locale === "en" ? "Proxy for ^GSPC" : "^GSPC 的代理指标").length).toBeGreaterThan(0);
-    expect(within(heatmap).getByText("Financial Modeling Prep · fmp_quotes")).toBeInTheDocument();
+    expect(within(heatmap).getAllByText("Yahoo Finance · yfinance").length).toBeGreaterThanOrEqual(16);
+    const categoryGrids = within(heatmap).getAllByTestId(/^heatmap-category-grid-/);
+    const retrievedRows = categoryGrids.flatMap((grid) =>
+      within(grid).queryAllByText(locale === "en" ? /^Retrieved / : /^拉取时间：/),
+    );
+    expect(retrievedRows).toHaveLength(16);
   });
 
   it("attributes Coin Metrics crypto reference rates shown by the overview", async () => {

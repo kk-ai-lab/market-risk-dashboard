@@ -90,7 +90,6 @@ def test_policy_loads_licensed_sources_and_builds_only_approved_providers(tmp_pa
         ("rss_news", "news"),
         ("eia", "energy"),
         ("bea_calendar", "bea_calendar"),
-        ("fmp_quotes", "quotes"),
     ]
     assert isinstance(providers[1], CoinMetricsProvider)
     assert providers[1].symbols == (
@@ -338,6 +337,7 @@ def test_approved_risk_histories_request_only_three_granted_targets(tmp_path, mo
 
     monkeypatch.setattr(provider, "get_history", history)
     monkeypatch.setattr(MarketCollector, "_collect_crypto", lambda self: CryptoDataset())
+    monkeypatch.setattr(MarketCollector, "_collect_overview_instruments", lambda self: ([], []))
     result = MarketCollector(registry, AssetUniverse.load(settings), settings).collect()
 
     assert set(requested) == {("SPY", "1y"), ("IWM", "1y"), ("SOXX", "1y")}
@@ -365,12 +365,27 @@ def test_quote_registry_refuses_ungranted_targets_and_operations(tmp_path, monke
     settings = public_settings(tmp_path)
     registry = build_registry(settings)
     provider = registry.providers_for("quotes")[0]
-    monkeypatch.setattr(provider, "get_history", lambda *_: pytest.fail("unapproved request sent"))
+    history_calls = []
+    quote_calls = []
+    monkeypatch.setattr(provider, "get_history", lambda *args: history_calls.append(args))
+    monkeypatch.setattr(provider, "get_quote", lambda *args: quote_calls.append(args))
     for key, args in [("hist_NVDA_1y", ("NVDA", "1y")), ("hist_NVDA_1y", ("SPY", "1y"))]:
         with pytest.raises(ProviderError):
             registry.call("quotes", "get_history", key, args=args)
     with pytest.raises(ProviderError):
         registry.call("quotes", "get_quote", "quote_NVDA", args=("NVDA",))
+    with pytest.raises(ProviderError):
+        registry.call_provider(
+            "quotes", "yfinance", "get_quote", "quote_SPY", args=("SPY",),
+            authorization_dataset="equities",
+        )
+    with pytest.raises(ProviderError):
+        registry.call_provider(
+            "quotes", "yfinance", "get_history", "hist_XLK_1y", args=("XLK", "1y"),
+            authorization_dataset="overview",
+        )
+    assert history_calls == []
+    assert quote_calls == []
 
 
 def test_market_collector_rejects_unapproved_coinmetrics_asset(tmp_path, monkeypatch):

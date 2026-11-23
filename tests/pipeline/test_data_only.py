@@ -228,8 +228,11 @@ def test_full_collection_keeps_source_news_without_ai(tmp_path: Path, monkeypatc
     market = {
         key: payloads[key] for key in ("equities", "sectors", "crypto", "commodities")
     }
-    market.update(histories={}, degraded=[], provider_status={}, data_quality=1.0)
-    monkeypatch.setattr(run_mod, "MarketCollector", lambda *args: SimpleNamespace(collect=lambda: market))
+    market.update(
+        histories={}, degraded=[], provider_status={}, data_quality=1.0,
+        index_performance=[], sector_etfs=[],
+    )
+    monkeypatch.setattr(run_mod, "MarketCollector", lambda *args, **kwargs: SimpleNamespace(collect=lambda: market))
     monkeypatch.setattr(run_mod, "MacroCollector", lambda *args, **kwargs: SimpleNamespace(
         collect=lambda: (payloads["macro"], {
             "degraded": [], "provider_status": {}, "data_quality": 1.0, "series_history": series_history,
@@ -269,8 +272,11 @@ def test_full_collection_keeps_source_news_without_ai(tmp_path: Path, monkeypatc
     assert node.returncode == 0, node.stdout + node.stderr
     previous_files = {p.relative_to(settings.data_dir): p.read_bytes() for p in settings.data_dir.rglob("*.json")}
     empty_market = {key: type(payloads[key])() for key in ("equities", "sectors", "crypto", "commodities")}
-    empty_market.update(histories={}, degraded=["all market sources unavailable"], provider_status={}, data_quality=0.0)
-    monkeypatch.setattr(run_mod, "MarketCollector", lambda *args: SimpleNamespace(collect=lambda: empty_market))
+    empty_market.update(
+        histories={}, degraded=["all market sources unavailable"], provider_status={}, data_quality=0.0,
+        index_performance=[], sector_etfs=[],
+    )
+    monkeypatch.setattr(run_mod, "MarketCollector", lambda *args, **kwargs: SimpleNamespace(collect=lambda: empty_market))
     monkeypatch.setattr(run_mod, "MacroCollector", lambda *args: SimpleNamespace(collect=lambda: (
         type(payloads["macro"])(), {"degraded": ["macro unavailable"], "provider_status": {}, "data_quality": 0.0}
     )))

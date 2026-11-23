@@ -23,6 +23,7 @@
     "catIndices": "指数",
     "catSectorEtfs": "板块交易型基金",
     "source": "来源 / 提供方",
+    "retrievedAt": "拉取时间：{{time}}",
     "proxyDisclosure": "{{symbol}} 的代理指标"
   },
   "trend": {

@@ -872,6 +872,7 @@ class ProviderRegistry:
         *,
         provider_names: set[str] | None = None,
         authorization_dataset: str | None = None,
+        use_cache: bool = True,
     ) -> dict[str, Any]:
         """Call a Provider method along the degradation chain, returning (result, meta).
 
@@ -899,6 +900,7 @@ class ProviderRegistry:
                 if grant.registry_domain == domain
                 and symbol in grant.instrument_symbols
                 and datasets.intersection(grant.datasets)
+                and (not grant.methods or method in grant.methods)
             }
             provider_names = (
                 target_providers
@@ -921,6 +923,7 @@ class ProviderRegistry:
                     else {
                         grant.provider for grant in self.collection_plan.grants
                         if grant.registry_domain == domain and symbol in grant.instrument_symbols
+                        and (not grant.methods or method in grant.methods)
                     }
                 )
             elif domain == "quotes" and method == "get_quote" and len(args) == 1:
@@ -977,7 +980,10 @@ class ProviderRegistry:
         # All Providers failed → last-good cache (expired/undated/version-mismatched entries
         # are not served, #66/S-2)
         cache_providers = allowed_target_providers if allowed_target_providers is not None else provider_names
-        cached = self._load_last_good(domain, key, method, allowed_providers=cache_providers)
+        cached = (
+            self._load_last_good(domain, key, method, allowed_providers=cache_providers)
+            if use_cache else None
+        )
         if cached is not None and (
             allowed_target_providers is None or cached[1]["provider"] in allowed_target_providers
         ) and (
@@ -1013,6 +1019,7 @@ class ProviderRegistry:
         kwargs: dict[str, Any] | None = None,
         *,
         authorization_dataset: str | None = None,
+        use_cache: bool = True,
     ) -> dict[str, Any]:
         """Resolve one approved source rung while retaining registry retry/cache behavior."""
         return self.call(
@@ -1023,6 +1030,7 @@ class ProviderRegistry:
             kwargs=kwargs,
             provider_names={provider_name},
             authorization_dataset=authorization_dataset,
+            use_cache=use_cache,
         )
 
     def _host_for(self, provider: BaseProvider) -> str:
