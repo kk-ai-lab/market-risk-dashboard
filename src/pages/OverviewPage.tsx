@@ -97,7 +97,7 @@ export default function OverviewPage() {
     : [];
 
   const riskAvailable = risk ? hasRiskEvidence(risk) : false;
-  const riskTone = risk && riskAvailable ? riskLevelTone(risk.risk_level) : "na";
+  const riskTone = risk && riskAvailable && risk.risk_level !== null ? riskLevelTone(risk.risk_level) : "na";
   const trendTone = risk && riskAvailable ? riskTrendTone(risk.trend_1d) : "na";
   const TrendIcon =
     !riskAvailable || risk?.trend_1d === null || risk?.trend_1d === undefined || risk.trend_1d === 0
@@ -153,10 +153,10 @@ export default function OverviewPage() {
               }
             >
               <span className={`text-2xl font-semibold tabular-nums ${toneClasses(riskTone).text}`} data-testid="risk-score">
-                {riskAvailable ? formatNumber(risk.total_score, locale) : t("common:data.na")}
+                {riskAvailable && risk.total_score !== null ? formatNumber(risk.total_score, locale) : t("common:data.na")}
               </span>
               <Badge variant={riskTone} data-testid="risk-level">
-                {riskAvailable ? t(`risk:${RISK_LEVEL_KEYS[risk.risk_level]}`) : t(risk.evidence_state === null ? "risk:evidence.unknown" : "risk:evidence.insufficient")}
+                {riskAvailable && risk.risk_level !== null ? t(`risk:${RISK_LEVEL_KEYS[risk.risk_level]}`) : t(risk.evidence_state === null ? "risk:evidence.unknown" : "risk:evidence.insufficient")}
               </Badge>
             </KpiCard>
 
@@ -272,7 +272,11 @@ export default function OverviewPage() {
         ) : trendQ.isError ? (
           <ErrorState onRetry={trendQ.refetch} />
         ) : trendQ.data && trendQ.data.some((point) => point.evidence_state !== "insufficient_evidence") ? (
-          <RiskTrendChart points={trendQ.data.map((point) => ({ ...point, total_score: point.evidence_state === "insufficient_evidence" ? null : point.total_score }))} />
+          <RiskTrendChart points={trendQ.data.map((point) => ({
+            ...point,
+            total_score: point.evidence_state === "insufficient_evidence" ? null : point.total_score,
+            risk_level: point.risk_level ?? undefined,
+          }))} />
         ) : (
           <EmptyState title={t("trend.empty")} />
         )}

@@ -16,6 +16,7 @@ Two layers, two consumers:
 
 from __future__ import annotations
 
+import shutil
 from datetime import date, timedelta
 from typing import Any
 
@@ -85,7 +86,7 @@ def build_manifest(
     return manifest
 
 
-def write_macro_history(writer: Any, series_history: dict[str, list[dict[str, Any]]], groups: dict[str, list[str]], *, series_sources: dict[str, str] | None = None, percentile_window_years: int = 5, as_of_date: date | None = None) -> dict[str, int]:
+def write_macro_history(writer: Any, series_history: dict[str, list[dict[str, Any]]], groups: dict[str, list[str]], *, series_sources: dict[str, str] | None = None, percentile_window_years: int = 5, as_of_date: date | None = None, authorized_series: set[str] | None = None) -> dict[str, int]:
     """Persist the two layers. ``series_history`` is keyed lowercase (collector convention);
     series ids are uppercased for the catalog/group lookups. Only ROSTER series are
     archived — internal anchors (the EFFR FedWatch fallback) are not published series and
@@ -95,11 +96,28 @@ def write_macro_history(writer: Any, series_history: dict[str, list[dict[str, An
     """
     incoming_by_series = {sid.upper(): rows for sid, rows in series_history.items()}
     group_of = _group_of_series(groups)
+    permitted = {series.upper() for series in authorized_series} if authorized_series is not None else None
+    macro_dir = writer.history_dir / "macro"
+
+    if permitted is not None:
+        retired_dirs = sorted(
+            (
+                path for path in macro_dir.rglob("*")
+                if path.is_dir() and path.name.upper() in group_of and path.name.upper() not in permitted
+            ),
+            key=lambda path: len(path.parts),
+            reverse=True,
+        )
+        for path in retired_dirs:
+            shutil.rmtree(path)
 
     # Layer 1: per-series append-only archive (existing write_slices convention).
     archive_count = 0
     rows_by_series: dict[str, list[dict[str, Any]]] = {}
     for series in group_of:
+        if permitted is not None and series not in permitted:
+            rows_by_series[series] = []
+            continue
         rows = incoming_by_series.get(series, [])
         source = (series_sources or {}).get(series.lower())
         directory = f"macro/{source.lower()}/{series}" if source in {"BLS", "Treasury"} else f"macro/{series}"
@@ -120,7 +138,6 @@ def write_macro_history(writer: Any, series_history: dict[str, list[dict[str, An
         if rows:
             by_group[group_of[series]].append(series)
 
-    macro_dir = writer.history_dir / "macro"
     bundle_count = 0
     for group, series_list in by_group.items():
         rows = {s: rows_by_series[s] for s in series_list if s in rows_by_series}

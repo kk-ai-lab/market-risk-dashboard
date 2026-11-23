@@ -1122,7 +1122,8 @@ def _run_risk_and_write(
         risk_detail = (
             "risk inputs degraded; " + "; ".join(risk_input_reasons)
         )[:200] if risk_input_degraded else ""
-        risk_env = _assemble("risk", risk_result, risk_input_degraded,
+        public_risk_result = _public_risk_result(risk_result)
+        risk_env = _assemble("risk", public_risk_result, risk_input_degraded,
                              provider="risk_model",
                              data_quality=ctx["data_quality"],
                              source_updated_at=risk_source_updated_at,
@@ -1160,6 +1161,7 @@ def _run_risk_and_write(
             series_sources=macro_meta.get("series_sources"),
             percentile_window_years=risk_model.percentile_window_years,
             as_of_date=date.fromisoformat(today),
+            authorized_series=_authorized_macro_series(),
         )
         macro = _write_finalized(writer, "macro", macro, outcomes)
         market_envelopes = _write_market_datasets(
@@ -1265,14 +1267,14 @@ def _run_risk_and_write(
         # History slices
         risk_row = {
             "date": today,
-            "model_version": risk_result.model_version,
-            "total_score": risk_result.total_score,
-            "risk_level": risk_result.risk_level,
-            "regime": risk_result.regime,
-            "confidence": risk_result.confidence,
-            "evidence_state": risk_result.evidence_state,
-            "dim_scores": {d.key: d.score for d in risk_result.dimensions if d.evidence_state in {"partial", "complete"}},
-            "dim_evidence_states": {d.key: d.evidence_state for d in risk_result.dimensions},
+            "model_version": public_risk_result.model_version,
+            "total_score": public_risk_result.total_score,
+            "risk_level": public_risk_result.risk_level,
+            "regime": public_risk_result.regime,
+            "confidence": public_risk_result.confidence,
+            "evidence_state": public_risk_result.evidence_state,
+            "dim_scores": {d.key: d.score for d in public_risk_result.dimensions if d.score is not None},
+            "dim_evidence_states": {d.key: d.evidence_state for d in public_risk_result.dimensions},
             # Per-indicator scores: a dimension score is a weighted average, so the published
             # history could only ever attribute a move to a *dimension*, never to the input
             # that caused it — which makes any weight/contribution validation impossible after
@@ -1280,7 +1282,7 @@ def _run_risk_and_write(
             # row narrow; keys appear as they are scored, so the shape grows with the model.
             "indicator_scores": {
                 indicator.key: indicator.risk_score
-                for dimension in risk_result.dimensions
+                for dimension in public_risk_result.dimensions
                 for indicator in dimension.indicators
             },
         }
@@ -1438,6 +1440,48 @@ def _risk_evidence_summary(results: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _public_risk_result(result: RiskModelResult) -> RiskModelResult:
+    dimensions = []
+    for dimension in result.dimensions:
+        indicators = [
+            indicator.model_copy(
+                update={
+                    "risk_score": indicator.risk_score if indicator.value is not None and indicator.score_included else None,
+                    "score_included": indicator.value is not None and indicator.score_included,
+                }
+            )
+            for indicator in dimension.indicators
+        ]
+        dimension_has_evidence = dimension.evidence_state in {"partial", "complete"}
+        dimensions.append(
+            dimension.model_copy(
+                update={
+                    "score": dimension.score if dimension_has_evidence else None,
+                    "indicators": indicators,
+                }
+            )
+        )
+
+    updates: dict[str, Any] = {"dimensions": dimensions}
+    if result.evidence_state == "insufficient_evidence":
+        updates.update(
+            total_score=None,
+            risk_level=None,
+            trend_1d=None,
+            trend_1w=None,
+            trend_1m=None,
+            top_drivers=[],
+        )
+    return result.model_copy(update=updates)
+
+
+def _authorized_macro_series() -> set[str] | None:
+    if not settings.approved_sources_only:
+        return None
+    plan = settings.load_public_source_policy().collection_plan(public_output=True)
+    return {series.upper() for grant in plan.grants for series in grant.macro_series}
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     command = _resolve_command(args)
@@ -1547,6 +1591,7 @@ def main(argv: list[str] | None = None) -> int:
                     series_sources=macro_meta.get("series_sources"),
                     percentile_window_years=risk_model.percentile_window_years,
                     as_of_date=date.fromisoformat(now_utc()[:10]),
+                    authorized_series=_authorized_macro_series(),
                 )
                 _finalize_and_write(writer, "macro", results["macro"], bool(macro_meta.get("degraded")), outcomes,
                                     **_provider_kwargs(macro_meta, None, default="fred"),

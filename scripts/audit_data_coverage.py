@@ -97,26 +97,94 @@ def _macro_coverage(data_dir: Path, settings: Settings) -> dict[str, Any]:
 def _unauthorized_macro_history(data_dir: Path, unauthorized_series: set[str]) -> list[str]:
     macro_history = data_dir / "history" / "macro"
     found: set[str] = set()
-    for archive_path in macro_history.rglob("daily.json"):
+    for archive_path in macro_history.rglob("*.json"):
         series_id = archive_path.parent.name.upper()
-        if series_id not in unauthorized_series:
-            continue
-        rows = json.loads(archive_path.read_text(encoding="utf-8"))
-        if isinstance(rows, list) and rows:
-            found.add(series_id)
+        if series_id in unauthorized_series and archive_path.name in {"daily.json", "30d.json", "90d.json"}:
+            rows = json.loads(archive_path.read_text(encoding="utf-8"))
+            if isinstance(rows, list) and rows:
+                found.add(series_id)
+        if archive_path.name == "index.json":
+            index = json.loads(archive_path.read_text(encoding="utf-8"))
+            if series_id in unauthorized_series and isinstance(index, dict) and (index.get("count", 0) or index.get("last_observation")):
+                found.add(series_id)
+            series_rows = index.get("series", {}) if isinstance(index, dict) else {}
+            if isinstance(series_rows, dict):
+                for key, row in series_rows.items():
+                    normalized_id = str(key).upper()
+                    if normalized_id in unauthorized_series and isinstance(row, dict) and (row.get("count", 0) or row.get("last_observation")):
+                        found.add(normalized_id)
 
-    for bundle_path in (*macro_history.glob("*.30d.json"), *macro_history.glob("*.90d.json")):
+    for bundle_path in (*macro_history.rglob("*.30d.json"), *macro_history.rglob("*.90d.json")):
         bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
         if not isinstance(bundle, dict):
             continue
         for series_id, rows in bundle.items():
             normalized_id = str(series_id).upper()
-            if normalized_id not in unauthorized_series or not isinstance(rows, dict):
+            if normalized_id not in unauthorized_series:
                 continue
-            if rows.get("d") or rows.get("v"):
+            if (isinstance(rows, dict) and (rows.get("d") or rows.get("v"))) or (isinstance(rows, list) and rows):
                 found.add(normalized_id)
 
     return sorted(found)
+
+
+def _unwithheld_risk_scores(payload: dict[str, Any]) -> list[str]:
+    violations: list[str] = []
+    insufficient = payload.get("evidence_state") == "insufficient_evidence"
+    if insufficient:
+        for key in ("total_score", "risk_level", "trend_1d", "trend_1w", "trend_1m"):
+            if payload.get(key) is not None:
+                violations.append(f"payload.{key}")
+        if payload.get("top_drivers"):
+            violations.append("payload.top_drivers")
+
+    dimensions = payload.get("dimensions", [])
+    if not isinstance(dimensions, list):
+        return violations
+    for dimension in dimensions:
+        if not isinstance(dimension, dict):
+            continue
+        key = str(dimension.get("key", "unknown"))
+        if dimension.get("evidence_state") == "insufficient_evidence" and dimension.get("score") is not None:
+            violations.append(f"dimensions.{key}.score")
+        for indicator in dimension.get("indicators", []):
+            if not isinstance(indicator, dict):
+                continue
+            if indicator.get("value") is None and indicator.get("risk_score") is not None:
+                violations.append(f"dimensions.{key}.indicators.{indicator.get('key', 'unknown')}.risk_score")
+            if indicator.get("value") is None and indicator.get("score_included") is not False:
+                violations.append(f"dimensions.{key}.indicators.{indicator.get('key', 'unknown')}.score_included")
+    return violations
+
+
+def _unwithheld_risk_history(data_dir: Path, payload: dict[str, Any]) -> list[str]:
+    violations: list[str] = []
+    unavailable_indicators = {
+        str(indicator.get("key"))
+        for dimension in payload.get("dimensions", [])
+        if isinstance(dimension, dict)
+        for indicator in dimension.get("indicators", [])
+        if isinstance(indicator, dict) and indicator.get("value") is None
+    }
+    for path in (data_dir / "history" / "risk").glob("*.json"):
+        if path.name == "index.json":
+            continue
+        rows = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(rows, list):
+            continue
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict) or row.get("evidence_state") != "insufficient_evidence":
+                continue
+            prefix = f"{path.name}[{index}]"
+            for key in ("total_score", "risk_level"):
+                if row.get(key) is not None:
+                    violations.append(f"{prefix}.{key}")
+            scores = row.get("indicator_scores", {})
+            if isinstance(scores, dict):
+                for key in unavailable_indicators:
+                    if key in scores and scores[key] is not None:
+                        violations.append(f"{prefix}.indicator_scores.{key}")
+    return violations
 
 
 def audit(data_dir: Path, settings: Settings) -> dict[str, Any]:
@@ -223,6 +291,8 @@ def audit(data_dir: Path, settings: Settings) -> dict[str, Any]:
             "model_version": risk_payload.get("model_version"),
             "evidence_state": risk_payload.get("evidence_state"),
             "evidence_coverage": risk_payload.get("evidence_coverage"),
+            "unwithheld_scores": _unwithheld_risk_scores(risk_payload),
+            "unwithheld_history_scores": _unwithheld_risk_history(data_dir, risk_payload),
             "dimensions": [
                 {
                     "key": row.get("key"),
@@ -241,6 +311,8 @@ def audit(data_dir: Path, settings: Settings) -> dict[str, Any]:
         "rights_violations": {
             "unauthorized_macro_values": macro["unauthorized_values"],
             "unauthorized_macro_history": macro["unauthorized_history"],
+            "unwithheld_risk_scores": _unwithheld_risk_scores(risk_payload),
+            "unwithheld_risk_history_scores": _unwithheld_risk_history(data_dir, risk_payload),
             "macro_values_without_attribution": macro["missing_attributions"],
             "personal_use_source_markers": unauthorized_providers,
         },

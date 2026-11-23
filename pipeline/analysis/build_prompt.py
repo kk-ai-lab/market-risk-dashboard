@@ -137,7 +137,7 @@ def _render_facts(facts: FactLayer, lang: str) -> str:
     return f"""## Fact Layer (generated_at={facts.generated_at}, schema_version={facts.schema_version})
 
 ### Risk snapshot
-- total_score={risk.total_score:.1f} risk_level={risk.risk_level} regime={risk.regime}
+- total_score={f'{risk.total_score:.1f}' if risk.total_score is not None else 'withheld'} risk_level={risk.risk_level or 'withheld'} regime={risk.regime}
 - trend_1d={risk.trend_1d} trend_1w={risk.trend_1w} trend_1m={risk.trend_1m}
 - confidence={risk.confidence:.2f} confidence_factors={json.dumps(risk.confidence_factors, ensure_ascii=False)}
 - regime_evidence={json.dumps(risk.regime_evidence, ensure_ascii=False)}

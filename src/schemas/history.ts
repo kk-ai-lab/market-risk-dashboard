@@ -17,9 +17,9 @@ import { MarketRegime, RiskEvidenceState, RiskLevel } from "./generated/contract
 export const RiskTrendPoint = z
   .object({
     date: z.string().min(1), // YYYY-MM-DD
-    total_score: z.number().finite().min(0).max(100),
+    total_score: z.number().finite().min(0).max(100).nullable(),
     model_version: z.string().min(1).optional(),
-    risk_level: RiskLevel.optional(),
+    risk_level: RiskLevel.nullable().optional(),
     regime: MarketRegime.optional(),
     confidence: z.number().finite().min(0).max(1).optional(),
     evidence_state: RiskEvidenceState.optional(),

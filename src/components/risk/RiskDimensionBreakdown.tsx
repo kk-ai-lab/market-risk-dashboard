@@ -30,7 +30,7 @@ export function RiskDimensionBreakdown({ result }: RiskDimensionBreakdownProps) 
   const { t, i18n } = useTranslation("risk");
   const locale = i18n.language;
   const hasEvidence = hasRiskEvidence(result);
-  const totalTone = hasEvidence ? riskLevelTone(result.risk_level) : "na";
+  const totalTone = hasEvidence && result.risk_level !== null ? riskLevelTone(result.risk_level) : "na";
   const totalClasses = toneClasses(totalTone);
   const evidenceState = result.evidence_state ?? "insufficient_evidence";
   const evidenceCoverage = result.evidence_coverage ?? result.confidence_factors.coverage ?? 0;
@@ -51,7 +51,7 @@ export function RiskDimensionBreakdown({ result }: RiskDimensionBreakdownProps) 
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <div className="rounded-md bg-muted/50 p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("score.title")}</p>
-            <p className={`text-3xl font-bold tabular-nums ${totalClasses.text}`}>{hasEvidence ? formatNumber(result.total_score, locale) : t("common:data.na")}</p>
+            <p className={`text-3xl font-bold tabular-nums ${totalClasses.text}`}>{hasEvidence && result.total_score !== null ? formatNumber(result.total_score, locale) : t("common:data.na")}</p>
           </div>
           <div className="rounded-md bg-muted/50 p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("score.confidence")}</p>
@@ -105,8 +105,8 @@ export function RiskDimensionBreakdown({ result }: RiskDimensionBreakdownProps) 
       {/* 6 dimension cards */}
       <div className="grid min-w-0 gap-4 lg:grid-cols-2 [&>*]:min-w-0">
         {result.dimensions.map((dim) => {
-          const available = dim.indicators.some((indicator) => indicator.value !== null && indicator.score_included !== false);
-          const tone = available ? riskLevelTone(riskLevelForScore(dim.score)) : "na";
+          const available = dim.score !== null && dim.indicators.some((indicator) => indicator.value !== null && indicator.score_included !== false);
+          const tone = available && dim.score !== null ? riskLevelTone(riskLevelForScore(dim.score)) : "na";
           const classes = toneClasses(tone);
           const trendTone = dim.trend === "rising" ? "high" : dim.trend === "falling" ? "low" : "na";
           const trendClasses = toneClasses(trendTone);
@@ -129,7 +129,7 @@ export function RiskDimensionBreakdown({ result }: RiskDimensionBreakdownProps) 
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className={`text-2xl font-bold tabular-nums ${classes.text}`}>{available ? formatNumber(dim.score, locale) : t("common:data.na")}</span>
+                  <span className={`text-2xl font-bold tabular-nums ${classes.text}`}>{available && dim.score !== null ? formatNumber(dim.score, locale) : t("common:data.na")}</span>
                   <div className="flex flex-wrap items-center gap-2 text-xs tabular-nums text-muted-foreground">
                     <span>{t("dimension.weight")}: {formatNumber(dim.weight, locale, 1)}%</span>
                     <span>{t("dimension.effectiveWeight")}: {formatNumber(dim.effective_weight, locale, 1)}%</span>
@@ -142,7 +142,7 @@ export function RiskDimensionBreakdown({ result }: RiskDimensionBreakdownProps) 
                     {t("evidence.missingIndicators")}: {dim.missing_indicators.map((key) => t(RISK_INDICATOR_KEYS[key] ?? "indicatorNames.unknown")).join(", ")}
                   </p>
                 ) : null}
-                {available ? <Progress value={dim.score} barClassName={classes.bg} /> : null}
+                {available && dim.score !== null ? <Progress value={dim.score} barClassName={classes.bg} /> : null}
 
                 {dim.key === "equity_structure" && result.breadth ? (
                   <div className="rounded-md border border-border/60 p-3 text-xs text-muted-foreground" data-testid="breadth-sample">
@@ -171,7 +171,7 @@ export function RiskDimensionBreakdown({ result }: RiskDimensionBreakdownProps) 
                     </thead>
                     <tbody>
                       {dim.indicators.map((ind) => {
-                        const included = ind.value !== null && ind.score_included !== false;
+                        const included = ind.value !== null && ind.risk_score !== null && ind.score_included !== false;
                         const laborSignal = ind.key === "sahm_style_labor_stress";
                         return (
                           <tr key={ind.key} className="border-b border-border/50 last:border-0 hover:bg-[rgba(107,163,201,0.07)]" data-testid="risk-indicator">
@@ -207,7 +207,7 @@ export function RiskDimensionBreakdown({ result }: RiskDimensionBreakdownProps) 
                               {ind.percentile === null ? t("common:data.na") : formatPercentile(ind.percentile, locale)}
                             </td>
                             <td className="py-1.5 pr-2 text-right tabular-nums">
-                              <span className={toneClasses(included ? riskLevelTone(riskLevelForScore(ind.risk_score)) : "na").text}>
+                              <span className={toneClasses(included && ind.risk_score !== null ? riskLevelTone(riskLevelForScore(ind.risk_score)) : "na").text}>
                                 {included ? formatNumber(ind.risk_score, locale) : t("common:data.na")}
                               </span>
                               {ind.score_included === false ? <p className="mt-1 text-muted-foreground">{t("indicator.scoreExcluded")}</p> : null}

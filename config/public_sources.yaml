@@ -66,7 +66,7 @@ sources:
     attribution: "Federal Reserve Bank of New York. Reference-rate data are subject to the NY Fed Terms of Use and their required publication disclaimer."
     series_attribution:
       DFF: "The Effective Federal Funds Rate is subject to the Terms of Use posted at newyorkfed.org. The New York Fed is not responsible for publication of the Effective Federal Funds Rate by kk-ai-lab, does not sanction or endorse any particular republication, and has no liability for your use."
-      SOFR: "The Secured Overnight Financing Rate is subject to the Terms of Use posted at newyorkfed.org. The New York Fed is not responsible for publication of the Secured Overnight Financing Rate by kk-ai-lab, does not sanction or endorse any particular republication, and has no liability for your use."
+      SOFR: "The Secured Overnight Financing Rate is subject to the Terms of Use posted at newyorkfed.org. The New York Fed is not responsible for publication of the Secured Overnight Financing Rate by kk-ai-lab, does not sanction or endorse any particular republication, and has no liability for your use. Solutions, its affiliates, and third parties from which they obtained data have no liability for SOFR content."
       RRPONTSYD: "© {year} Federal Reserve Bank of New York. Content from the New York Fed subject to the Terms of Use at newyorkfed.org. This dashboard aggregates accepted overnight reverse-repo amounts in USD billions."
     permitted_use: public-redistribution
     cadence_minutes: 1440

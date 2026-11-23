@@ -97,7 +97,11 @@ export function displayReasonDetail(detail: string | null | undefined, locale: D
     return translate(locale, "common", "display.reasonDetails.blsCalendar403");
   }
   if (normalized.startsWith("risk inputs degraded")) {
-    return translate(locale, "common", "display.reasonDetails.riskInputsRights");
+    const details = normalized.slice("risk inputs degraded".length).replace(/^;\s*/, "");
+    const reasons = details.split(/;\s*/).filter(Boolean);
+    if (reasons.length > 0 && reasons.every((reason) => reason.includes("no approved public source configured"))) {
+      return translate(locale, "common", "display.reasonDetails.riskInputsRights");
+    }
   }
   if (normalized.startsWith("aggregated from inputs; missing:") && (normalized.includes("equities") || normalized.includes("sectors"))) {
     return translate(locale, "common", "display.reasonDetails.inputsMissingPublicMarketData");
