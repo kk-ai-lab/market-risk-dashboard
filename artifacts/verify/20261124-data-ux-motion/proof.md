@@ -30,3 +30,7 @@ Local app: http://127.0.0.1:4173/market-risk-dashboard/
 - First independent review found the Equities page hid the available memory proxy when equities were empty and showed an empty US equities heading when only A-share assets existed. Both were fixed; frontend regression coverage now checks both states. Final independent review is pending.
 
 - Final independent review: PASS by `gpt-6.1-terra`. It verified the two Equities corrections, test sequencing, the 144-file snapshot hash match, and the rights-based gaps.
+
+## CI correction
+
+- PR #294 frontend first failed at `npm run check:language`: the Chinese redistribution sentence included a Latin `A`. Reworded it as “中国内地股票行情”. `npm run check:language` and `npm run check:i18n` now pass locally.
