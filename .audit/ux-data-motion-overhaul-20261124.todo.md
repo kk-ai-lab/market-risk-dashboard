@@ -47,3 +47,10 @@
 - [x] Measure route transitions and long-page scroll responsiveness: no stable-route layout shifts or long tasks; mean frame 16.69 ms, p95 18.5 ms, max 19.4 ms.
 - [x] Obtain a final independent diff and live-UI review after the Equities fixes (PASS by gpt-6.1-terra).
 - [ ] Open a ready PR, merge on a verified head, and confirm live Pages data.
+
+## Follow-up after live deployment
+
+- [x] Inspect the actual deployed Chinese News route and translation metadata.
+- [x] Preserve English headlines and summaries with an explicit source-language label when translations are missing.
+- [x] Verify all-missing translation fallback at 360px and run frontend checks.
+- [x] Obtain final independent review; open a PR, merge after required checks, and verify the Pages deployment.
