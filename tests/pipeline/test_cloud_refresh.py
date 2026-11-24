@@ -19,6 +19,30 @@ EVENT_REVISION = "b" * 40
 STAMP = "2026-11-15T12:00:00Z"
 
 
+def macro_with_claims(*, ccsa_fetched_at=STAMP):
+    return {
+        "generated_at": STAMP,
+        "payload": {
+            "labor": [
+                {
+                    "key": "icsa",
+                    "value": 203.0,
+                    "source": "U.S. Department of Labor",
+                    "fetched_at": STAMP,
+                    "status": "fresh",
+                },
+                {
+                    "key": "ccsa",
+                    "value": 1763.0,
+                    "source": "U.S. Department of Labor",
+                    "fetched_at": ccsa_fetched_at,
+                    "status": "fresh",
+                },
+            ]
+        },
+    }
+
+
 class Store:
     def __init__(self, state=None):
         state = state or PublicationState()
@@ -50,6 +74,7 @@ def files():
             path: {"generated_at": STAMP, "fetched_at": STAMP, "value": 4.2}
             for path in cloud.expected_latest_outputs()
         },
+        "latest/macro.json": macro_with_claims(),
     }
 
 
@@ -218,6 +243,40 @@ def test_scheduled_refresh_rejects_registered_output_missing_from_disk(
             restorer=restorer(root),
         )
 
+    assert state.writes == 0
+
+
+def test_scheduled_refresh_rejects_missing_fresh_approved_dol_data(
+    tmp_path, setup, monkeypatch, files
+):
+    root, generation = deployed(tmp_path, files)
+    paths, settings = setup
+    files["latest/macro.json"] = macro_with_claims(ccsa_fetched_at="2026-11-15T10:00:00Z")
+
+    def collect(isolated, **_kwargs):
+        for relative, value in files.items():
+            target = isolated.data_dir / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(canonical_json(value))
+        return collected_receipt()
+
+    monkeypatch.setattr(cloud, "_collect_approved", collect)
+    diagnostics = cloud.RefreshDiagnostics(enabled=True)
+    state = Store(PublicationState(deployed=generation, last_attempt=1))
+
+    with pytest.raises(cloud.CloudRefreshError, match="CCSA"):
+        cloud.refresh_cloud(
+            mode="scheduled",
+            app_revision=REVISION,
+            checkpoint=state,
+            paths=paths,
+            settings=settings,
+            restorer=restorer(root),
+            diagnostics=diagnostics,
+        )
+
+    assert diagnostics.failure_code is cloud.RefreshFailureCode.APPROVED_PUBLIC_DATA_MISSING
+    assert diagnostics.missing_series == ("CCSA",)
     assert state.writes == 0
 
 

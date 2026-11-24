@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -12,6 +13,7 @@ import subprocess
 import sys
 from collections.abc import Collection, Sequence
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from time import sleep
@@ -52,6 +54,7 @@ if TYPE_CHECKING:
 
 CloudMode = Literal["scheduled", "code-only"]
 _PAGES_POINTER_RETRY_DELAYS = (0.25, 0.5)
+_PUBLIC_DATA_MAX_AGE = timedelta(minutes=30)
 
 
 @dataclass(frozen=True)
@@ -182,6 +185,67 @@ def _validate_collection_outputs(
         raise CloudRefreshError("Approved-source collection omitted registered latest outputs")
 
 
+def _utc_timestamp(value: object) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError("timestamp is missing")
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("timestamp has no timezone")
+    return parsed.astimezone(UTC)
+
+
+def _missing_fresh_dol_series(data_dir: Path, settings: Settings) -> tuple[str, ...]:
+    plan = settings.load_public_source_policy().collection_plan(public_output=True)
+    required = tuple(
+        series_id
+        for series_id in ("ICSA", "CCSA")
+        if (grant := plan.macro_grant_for(series_id)) is not None
+        and grant.provider == "dol_claims"
+    )
+    if not required:
+        return ()
+    try:
+        envelope = load_json_rejecting_duplicates((data_dir / "latest/macro.json").read_bytes())
+        if not isinstance(envelope, dict) or not isinstance(envelope.get("payload"), dict):
+            return required
+        generated_at = _utc_timestamp(envelope.get("generated_at"))
+        labor = envelope["payload"].get("labor")
+        if not isinstance(labor, list):
+            return required
+    except (OSError, TypeError, ValueError, UnicodeError):
+        return required
+
+    by_key = {
+        row.get("key"): row
+        for row in labor
+        if isinstance(row, dict) and isinstance(row.get("key"), str)
+    }
+    missing: list[str] = []
+    for series_id in required:
+        row = by_key.get(series_id.lower())
+        if row is None:
+            missing.append(series_id)
+            continue
+        value = row.get("value")
+        try:
+            fetched_at = _utc_timestamp(row.get("fetched_at"))
+        except (TypeError, ValueError):
+            missing.append(series_id)
+            continue
+        age = generated_at - fetched_at
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or row.get("source") != "U.S. Department of Labor"
+            or row.get("status") != "fresh"
+            or age > _PUBLIC_DATA_MAX_AGE
+            or age < -timedelta(minutes=5)
+        ):
+            missing.append(series_id)
+    return tuple(missing)
+
+
 class CloudRefreshError(ValueError):
     """A candidate cannot safely be prepared from the supplied state."""
 
@@ -203,6 +267,7 @@ class RefreshFailureCode(StrEnum):
     REFRESH_FAILED = "refresh_failed"
     CHILD_EXIT_NONZERO = "child_exit_nonzero"
     REGISTERED_OUTPUTS_MISSING = "registered_outputs_missing"
+    APPROVED_PUBLIC_DATA_MISSING = "approved_public_data_missing"
 
 
 @dataclass(frozen=True)
@@ -242,6 +307,7 @@ class RefreshDiagnostic:
     exit_code: int | None = None
     collection: CollectionSummary | None = None
     candidate_stage_code: CandidateStageCode | None = None
+    missing_series: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, object]:
         result: dict[str, object] = {
@@ -255,6 +321,8 @@ class RefreshDiagnostic:
             result["collection"] = self.collection.as_dict()
         if self.candidate_stage_code is not None:
             result["candidate_stage_code"] = self.candidate_stage_code.value
+        if self.missing_series:
+            result["missing_series"] = list(self.missing_series)
         return result
 
 
@@ -266,6 +334,7 @@ class RefreshDiagnostics:
     exit_code: int | None = None
     collection: CollectionSummary | None = None
     candidate_stage_code: CandidateStageCode | None = None
+    missing_series: tuple[str, ...] = ()
 
     def record_plan(self, mode: CloudMode, plan: RefreshPlan) -> None:
         if not self.enabled:
@@ -310,6 +379,10 @@ class RefreshDiagnostics:
     def record_missing_registered_outputs(self) -> None:
         self.failure_code = RefreshFailureCode.REGISTERED_OUTPUTS_MISSING
 
+    def record_missing_approved_public_data(self, series: tuple[str, ...]) -> None:
+        self.failure_code = RefreshFailureCode.APPROVED_PUBLIC_DATA_MISSING
+        self.missing_series = series
+
     def emit_failure(self) -> None:
         if not self.enabled:
             return
@@ -319,6 +392,7 @@ class RefreshDiagnostics:
             self.exit_code,
             self.collection,
             self.candidate_stage_code,
+            self.missing_series,
         )
         print(
             json.dumps(diagnostic.as_dict(), sort_keys=True, separators=(",", ":")),
@@ -769,6 +843,14 @@ def refresh_cloud(
                 if diagnostics is not None:
                     diagnostics.record_missing_registered_outputs()
                 raise
+            missing_dol_series = _missing_fresh_dol_series(data, isolated)
+            if missing_dol_series:
+                if diagnostics is not None:
+                    diagnostics.record_missing_approved_public_data(missing_dol_series)
+                raise CloudRefreshError(
+                    "Approved public DOL observations missing or stale: "
+                    + ", ".join(missing_dol_series)
+                )
         (data / fingerprint_path).parent.mkdir(parents=True, exist_ok=True)
         (data / fingerprint_path).write_bytes(canonical_json({"sha256": config_digest}))
         try:

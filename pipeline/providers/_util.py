@@ -8,10 +8,7 @@ from typing import Any
 
 from pipeline import __version__
 
-UA = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126.0 Safari/537.36"
-)
+UA = f"market-risk-dashboard/{__version__} (+https://github.com/kk-ai-lab/market-risk-dashboard)"
 
 
 def declared_user_agent(contact: str) -> str:
