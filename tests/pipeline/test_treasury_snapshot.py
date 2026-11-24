@@ -110,8 +110,9 @@ def test_expanding_treasury_selection_refreshes_immediately_then_uses_cadence(tm
     refresh_treasury_snapshot(tmp_path, provider, now=NOW, series_ids=["DGS10"])
     provider.calls.clear()
 
+    provider.now = NOW + timedelta(seconds=1)
     state = refresh_treasury_snapshot(
-        tmp_path, provider, now=NOW + timedelta(seconds=1), series_ids=["DGS2", "DGS10"]
+        tmp_path, provider, now=provider.now, series_ids=["DGS2", "DGS10"]
     )
     assert not state.degraded
     assert provider.calls == list(range(2021, 2027))
