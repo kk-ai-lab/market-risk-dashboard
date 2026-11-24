@@ -105,25 +105,26 @@ def test_treasury_request_persists_only_the_approved_maturity(tmp_path):
     assert all(set(year.series) == {"DGS10"} for year in state.years.values())
 
 
-def test_expanding_treasury_selection_waits_for_cadence_then_backfills(tmp_path):
+def test_expanding_treasury_selection_refreshes_immediately_then_uses_cadence(tmp_path):
     provider = Provider()
     refresh_treasury_snapshot(tmp_path, provider, now=NOW, series_ids=["DGS10"])
     provider.calls.clear()
 
-    state = refresh_treasury_snapshot(
-        tmp_path, provider, now=NOW + timedelta(seconds=1), series_ids=["DGS2", "DGS10"]
-    )
-    assert provider.calls == []
-    assert state.degraded
-    assert all(set(year.series) == {"DGS10"} for year in state.years.values())
-
-    provider.now = NOW + timedelta(days=1)
+    provider.now = NOW + timedelta(seconds=1)
     state = refresh_treasury_snapshot(
         tmp_path, provider, now=provider.now, series_ids=["DGS2", "DGS10"]
     )
-
     assert not state.degraded
     assert provider.calls == list(range(2021, 2027))
+    assert all(set(year.series) == {"DGS2", "DGS10"} for year in state.years.values())
+
+    provider.calls.clear()
+    state = refresh_treasury_snapshot(
+        tmp_path, provider, now=NOW + timedelta(seconds=2), series_ids=["DGS2", "DGS10"]
+    )
+
+    assert not state.degraded
+    assert provider.calls == []
     assert all(set(year.series) == {"DGS2", "DGS10"} for year in state.years.values())
 
 

@@ -289,13 +289,13 @@ def refresh_treasury_snapshot(directory: Path, provider: YearProvider, *, now: d
             if year in errors:
                 continue
             attempted = entry.attempted_at
-            due = attempted is None or (now - attempted >= refresh_interval if year == now.year else attempted.date() < now.date())
             selection_incomplete = year in years and set(years[year].series) != selected
+            due = (selection_incomplete and entry.status == "complete") or attempted is None or (
+                now - attempted >= refresh_interval if year == now.year else attempted.date() < now.date()
+            )
             requested = year == now.year or not entry.has_data or refresh_history or selection_incomplete
             if not (due and requested):
-                if selection_incomplete:
-                    errors[year] = "Treasury authorization changed; refresh is waiting for its cadence"
-                elif entry.status == "excluded":
+                if entry.status == "excluded":
                     errors[year] = "Treasury observations were removed by authorization policy"
                 elif entry.status != "complete":
                     errors[year] = entry.error or f"Treasury attempt {entry.status}"
