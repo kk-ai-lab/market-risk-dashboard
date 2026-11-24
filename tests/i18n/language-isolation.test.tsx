@@ -2,7 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
-import { AssetHeatmap } from "@/charts/AssetHeatmap";
+import { MarketSnapshot } from "@/charts/MarketSnapshot";
 import { RiskDimensionBreakdown } from "@/components/risk/RiskDimensionBreakdown";
 import ThemesPage from "@/pages/ThemesPage";
 import RiskLabPage from "@/pages/RiskLabPage";
@@ -53,13 +53,13 @@ describe("display-language policy", () => {
     expect(safeDisplayText("Risk score: 43.1", "en")).toBe("Risk score: 43.1");
   });
 
-  it.each(["zh-CN", "en"] as const)("keeps rendered risk, heatmap, and themes surfaces in %s", async (locale) => {
+  it.each(["zh-CN", "en"] as const)("keeps rendered risk, market snapshot, and themes surfaces in %s", async (locale) => {
     await i18n.changeLanguage(locale);
     installFixtureFetch();
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
     render(
       <QueryClientProvider client={client}>
-        <AssetHeatmap cells={[{ asset: "NVDA", category: locale === "zh-CN" ? "板块" : "Equities", change1d: 1.2 }]} />
+        <MarketSnapshot items={[{ symbol: "OECD:USA", label: "United States broad index", label_zh: "美国综合指数", category: "equity_index", value: 225.03, unit: "index, 2015=100", change_percent: 1.2, change_period: "1m", observation_date: null, observation_period: "2026-10", frequency: "monthly", source: "OECD", source_url: null, attribution: null }]} />
         <RiskDimensionBreakdown result={riskFixture.payload as unknown as RiskModelResult} />
         <ThemesPage />
         <RiskLabPage />
@@ -70,7 +70,7 @@ describe("display-language policy", () => {
     expect((await screen.findAllByText(locale === "zh-CN" ? "尚未配置" : "Not configured")).length).toBeGreaterThanOrEqual(2);
     expect(await screen.findByText(locale === "zh-CN" ? "仅作背景信息，不纳入风险分或其覆盖度。" : "Context only; excluded from the risk score and its coverage.")).toBeInTheDocument();
     expect(screen.getAllByTestId("risk-dimension").length).toBeGreaterThan(0);
-    expect(screen.getByTestId("asset-heatmap")).toBeInTheDocument();
+    expect(screen.getByTestId("market-snapshot")).toBeInTheDocument();
     const renderedText = Array.from(document.body.querySelectorAll("*"))
       .filter((element) => element.children.length === 0)
       .map((element) => element.textContent ?? "")

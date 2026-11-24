@@ -81,6 +81,7 @@
       "federalReserve": "美联储",
       "multipleSources": "多个数据源",
       "nasdaq": "纳斯达克财报日历",
+      "oecdFinancialMarket": "经合组织市场统计",
       "riskModel": "风险模型",
       "rssNews": "新闻聚合源",
       "unavailable": "无可用数据源",

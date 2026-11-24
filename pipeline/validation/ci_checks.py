@@ -214,9 +214,10 @@ def _check_one(path: Path, name: str, model_spec: tuple[Any, str] | Any, report:
         # `freshness_status: "fresh"` with `events: []` for weeks before this check existed).
         spec = registry.require(dataset_key)
         if env.freshness_status == "fresh" and spec.row_counted and spec.row_key is not None:
-            rows = getattr(env.payload, spec.row_key, None)
-            if rows is not None and len(rows) == 0:
-                report.error(f"{name}: reports fresh but payload.{spec.row_key} is empty (E-2)")
+            row_keys = (spec.row_key,) if isinstance(spec.row_key, str) else spec.row_key
+            row_values = [getattr(env.payload, key, None) for key in row_keys]
+            if all(value is not None for value in row_values) and sum(len(value) for value in row_values) == 0:
+                report.error(f"{name}: reports fresh but payload.{','.join(row_keys)} is empty (E-2)")
         # Stale data (time dimension; WARNING does not block)
         status = evaluate_freshness(str(env.generated_at), _expected_minutes(dataset_key), now)
         if status == "stale":

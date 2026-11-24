@@ -27,6 +27,7 @@ from pipeline.providers.fred import FredProvider
 from pipeline.providers.fred_calendar import FredCalendarProvider
 from pipeline.providers.nasdaq import NasdaqCalendarProvider
 from pipeline.providers.nyfed_rates import NyfedRatesProvider
+from pipeline.providers.oecd_financial_market import OECDFinancialMarketProvider
 from pipeline.providers.rss_news import RssNewsProvider
 from pipeline.providers.world_bank_commodities import WorldBankCommoditiesProvider
 from pipeline.providers.yahoo import YahooAShareProvider, YahooProvider
@@ -52,6 +53,7 @@ _PROVIDER_CLASSES: dict[str, type[BaseProvider]] = {
     "dol_claims": DolClaimsProvider,
     "bls_calendar": BlsCalendarProvider,
     "world_bank_commodities": WorldBankCommoditiesProvider,
+    "oecd_financial_market": OECDFinancialMarketProvider,
     "nyfed_rates": NyfedRatesProvider,
     "federal_reserve_data": FederalReserveDataProvider,
     "fedwatch": FedWatchProvider,

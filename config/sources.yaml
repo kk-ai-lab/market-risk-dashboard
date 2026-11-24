@@ -54,6 +54,8 @@ providers:
     - { name: dol_claims, priority: 5, max_concurrency: 1, min_interval_ms: 1000 }
   commodities:
     - { name: world_bank_commodities, priority: 1, max_concurrency: 1, min_interval_ms: 1000 }
+  equities:
+    - { name: oecd_financial_market, priority: 1, max_concurrency: 1, min_interval_ms: 1000 }
   energy:
     - { name: eia, priority: 1, max_concurrency: 1, min_interval_ms: 1000 }
   fedwatch:

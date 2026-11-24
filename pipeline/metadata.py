@@ -47,7 +47,7 @@ def latest_row_timestamp(rows: Iterable[dict[str, Any]], field: str = "date") ->
     return max(valid) if valid else None
 
 def row_count_for(name: str, payload: Any) -> int | None:
-    """Rows carried by a registered payload under its DatasetSpec.row_key (#89).
+    """Rows carried by a registered payload under its DatasetSpec.row_key(s) (#89).
 
     The ONE implementation of this question. run.py's envelope assembly and
     scripts/backfill_metadata.py must answer it identically - two hand-copied versions
@@ -63,7 +63,12 @@ def row_count_for(name: str, payload: Any) -> int | None:
     spec = dataset_registry.BY_KEY.get(name)
     if spec is None or not spec.row_counted or spec.row_key is None:
         return None
-    rows = payload.get(spec.row_key) if isinstance(payload, dict) else getattr(payload, spec.row_key, None)
-    if isinstance(rows, (list, tuple, dict)):
-        return len(rows)
-    return None
+    row_keys = (spec.row_key,) if isinstance(spec.row_key, str) else spec.row_key
+    count = 0
+    for key in row_keys:
+        rows = payload.get(key) if isinstance(payload, dict) else getattr(payload, key, None)
+        if isinstance(rows, (list, tuple, dict)):
+            count += len(rows)
+        else:
+            return None
+    return count

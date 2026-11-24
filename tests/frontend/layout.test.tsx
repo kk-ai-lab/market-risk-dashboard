@@ -43,7 +43,7 @@ describe("mobile layout", () => {
     );
     const riskIdx = order.indexOf("risk-conclusion");
     const firstChartIdx = order.findIndex((id) =>
-      ["asset-heatmap", "heatmap-fallback", "risk-trend-chart", "trend-fallback"].includes(id),
+      ["market-snapshot", "market-snapshot-empty", "risk-trend-chart", "trend-fallback"].includes(id),
     );
     expect(riskIdx).toBeGreaterThanOrEqual(0);
     expect(firstChartIdx).toBeGreaterThan(riskIdx);

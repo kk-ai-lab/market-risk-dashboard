@@ -41,10 +41,28 @@ class EquityAsset(ContractModel):
     is_proxy: bool = False
 
 
+class EquityBenchmark(ContractModel):
+    """Country share-price index, kept separate from individual equities."""
+
+    symbol: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    name_zh: str | None = None
+    market: Literal["US", "CN"]
+    value: float
+    unit: str = "index, 2015=100"
+    change_1m: float | None = None
+    observation_period: str = Field(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
+    source: str = Field(min_length=1)
+    source_url: str = Field(min_length=1)
+    attribution: str = Field(min_length=1)
+    updated_at: UTCDateTime
+
+
 class EquitiesDataset(ContractModel):
     """equities.json payload."""
 
     assets: list[EquityAsset] = Field(default_factory=list)
+    benchmarks: list[EquityBenchmark] = Field(default_factory=list)
 
 
 class EquitiesEnvelope(BaseEnvelope):

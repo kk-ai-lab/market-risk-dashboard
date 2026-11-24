@@ -186,10 +186,20 @@ sources:
     provider: world_bank_commodities
     registry_domain: commodities
     datasets: [commodities]
-    commodity_series: [GC=F, SI=F, HG=F, CL=F]
+    commodity_series: [GC=F, SI=F, HG=F, CL=F, WB:BRENT, WB:NATGAS_US, WB:COCOA, WB:COFFEE_ARABICA, WB:SOYBEANS, WB:MAIZE, WB:WHEAT_HRW, WB:ALUMINUM, WB:IRON_ORE]
     license_id: CC-BY-4.0
     license_url: https://datacatalog.worldbank.org/search/dataset/0038238/commodity-prices-history-and-projections
     attribution: "World Bank Commodity Price Data (The Pink Sheet), monthly prices. CC BY 4.0. Values are monthly averages; units and series specifications follow the World Bank workbook."
+    permitted_use: public-redistribution
+    cadence_minutes: 43200
+  oecd_share_price_indices:
+    provider: oecd_financial_market
+    registry_domain: equities
+    datasets: [equities]
+    index_series: [USA, CHN]
+    license_id: OECD-terms-section-3
+    license_url: https://www.oecd.org/en/about/terms-conditions.html
+    attribution: "OECD Main Economic Indicators, share price indices (2015=100), monthly. Reuse under OECD Terms & Conditions, section 3; data-specific third-party restrictions are excluded."
     permitted_use: public-redistribution
     cadence_minutes: 43200
   bls_calendar:

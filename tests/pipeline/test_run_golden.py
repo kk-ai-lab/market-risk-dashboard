@@ -72,6 +72,53 @@ def test_dashboard_cross_asset_keeps_the_selected_quote_source() -> None:
     ]
 
 
+def test_dashboard_market_snapshot_covers_indices_crypto_commodities_rates_and_fx() -> None:
+    from pipeline.run import _build_dashboard
+    from pipeline.schemas.risk import RiskModelResult
+    from tests.pipeline.factories import make_risk_payload
+
+    risk = RiskModelResult.model_validate(make_risk_payload())
+    equities = SimpleNamespace(payload=SimpleNamespace(
+        assets=[],
+        benchmarks=[SimpleNamespace(
+            symbol="OECD:USA", name="United States share index", name_zh="美国综合股指",
+            value=225.0, unit="index, 2015=100", change_1m=1.2,
+            observation_period="2026-10", source="OECD", source_url="https://data-explorer.oecd.org/",
+            attribution="OECD citation", market="US",
+        )],
+    ))
+    crypto = SimpleNamespace(payload=SimpleNamespace(assets=[SimpleNamespace(
+        symbol="BTC", name="Bitcoin", price=90000.0, change_1d=-0.8,
+        source="Coin Metrics", updated_at="2026-11-24T12:00:00Z",
+    )]))
+    commodities = SimpleNamespace(payload=SimpleNamespace(assets=[SimpleNamespace(
+        symbol="WB:BRENT", name="Brent Crude", name_zh="布伦特原油", price=70.2,
+        price_unit="$/bbl", currency="USD", change_1m=4.1, observation_period="2026-10",
+        updated_at="2026-10-31T00:00:00Z", frequency="monthly", source="World Bank Pink Sheet",
+    )]))
+    macro = SimpleNamespace(payload=SimpleNamespace(
+        rates=[SimpleNamespace(key="dgs10", label="10-Year Treasury Yield", value=4.2,
+            unit="pct", observation_date="2026-11-20", observation_period=None,
+            source="Treasury", attribution=None)],
+        fx=[SimpleNamespace(key="dexuseu", label="USD per EUR", value=0.92,
+            unit="usd_per_eur", observation_date="2026-11-20", observation_period=None,
+            source="Federal Reserve Board", attribution=None)],
+    ))
+    payload = _build_dashboard(
+        risk_env=SimpleNamespace(payload=risk), equities=equities, crypto=crypto,
+        commodities=commodities, macro=macro, sectors=None,
+        calendar=SimpleNamespace(payload=SimpleNamespace(events=[])),
+    )
+
+    assert {item.category for item in payload.market_snapshot} == {
+        "equity_index", "crypto", "commodity", "rate", "fx",
+    }
+    bitcoin = next(item for item in payload.market_snapshot if item.symbol == "BTC")
+    assert bitcoin.value == 90000.0 and bitcoin.unit == "USD" and bitcoin.change_period == "24h"
+    brent = next(item for item in payload.market_snapshot if item.symbol == "WB:BRENT")
+    assert brent.value == 70.2 and brent.unit == "$/bbl" and brent.observation_period == "2026-10"
+
+
 def test_run_summary_withholds_score_when_evidence_is_insufficient(capsys) -> None:
     from pipeline.run import _print_summary
 

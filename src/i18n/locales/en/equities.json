@@ -3,6 +3,10 @@
   "subtitle": "Key US stocks (NVDA / AVGO / MU / AMD / TSLA) + Memory sector + A-share memory",
   "section": {
     "crossAsset": "Cross-Asset Cards",
+    "indices": "Public broad-market indices",
+    "indicesNote": "Monthly national indices; these are not individual stock quotes.",
+    "monthChange": "Change from previous month",
+    "oecdSource": "OECD",
     "us": "Key US Stocks",
     "memory": "Memory Sector",
     "aShare": "A-share Memory Names",
@@ -45,6 +49,7 @@
   "empty": {
     "publicPricesUnavailable": "No free source with confirmed public redistribution rights is configured for U.S. or A-share quotes. Other approved industry data is available on Sectors.",
     "pricesUnavailable": "Equity quotes are temporarily unavailable.",
+    "individualQuotesUnavailable": "Individual U.S. and A-share quotes are not shown because no source with confirmed public redistribution rights is configured.",
     "viewStatus": "View data status"
   },
   "sort": {

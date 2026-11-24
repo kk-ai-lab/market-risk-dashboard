@@ -28,7 +28,16 @@ WORKBOOK_COLUMNS: dict[str, tuple[str, str, str]] = {
     "GC=F": ("Gold", "Gold", "$/troy oz"),
     "SI=F": ("Silver", "Silver", "$/troy oz"),
     "HG=F": ("Copper", "Copper", "$/mt"),
-    "CL=F": ("Crude oil, WTI", "WTI Crude", "$/barrel"),
+    "CL=F": ("Crude oil, WTI", "WTI Crude", "$/bbl"),
+    "WB:BRENT": ("Crude oil, Brent", "Brent Crude", "$/bbl"),
+    "WB:NATGAS_US": ("Natural gas, US", "U.S. Natural Gas", "$/mmbtu"),
+    "WB:COCOA": ("Cocoa", "Cocoa", "$/kg"),
+    "WB:COFFEE_ARABICA": ("Coffee, Arabica", "Arabica Coffee", "$/kg"),
+    "WB:SOYBEANS": ("Soybeans", "Soybeans", "$/mt"),
+    "WB:MAIZE": ("Maize", "Maize", "$/mt"),
+    "WB:WHEAT_HRW": ("Wheat, US HRW", "U.S. Hard Red Winter Wheat", "$/mt"),
+    "WB:ALUMINUM": ("Aluminum", "Aluminum", "$/mt"),
+    "WB:IRON_ORE": ("Iron ore, cfr spot", "Iron Ore", "$/dmtu"),
 }
 
 
@@ -81,8 +90,9 @@ def parse_monthly_workbook(data: bytes, symbols: list[str]) -> dict[str, list[di
             except ValueError as exc:
                 raise ValueError(f"series column is absent: {header}") from exc
             unit_text = str(units_row[index] or "").strip()
-            if not unit_text:
-                raise ValueError(f"series unit is absent: {header}")
+            normalized_unit = unit_text.removeprefix("(").removesuffix(")")
+            if normalized_unit != unit:
+                raise ValueError(f"series unit does not match the approved definition: {header}")
             indexes[symbol] = (index, unit)
 
         observations: dict[str, list[dict[str, Any]]] = {symbol: [] for symbol in symbols}

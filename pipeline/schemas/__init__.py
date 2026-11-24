@@ -17,6 +17,7 @@ from .dashboard import (
     DashboardInstrument,
     DashboardPayload,
     DashboardSector,
+    MarketSnapshotItem,
 )
 from .energy import EnergyDataset, EnergyEnvelope, EnergyObservation
 from .envelope import (
@@ -26,7 +27,7 @@ from .envelope import (
     UTCDateTime,
     validate_utc_datetime,
 )
-from .equities import EquitiesDataset, EquitiesEnvelope, EquityAsset
+from .equities import EquitiesDataset, EquitiesEnvelope, EquityAsset, EquityBenchmark
 from .factlayer import EvidenceRef, FactLayer
 from .macro import (
     FedWatchRateProb,
@@ -81,10 +82,12 @@ __all__ = [
     "DashboardInstrument",
     "DashboardPayload",
     "DashboardSector",
+    "MarketSnapshotItem",
     "DriverContribution",
     "EquitiesDataset",
     "EquitiesEnvelope",
     "EquityAsset",
+    "EquityBenchmark",
     "EnergyDataset",
     "EnergyEnvelope",
     "EnergyObservation",

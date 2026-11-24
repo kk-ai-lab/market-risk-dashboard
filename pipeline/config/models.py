@@ -44,10 +44,15 @@ SUPPORTED_TARGETS: dict[str, dict[str, frozenset[str]]] = {
     "bea_nipa": {"macro_series": frozenset({"PCEPILFE"})},
     "dol_claims": {"macro_series": frozenset({"ICSA", "CCSA"})},
     "federal_reserve_data": {"macro_series": FEDERAL_RESERVE_BOARD_SERIES},
-    "fred": {"macro_series": FRED_MACRO_SERIES | FRED_ICE_SERIES},
+    "fred": {"macro_series": FRED_MACRO_SERIES | FRED_ICE_SERIES, "index_series": frozenset({"SP500"})},
     "coinmetrics": {"market_symbols": COINMETRICS_ASSET_SYMBOLS},
     "eia": {"energy_series": frozenset({"WCESTUS1"})},
-    "world_bank_commodities": {"commodity_series": frozenset({"GC=F", "SI=F", "HG=F", "CL=F"})},
+    "world_bank_commodities": {"commodity_series": frozenset({
+        "GC=F", "SI=F", "HG=F", "CL=F", "WB:BRENT", "WB:NATGAS_US",
+        "WB:COCOA", "WB:COFFEE_ARABICA", "WB:SOYBEANS", "WB:MAIZE",
+        "WB:WHEAT_HRW", "WB:ALUMINUM", "WB:IRON_ORE",
+    })},
+    "oecd_financial_market": {"index_series": frozenset({"USA", "CHN"})},
 }
 TARGET_FIELDS: dict[str, tuple[str, ...]] = {
     "macro": ("macro_series",),
@@ -159,7 +164,7 @@ class PublicDataSource(BaseModel):
     accepted_on: date | None = None
     cadence_minutes: int = Field(ge=1)
 
-    @field_validator("macro_series", "market_symbols", "energy_series", "commodity_series", mode="before")
+    @field_validator("macro_series", "market_symbols", "energy_series", "commodity_series", "index_series", mode="before")
     @classmethod
     def _canonical_targets(cls, values: object) -> object:
         if not isinstance(values, list):
@@ -427,6 +432,10 @@ class PublicSourcePolicy(BaseModel):
                 if not set(getattr(source, field)).issubset(allowed):
                     label = field.replace("_", " ")
                     raise ValueError(f"{source_id} has {label} unsupported by {source.provider}")
+            if source.index_series and not set(source.index_series).issubset(
+                supported.get("index_series", frozenset())
+            ):
+                raise ValueError(f"{source_id} has index series unsupported by {source.provider}")
             if "crypto" in source.datasets and not supported.get("market_symbols"):
                 raise ValueError(f"{source_id} requires a supported crypto provider and explicit market symbols")
             if source.provider == "eia" and (
