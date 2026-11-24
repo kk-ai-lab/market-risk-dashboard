@@ -92,12 +92,17 @@ def test_policy_loads_licensed_sources_and_builds_only_approved_providers(tmp_pa
     assert policy.source_for_macro_series("CPIAUCSL")[0] == "bls"
     assert policy.source_for_macro_series("VIXCLS")[0] == "fred"
     assert policy.sources["coinmetrics"].permitted_use == "noncommercial"
+    oecd_grant = policy.collection_plan(public_output=True).grants_for("oecd_financial_market", "equities")
+    assert len(oecd_grant) == 1
+    assert oecd_grant[0].index_series == frozenset({"USA", "CHN"})
+    commodities_grant = policy.collection_plan(public_output=True).grants_for("world_bank_commodities", "commodities")
+    assert len(commodities_grant[0].commodity_series) == 13
 
     providers = build_default_providers(settings)
     by_name = {provider.name: provider for provider in providers}
     assert set(by_name) == {
         "coinmetrics", "nyfed_rates", "bea_nipa", "dol_claims", "federal_reserve_data",
-        "rss_news", "eia", "world_bank_commodities", "bls_calendar", "bea_calendar",
+        "rss_news", "eia", "world_bank_commodities", "oecd_financial_market", "bls_calendar", "bea_calendar",
     }
     assert not {"yfinance", "fred", "fred_calendar"} & set(by_name)
     assert isinstance(by_name["coinmetrics"], CoinMetricsProvider)
@@ -132,6 +137,36 @@ def test_provider_factory_builds_fred_once_for_disjoint_grants():
     fred_providers = [provider for provider in build_default_providers(settings) if provider.name == "fred"]
 
     assert fred_providers == []
+
+
+def test_approved_oecd_benchmarks_publish_separately_from_individual_equities(tmp_path):
+    class _OECDRegistry:
+        def __init__(self):
+            self.calls = []
+
+        def call_provider(self, domain, provider, method, key, args=(), **kwargs):
+            self.calls.append((domain, provider, method, args, kwargs.get("authorization_dataset")))
+            return {
+                "result": {
+                    "USA": [{"period": "2026-09", "value": 226.1}, {"period": "2026-10", "value": 225.0}],
+                    "CHN": [{"period": "2026-09", "value": 105.7}, {"period": "2026-10", "value": 101.4}],
+                },
+                "meta": {"provider": "oecd_financial_market", "degraded": False},
+            }
+
+    settings = public_settings(tmp_path)
+    plan = settings.load_public_source_policy().collection_plan(public_output=True)
+    registry = _OECDRegistry()
+    dataset = MarketCollector(
+        registry, AssetUniverse.load(settings), settings, collection_plan=plan,
+    )._collect_equities()
+
+    assert dataset.assets == []
+    assert {item.symbol for item in dataset.benchmarks} == {"OECD:USA", "OECD:CHN"}
+    assert all(item.unit == "index, 2015=100" and item.change_1m is not None for item in dataset.benchmarks)
+    assert registry.calls == [(
+        "equities", "oecd_financial_market", "get_share_price_indices", (["CHN", "USA"],), "equities",
+    )]
 
 
 def test_policy_plan_and_provider_factory_keep_the_selected_market_targets(tmp_path):
@@ -275,6 +310,7 @@ def test_market_policy_collects_crypto_without_other_market_requests(tmp_path, m
     settings = public_settings(tmp_path)
     policy = settings.load_public_source_policy()
     policy.sources.pop("world_bank_commodities")
+    policy.sources.pop("oecd_share_price_indices")
     plan = policy.collection_plan(public_output=True)
     registry = ProviderRegistry(settings, collection_plan=plan)
     registry.cache_dir = tmp_path / "cache"
@@ -334,6 +370,7 @@ def test_public_risk_histories_exclude_personal_use_quote_targets(tmp_path, monk
     settings = public_settings(tmp_path)
     policy = settings.load_public_source_policy()
     policy.sources.pop("world_bank_commodities")
+    policy.sources.pop("oecd_share_price_indices")
     plan = policy.collection_plan(public_output=True)
     registry = build_registry(settings, collection_plan=plan)
     monkeypatch.setattr(MarketCollector, "_collect_crypto", lambda self: CryptoDataset())
@@ -386,6 +423,7 @@ def test_market_collector_rejects_unapproved_coinmetrics_asset(tmp_path, monkeyp
 
     settings = public_settings(tmp_path)
     policy = settings.load_public_source_policy()
+    policy.sources.pop("oecd_share_price_indices")
     policy.sources["coinmetrics"].market_symbols = ["ETH"]
     plan = policy.collection_plan()
     registry = ProviderRegistry(settings, collection_plan=plan)

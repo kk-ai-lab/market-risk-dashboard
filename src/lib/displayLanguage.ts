@@ -25,6 +25,7 @@ const PROVIDER_LABEL_KEYS: Record<string, string> = {
   fomc: "federalReserve",
   mixed: "multipleSources",
   nasdaq: "nasdaq",
+  oecd_financial_market: "oecdFinancialMarket",
   risk_model: "riskModel",
   rss_news: "rssNews",
   unavailable: "unavailable",

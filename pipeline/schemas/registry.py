@@ -53,8 +53,10 @@ class DatasetSpec:
     datasets like ``risk`` and ``dashboard`` are always a single object, so asking whether they
     are "empty" is a category error — they pass ``row_count=None`` and skip the check.
 
-    ``row_key`` is the payload field whose length is the row cardinality for ``row_counted``
-    datasets (``calendar`` → ``events``, ``news`` → ``items``). It lives here, on the spec,
+    ``row_key`` names the payload field(s) whose lengths form the row cardinality for
+    ``row_counted`` datasets (``calendar`` → ``events``, ``news`` → ``items``). Multiple
+    fields represent distinct row types within a dataset, such as equities and indices.
+    It lives here, on the spec,
     because two consumers need it: the producer (``run.py`` computes ``row_count`` from it to
     make ``empty`` reachable) and the re-assertion (``ci_checks.py`` verifies a committed
     ``fresh`` file is not actually empty). Before it was a registry field it was a magic list
@@ -69,7 +71,7 @@ class DatasetSpec:
     domain: str | None
     required: bool
     row_counted: bool
-    row_key: str | None = None
+    row_key: str | tuple[str, ...] | None = None
     full_run: bool = False
 
 
@@ -86,7 +88,7 @@ DATASETS: tuple[DatasetSpec, ...] = (
         domain="market",
         required=True,
         row_counted=True,
-        row_key="assets",
+        row_key=("assets", "benchmarks"),
     ),
     DatasetSpec(
         key="sectors",

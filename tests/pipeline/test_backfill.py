@@ -101,11 +101,12 @@ def test_run_backfill_uses_mapped_period_and_reports_failures(
 
 
 def test_row_count_for_dict_and_object_agree() -> None:
-    env = {"payload": {"assets": [1, 2, 3]}}
+    env = {"payload": {"assets": [1, 2, 3], "benchmarks": []}}
     assert row_count_for("equities", env["payload"]) == 3
 
     class _Obj:
         assets = [1, 2]
+        benchmarks = []
 
     assert row_count_for("equities", _Obj()) == 2
 

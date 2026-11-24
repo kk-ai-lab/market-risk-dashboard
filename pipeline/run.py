@@ -69,6 +69,7 @@ from pipeline.schemas import (
     DashboardAsset,
     DashboardInstrument,
     DashboardPayload,
+    MarketSnapshotItem,
     EquitiesEnvelope,
     MacroDataset,
     MacroEnvelope,
@@ -426,6 +427,8 @@ def _build_dashboard(
     calendar: Any,
     index_performance: list[DashboardInstrument] | None = None,
     sector_etfs: list[DashboardInstrument] | None = None,
+    commodities: Any | None = None,
+    macro: Any | None = None,
 ) -> DashboardPayload:
     """Aggregate key fields from risk/crypto/equities/sectors/calendar (architecture §2 L299 + §3.6).
 
@@ -452,6 +455,74 @@ def _build_dashboard(
                 )
             )
 
+    market_snapshot: list[MarketSnapshotItem] = []
+    for benchmark in getattr(equities.payload, "benchmarks", []):
+        market_snapshot.append(MarketSnapshotItem(
+            symbol=benchmark.symbol,
+            label=benchmark.name,
+            label_zh=benchmark.name_zh,
+            category="equity_index",
+            value=benchmark.value,
+            unit=benchmark.unit,
+            change_percent=benchmark.change_1m,
+            change_period="1m" if benchmark.change_1m is not None else None,
+            observation_period=benchmark.observation_period,
+            frequency="monthly",
+            source=benchmark.source,
+            source_url=benchmark.source_url,
+            attribution=benchmark.attribution,
+        ))
+    for asset in crypto.payload.assets:
+        if getattr(asset, "price", None) is None:
+            continue
+        market_snapshot.append(MarketSnapshotItem(
+            symbol=asset.symbol,
+            label=asset.name,
+            category="crypto",
+            value=asset.price,
+            unit="USD",
+            change_percent=asset.change_1d,
+            change_period="24h" if asset.change_1d is not None else None,
+            observation_date=str(asset.updated_at)[:10] if asset.updated_at else None,
+            frequency="daily",
+            source=asset.source,
+        ))
+    commodity_payload = getattr(commodities, "payload", commodities)
+    for asset in getattr(commodity_payload, "assets", []):
+        market_snapshot.append(MarketSnapshotItem(
+            symbol=asset.symbol,
+            label=asset.name,
+            label_zh=asset.name_zh,
+            category="commodity",
+            value=asset.price,
+            unit=asset.price_unit or asset.currency,
+            change_percent=asset.change_1m,
+            change_period="1m" if asset.change_1m is not None else None,
+            observation_period=asset.observation_period,
+            observation_date=str(asset.updated_at)[:10] if asset.updated_at else None,
+            frequency=asset.frequency,
+            source=asset.source,
+            source_url="https://datacatalog.worldbank.org/search/dataset/0038238/commodity-prices-history-and-projections",
+            attribution=f"World Bank Commodity Price Data (The Pink Sheet), CC BY 4.0 (accessed {str(asset.updated_at)[:10]}).",
+        ))
+    macro_payload = getattr(macro, "payload", macro)
+    for attribute, category in (("rates", "rate"), ("fx", "fx")):
+        for indicator in getattr(macro_payload, attribute, []):
+            if indicator.value is None:
+                continue
+            market_snapshot.append(MarketSnapshotItem(
+                symbol=indicator.key,
+                label=indicator.label,
+                category=category,
+                value=indicator.value,
+                unit=indicator.unit,
+                observation_date=indicator.observation_date,
+                observation_period=indicator.observation_period,
+                frequency="monthly" if indicator.observation_period else "daily",
+                source=indicator.source,
+                attribution=indicator.attribution,
+            ))
+
     catalysts = [e.model_dump() for e in calendar.payload.events[:5]]
 
     sector_performance: list[dict[str, Any]] = []
@@ -468,6 +539,7 @@ def _build_dashboard(
         regime=r.regime,
         top_drivers=r.top_drivers,
         cross_asset=cross_asset,
+        market_snapshot=market_snapshot,
         catalysts=catalysts,
         sector_performance=sector_performance,
         index_performance=index_performance or [],
@@ -1211,11 +1283,11 @@ def _run_risk_and_write(
         status, reason = _aggregate_outcome(facts_verdict, facts.data_freshness)
         outcomes.record("factlayer", status, reason, provider="fact_layer")
 
-        # dashboard (P1-5) — renders risk + calendar + market content, not news: its degraded
-        # flag follows risk's inputs plus the calendar, NOT the global aggregate (#119).
+        # dashboard (P1-5) — renders risk + calendar + cross-asset market content, not news:
+        # its verdict follows the sources it displays plus the risk inputs, not the global aggregate (#119).
         dashboard_market_degraded = any(
             bool(market_degraded_by_dataset.get(name, market_degraded))
-            for name in ("equities", "crypto", "sectors")
+            for name in ("equities", "crypto", "sectors", "commodities")
         )
         dashboard_degraded = risk_input_degraded or dashboard_market_degraded or calendar_degraded
         dashboard_payload = _build_dashboard(
@@ -1226,6 +1298,8 @@ def _run_risk_and_write(
             calendar=calendar,
             index_performance=results.get("index_performance", []),
             sector_etfs=results.get("sector_etfs", []),
+            commodities=commodities,
+            macro=macro,
         )
         # #174: the dashboard never contacts a provider, so its degraded reason must be
         # `input_dataset_unhealthy` naming the culprits at the aggregated worst status — NOT
@@ -1233,10 +1307,12 @@ def _run_risk_and_write(
         # hit a provider. Mirrors the fact-layer pattern (#125): aggregate over the
         # dashboard's own inputs (risk + the market content it renders + calendar).
         dashboard_inputs = {
+            "macro": macro.freshness_status,
             "risk": risk_env.freshness_status,
             "equities": equities.freshness_status,
             "crypto": crypto.freshness_status,
             "sectors": sectors.freshness_status if sectors is not None else "missing",
+            "commodities": commodities.freshness_status,
             "calendar": calendar.freshness_status,
         }
         dashboard_status = aggregate_freshness(dashboard_inputs.values())
@@ -1251,9 +1327,11 @@ def _run_risk_and_write(
             source_updated_at=oldest_source_timestamp(
                 [
                     risk_env.source_updated_at,
+                    macro.source_updated_at,
                     equities.source_updated_at,
                     crypto.source_updated_at,
                     sectors.source_updated_at if sectors is not None else None,
+                    commodities.source_updated_at,
                     calendar.source_updated_at,
                 ]
             ),

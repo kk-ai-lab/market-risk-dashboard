@@ -4,6 +4,7 @@ import { useDataset } from "@/hooks/useDataset";
 import { KEY_US_STOCKS } from "@/config/universe";
 import type { EquitiesEnvelope, SectorsEnvelope } from "@/schemas";
 import { EquityCard } from "@/components/equities/EquityCard";
+import { displayMarketUnit } from "@/charts/MarketSnapshot";
 import { MemorySectorTable } from "@/components/equities/MemorySectorTable";
 import { AShareCard } from "@/components/equities/AShareCard";
 import { AssetCard } from "@/components/cross-asset/AssetCard";
@@ -12,6 +13,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/layout/StatusBadge";
 import { displayLocalizedValue } from "@/lib/displayLanguage";
+import { formatNumber, formatPctPoints } from "@/lib/format";
 import { FreshnessDocument } from "@/schemas";
 
 /**
@@ -28,11 +30,12 @@ export default function EquitiesPage() {
   const usAssets =
     equitiesQ.data?.payload.assets.filter((a) => a.market === "US" && KEY_US_STOCKS.includes(a.symbol)) ?? [];
   const cnAssets = equitiesQ.data?.payload.assets.filter((a) => a.market === "CN") ?? [];
+  const benchmarks = equitiesQ.data?.payload.benchmarks ?? [];
   const memory = sectorsQ.data?.payload.memory ?? null;
 
   // Cross-Asset cards: key stocks + crypto + sector proxies
   const crossAssets = equitiesQ.data?.payload.assets.filter((a) => KEY_US_STOCKS.includes(a.symbol)) ?? [];
-  const hasPrices = crossAssets.length > 0 || usAssets.length > 0 || cnAssets.length > 0;
+  const hasPrices = crossAssets.length > 0 || usAssets.length > 0 || cnAssets.length > 0 || benchmarks.length > 0;
   const localeSegment = locale.startsWith("zh") ? "zh" : "en";
 
   return (
@@ -52,6 +55,28 @@ export default function EquitiesPage() {
         </div>
       ) : (
       <>
+      {benchmarks.length > 0 ? <section className="border-t border-hairline pt-4" data-testid="public-equity-indices">
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-medium text-foreground">{t("section.indices")}</h2>
+          <p className="text-xs text-muted-foreground">{t("section.indicesNote")}</p>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {benchmarks.map((benchmark) => (
+            <div key={benchmark.symbol} className="rounded-md border border-border/70 p-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{displayLocalizedValue(benchmark.name, benchmark.name_zh, locale)}</p>
+                  <p className="font-mono text-xs text-muted-foreground">{benchmark.symbol}</p>
+                </div>
+                <p className="whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-foreground">{formatNumber(benchmark.value, locale)} <span className="text-xs font-normal text-muted-foreground">{displayMarketUnit(benchmark.unit, locale, t)}</span></p>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{benchmark.observation_period} · <a href={benchmark.source_url} target="_blank" rel="noreferrer" title={benchmark.attribution} className="underline underline-offset-2 hover:text-foreground">{t("section.oecdSource")}</a></p>
+              {benchmark.change_1m !== null ? <p className="mt-1 text-xs tabular-nums text-muted-foreground">{t("section.monthChange")}: {formatPctPoints(benchmark.change_1m, locale)}</p> : null}
+            </div>
+          ))}
+        </div>
+      </section> : null}
+
       {crossAssets.length > 0 ? <section className="border-t border-hairline pt-4">
         <h2 className="mb-2 text-sm font-medium text-foreground">{t("section.crossAsset")}</h2>
         {crossAssets.length > 0 ? (
@@ -98,6 +123,10 @@ export default function EquitiesPage() {
           </div>
         </section>
       ) : null}
+
+      {benchmarks.length > 0 && usAssets.length === 0 && cnAssets.length === 0 ? <p className="border-t border-hairline pt-4 text-xs text-muted-foreground" data-testid="individual-equities-unavailable">
+        {t("empty.individualQuotesUnavailable")} <Link className="underline underline-offset-2 hover:text-foreground" to={`/${localeSegment}/status`}>{t("empty.viewStatus")}</Link>
+      </p> : null}
 
     </div>
   );

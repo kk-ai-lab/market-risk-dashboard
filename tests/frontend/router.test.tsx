@@ -200,64 +200,57 @@ describe("route rendering (fixtures data)", () => {
     expect(metrics.responseBytes).toBeLessThan(previousFanout);
   });
 
-  it.each(["en", "zh"])("shows configured index and SPDR rows with source and proxy details in %s", async (locale) => {
+  it.each(["en", "zh"])("shows licensed market levels and explains restricted quote rows in %s", async (locale) => {
     const dashboard = structuredClone(FIXTURE_MAP["/latest/dashboard.json"]) as {
       payload: {
         cross_asset: Array<Record<string, unknown>>;
+        market_snapshot: Array<Record<string, unknown>>;
         index_performance: Array<Record<string, unknown>>;
         sector_etfs: Array<Record<string, unknown>>;
       };
     };
-    const indexSymbols = ["^GSPC", "^IXIC", "^DJI", "^RUT", "^VIX"];
-    const sectorSymbols = ["XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"];
-    dashboard.payload.index_performance = indexSymbols.map((symbol, index) => ({
-      key: `index_${index}`,
-      symbol: index === 0 ? "SPY" : symbol,
-      change_1d: 0.5,
-      source: "Yahoo Finance",
-      provider: "yfinance",
-      retrieved_at: "2026-11-23T12:00:00Z",
-      is_proxy: index === 0,
-      proxy_of: index === 0 ? "^GSPC" : null,
+    dashboard.payload.market_snapshot = [{
+      symbol: "OECD:USA", label: "United States broad share-price index", label_zh: "美国综合股价指数",
+      category: "equity_index", value: 225.03, unit: "index, 2015=100", change_percent: 1.2,
+      change_period: "1m", observation_date: null, observation_period: "2026-10",
+      frequency: "monthly", source: "OECD Main Economic Indicators", source_url: "https://data-explorer.oecd.org/", attribution: "OECD (2026).",
+    }];
+    dashboard.payload.index_performance = Array.from({ length: 5 }, (_, index) => ({
+      key: `index_${index}`, symbol: `INDEX_${index}`, change_1d: null, source: null,
+      provider: null, retrieved_at: null, is_proxy: false, proxy_of: null,
+      availability_reason: "public_source_unlicensed",
     }));
-    dashboard.payload.sector_etfs = sectorSymbols.map((symbol) => ({
-      key: symbol,
-      symbol,
-      change_1d: -0.25,
-      source: "Yahoo Finance",
-      provider: "yfinance",
-      retrieved_at: "2026-11-23T12:00:00Z",
-      is_proxy: false,
-      proxy_of: null,
+    dashboard.payload.sector_etfs = Array.from({ length: 11 }, (_, index) => ({
+      key: `sector_${index}`, symbol: `SECTOR_${index}`, change_1d: null, source: null,
+      provider: null, retrieved_at: null, is_proxy: false, proxy_of: null,
+      availability_reason: "public_source_unlicensed",
     }));
     installCustomFetch((url) => url.endsWith("/latest/dashboard.json")
       ? { ok: true, body: dashboard } : fixtureForUrl(url));
     setHash(`#/${locale}/overview`);
     renderApp();
 
-    const heatmap = await screen.findByTestId("asset-heatmap");
-    expect(within(heatmap).getAllByTestId("heatmap-cell")).toHaveLength(
-      dashboard.payload.cross_asset.length
-        + dashboard.payload.index_performance.length
-        + dashboard.payload.sector_etfs.length,
+    const snapshot = await screen.findByTestId("market-snapshot");
+    expect(within(snapshot).getAllByTestId("market-snapshot-item")).toHaveLength(1);
+    expect(within(snapshot).getByText(locale === "en" ? "Equity indices" : "股票指数")).toBeInTheDocument();
+    expect(await screen.findByTestId("market-snapshot-missing-data-note")).toHaveTextContent(
+      locale === "en" ? "16" : "16",
     );
-    expect(within(heatmap).getAllByText(locale === "en" ? "SPDR sector ETFs" : "板块交易型基金").length).toBeGreaterThan(0);
-    expect(within(heatmap).getAllByText(locale === "en" ? "Proxy for ^GSPC" : "^GSPC 的代理指标").length).toBeGreaterThan(0);
-    expect(within(heatmap).getAllByText("Yahoo Finance · yfinance").length).toBeGreaterThanOrEqual(16);
-    const categoryGrids = within(heatmap).getAllByTestId(/^heatmap-category-grid-/);
-    const retrievedRows = categoryGrids.flatMap((grid) =>
-      within(grid).queryAllByText(locale === "en" ? /^Retrieved / : /^拉取时间：/),
-    );
-    expect(retrievedRows).toHaveLength(16);
+    expect(within(snapshot).getByText(locale === "en" ? "OECD" : "经合组织（OECD）")).toBeInTheDocument();
   });
 
   it("attributes Coin Metrics crypto reference rates shown by the overview", async () => {
     const dashboard = structuredClone(FIXTURE_MAP["/latest/dashboard.json"]) as {
-      payload: { cross_asset: Array<{ category: string; source?: string }> };
+      payload: {
+        cross_asset: Array<{ category: string; source?: string }>;
+        market_snapshot: Array<Record<string, unknown>>;
+      };
     };
-    const bitcoin = dashboard.payload.cross_asset.find((asset) => asset.category === "crypto");
-    expect(bitcoin).toBeDefined();
-    bitcoin!.source = "coinmetrics";
+    dashboard.payload.market_snapshot = [{
+      symbol: "BTC", label: "Bitcoin", label_zh: "比特币", category: "crypto", value: 64000,
+      unit: "USD", change_percent: -0.8, change_period: "24h", observation_date: "2026-11-24",
+      observation_period: null, frequency: "daily", source: "coinmetrics", source_url: null, attribution: null,
+    }];
     installCustomFetch((url) => url.endsWith("/latest/dashboard.json")
       ? { ok: true, body: dashboard }
       : fixtureForUrl(url));
@@ -288,7 +281,7 @@ describe("route rendering (fixtures data)", () => {
     const sectionIds = [
       "risk-conclusion",
       "risk-trend-section",
-      "cross-asset-section",
+      "market-snapshot-section",
       "drivers-catalysts-section",
       "sectors-news-section",
     ];

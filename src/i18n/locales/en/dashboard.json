@@ -1,35 +1,50 @@
 {
   "title": "Overview",
   "subtitle": "Market conditions, evidence coverage and key signals",
-  "heatmap": {
-    "title": "Cross-Asset Heatmap",
-    "empty": "No cross-asset data",
-    "unlicensedCount": "{{count}} market rows are unavailable and hidden. See Status for source and permission details.",
-    "legend": "Daily direction",
-    "assetsCount": "{{count}} assets",
-    "unknownCategory": "Other assets",
-    "state": {
-      "up": "Up",
-      "down": "Down",
-      "flat": "Flat",
-      "unavailable": "Unavailable"
+  "marketSnapshot": {
+    "title": "Cross-Asset Market Snapshot",
+    "empty": "No market observations are available in this snapshot.",
+    "unknown": "Market observation",
+    "restrictedCount": "{{count}} index and sector quote rows remain unavailable under current public redistribution permissions.",
+    "daily": "Daily observation",
+    "monthly": "Monthly average",
+    "units": {
+      "index, 2015=100": "index points (2015=100)",
+      "$/troy oz": "USD/troy oz",
+      "$/mt": "USD/metric tonne",
+      "$/bbl": "USD/barrel",
+      "$/mmbtu": "USD/MMBtu",
+      "$/kg": "USD/kg",
+      "$/dmtu": "USD/dmtu",
+      "bps": "basis points",
+      "index": "index points",
+      "usd_per_eur": "USD/EUR",
+      "jpy_per_usd": "JPY/USD",
+      "cny_per_usd": "CNY/USD",
+      "usd": "USD",
+      "usd_millions": "USD millions",
+      "usd_billions": "USD billions",
+      "ratio": "ratio",
+      "level": "level",
+      "thousands": "thousands"
     },
-    "axis": "Change",
-    "asset": "Asset",
-    "change": "Change",
-    "details": "Show data table",
-    "catEquities": "Equities",
-    "catCrypto": "Crypto",
-    "catSectors": "Sectors",
-    "catIndices": "Indices",
-    "catSectorEtfs": "SPDR sector ETFs",
-    "unavailableReason": {
-      "public_source_unlicensed": "No approved public redistribution source is available.",
-      "provider_unavailable": "No provider returned a quote for this snapshot."
+    "categories": {
+      "equity_index": "Equity indices",
+      "crypto": "Crypto assets",
+      "commodity": "Commodities",
+      "rate": "Interest rates",
+      "fx": "Foreign exchange"
     },
-    "source": "Source / provider",
-    "retrievedAt": "Retrieved {{time}}",
-    "proxyDisclosure": "Proxy for {{symbol}}"
+    "periods": {
+      "24h": "24h",
+      "1m": "1m"
+    },
+    "sources": {
+      "oecd": "OECD",
+      "worldBankPinkSheet": "World Bank Pink Sheet",
+      "coinMetrics": "Coin Metrics",
+      "publicSource": "Public data source"
+    }
   },
   "trend": {
     "legacyEvidenceUnknown": "Some older scores do not record evidence coverage.",

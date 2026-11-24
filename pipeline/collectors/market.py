@@ -17,6 +17,7 @@ from pipeline.indicators.technical import technical_snapshot
 from pipeline.indicators.themes import changes_from_closes, percentile_of_trailing_return
 from pipeline.metadata import latest_row_timestamp, oldest_source_timestamp, quality_for_outcomes
 from pipeline.providers.base import ProviderError, ProviderRegistry
+from pipeline.providers.world_bank_commodities import WORKBOOK_COLUMNS
 from pipeline.schemas import (
     CommoditiesDataset,
     CommodityAsset,
@@ -25,6 +26,7 @@ from pipeline.schemas import (
     DashboardInstrument,
     EquitiesDataset,
     EquityAsset,
+    EquityBenchmark,
     MemoryProxy,
     SectorItem,
     SectorsDataset,
@@ -405,6 +407,7 @@ class MarketCollector:
 
     def _collect_equities(self) -> EquitiesDataset:
         assets: list[EquityAsset] = []
+        benchmarks: list[EquityBenchmark] = []
         targets = [*self.universe.us_equities, *self.universe.a_share_memory]
         if self.collection_plan is not None:
             targets = []
@@ -424,7 +427,65 @@ class MarketCollector:
                     self.degraded.append(f"{domain}: provider served degraded data")
             if status_error:
                 self.provider_status.setdefault(domain, {})["error"] = status_error
-        return EquitiesDataset(assets=assets)
+        benchmark_grants = (
+            self.collection_plan.grants_for("oecd_financial_market", "equities")
+            if self.collection_plan is not None else ()
+        )
+        if benchmark_grants:
+            grant = benchmark_grants[0]
+            try:
+                out = self.registry.call_provider(
+                    "equities",
+                    "oecd_financial_market",
+                    "get_share_price_indices",
+                    "oecd_monthly_share_price_indices",
+                    args=(sorted(grant.index_series),),
+                    authorization_dataset="equities",
+                    use_cache=False,
+                )
+                observations = out["result"]
+                if not isinstance(observations, dict) or set(observations) != set(grant.index_series):
+                    raise ProviderError("OECD share-price response did not match approved index series")
+                names = {
+                    "USA": ("United States broad share-price index", "美国综合股价指数", "US"),
+                    "CHN": ("China broad share-price index", "中国综合股价指数", "CN"),
+                }
+                for country in sorted(grant.index_series):
+                    rows = observations[country]
+                    if country not in names or not isinstance(rows, list) or len(rows) != 2:
+                        raise ProviderError(f"OECD share-price response was invalid for {country}")
+                    previous, latest = rows
+                    previous_period = str(previous["period"])
+                    period = str(latest["period"])
+                    prior_year, prior_month = map(int, previous_period.split("-"))
+                    year, month = map(int, period.split("-"))
+                    adjacent_month = (year * 12 + month) - (prior_year * 12 + prior_month) == 1
+                    previous_value = float(previous["value"])
+                    value = float(latest["value"])
+                    if previous_value <= 0 or value <= 0:
+                        raise ProviderError(f"OECD share-price response has an invalid value for {country}")
+                    name, name_zh, market = names[country]
+                    benchmarks.append(EquityBenchmark(
+                        symbol=f"OECD:{country}",
+                        name=name,
+                        name_zh=name_zh,
+                        market=market,
+                        value=value,
+                        change_1m=(value / previous_value - 1) * 100 if adjacent_month else None,
+                        observation_period=period,
+                        source="OECD Main Economic Indicators",
+                        source_url="https://data-explorer.oecd.org/",
+                        attribution=f"OECD ({now_utc()[:4]}), Financial market: Share Prices, OECD Data Explorer (accessed {now_utc()[:10]}).",
+                        updated_at=now_utc(),
+                    ))
+                self._record_outcome("equities", out["meta"])
+                if out["meta"].get("degraded"):
+                    self._dataset_degraded.add("equities")
+            except (KeyError, TypeError, ValueError, OverflowError, ProviderError) as exc:
+                self.degraded.append(f"equities: {exc}")
+                self._dataset_degraded.add("equities")
+                self.provider_status.setdefault("equities", {})["error"] = str(exc)
+        return EquitiesDataset(assets=assets, benchmarks=benchmarks)
 
     # ---- Index history (breadth/trend) ----
 
@@ -513,11 +574,10 @@ class MarketCollector:
                 if out["meta"].get("degraded"):
                     self._dataset_degraded.add("commodities")
                 assets: list[CommodityAsset] = []
-                target_by_symbol = {item.symbol: item for item in targets}
                 for symbol in sorted(commodity_grant.commodity_series):
                     rows = prices[symbol]
                     if (
-                        symbol not in target_by_symbol or not isinstance(rows, list)
+                        symbol not in WORKBOOK_COLUMNS or not isinstance(rows, list)
                         or not 1 <= len(rows) <= 2
                     ):
                         raise ProviderError(f"World Bank Pink Sheet response was invalid for {symbol}")
@@ -534,11 +594,19 @@ class MarketCollector:
                         old_value = float(previous["value"])
                         if adjacent_month and old_value != 0:
                             change_1m = (value / old_value - 1) * 100
-                    asset = target_by_symbol[symbol]
+                    _, name, unit = WORKBOOK_COLUMNS[symbol]
+                    localized_names = {
+                        "GC=F": "黄金", "SI=F": "白银", "HG=F": "铜", "CL=F": "WTI 原油",
+                        "WB:BRENT": "布伦特原油", "WB:NATGAS_US": "美国天然气",
+                        "WB:COCOA": "可可", "WB:COFFEE_ARABICA": "阿拉比卡咖啡",
+                        "WB:SOYBEANS": "大豆", "WB:MAIZE": "玉米",
+                        "WB:WHEAT_HRW": "美国硬红冬小麦", "WB:ALUMINUM": "铝",
+                        "WB:IRON_ORE": "铁矿石",
+                    }
                     assets.append(CommodityAsset(
                         symbol=symbol,
-                        name=asset.name,
-                        name_zh=asset.name_zh,
+                        name=name,
+                        name_zh=localized_names.get(symbol),
                         price=value,
                         currency="USD",
                         change_1d=None,
@@ -548,7 +616,7 @@ class MarketCollector:
                         updated_at=f"{latest['date']}T00:00:00Z",
                         frequency="monthly",
                         observation_period=period,
-                        price_unit=str(latest["unit"]),
+                        price_unit=unit,
                     ))
                 return CommoditiesDataset(assets=assets)
             except (KeyError, TypeError, ValueError, OverflowError, ProviderError) as exc:
@@ -907,8 +975,7 @@ class MarketCollector:
         else:
             if self.collection_plan.allows_dataset("equities"):
                 self._collect_history_plan()
-                self._mark_unavailable("equities")
-                equities = EquitiesDataset()
+                equities = self._collect_equities()
             else:
                 self._mark_unavailable("equities")
                 equities = EquitiesDataset()

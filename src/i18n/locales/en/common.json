@@ -81,6 +81,7 @@
       "federalReserve": "Federal Reserve",
       "multipleSources": "Multiple data sources",
       "nasdaq": "Nasdaq earnings calendar",
+      "oecdFinancialMarket": "OECD market statistics",
       "riskModel": "Risk model",
       "rssNews": "News aggregation",
       "unavailable": "No available source",

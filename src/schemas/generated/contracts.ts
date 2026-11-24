@@ -395,6 +395,27 @@ export const DriverContribution = z
   .passthrough();
 export type DriverContribution = z.infer<typeof DriverContribution>;
 
+/** A dated, unit-bearing market observation used by the overview. */
+export const MarketSnapshotItem = z
+  .object({
+    symbol: z.string().min(1),
+    label: z.string().min(1),
+    label_zh: z.string().nullable().default(null),
+    category: z.enum(["equity_index", "crypto", "commodity", "rate", "fx"]),
+    value: z.number().finite(),
+    unit: z.string().min(1),
+    change_percent: z.number().finite().nullable().default(null),
+    change_period: z.string().nullable().default(null),
+    observation_date: z.string().regex(new RegExp("^\\d{4}-\\d{2}-\\d{2}$")).nullable().default(null),
+    observation_period: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])$")).nullable().default(null),
+    frequency: z.enum(["daily", "monthly"]),
+    source: z.string().min(1),
+    source_url: z.string().nullable().default(null),
+    attribution: z.string().nullable().default(null),
+  })
+  .passthrough();
+export type MarketSnapshotItem = z.infer<typeof MarketSnapshotItem>;
+
 /** Sub-indicator: raw value + 5Y percentile + mapped risk score. */
 export const RiskIndicator = z
   .object({
@@ -472,6 +493,7 @@ export const DashboardPayload = z
     regime: MarketRegime,
     top_drivers: z.array(DriverContribution).default([]),
     cross_asset: z.array(DashboardAsset).default([]),
+    market_snapshot: z.array(MarketSnapshotItem).default([]),
     catalysts: z.array(CalendarEvent).default([]),
     sector_performance: z.array(DashboardSector).default([]),
     index_performance: z.array(DashboardInstrument).default([]),
@@ -605,10 +627,30 @@ export const EquityAsset = z
   .passthrough();
 export type EquityAsset = z.infer<typeof EquityAsset>;
 
+/** Country share-price index, kept separate from individual equities. */
+export const EquityBenchmark = z
+  .object({
+    symbol: z.string().min(1),
+    name: z.string().min(1),
+    name_zh: z.string().nullable().default(null),
+    market: z.enum(["US", "CN"]),
+    value: z.number().finite(),
+    unit: z.string().default("index, 2015=100"),
+    change_1m: z.number().finite().nullable().default(null),
+    observation_period: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])$")),
+    source: z.string().min(1),
+    source_url: z.string().min(1),
+    attribution: z.string().min(1),
+    updated_at: utcDateTime,
+  })
+  .passthrough();
+export type EquityBenchmark = z.infer<typeof EquityBenchmark>;
+
 /** equities.json payload. */
 export const EquitiesDataset = z
   .object({
     assets: z.array(EquityAsset).default([]),
+    benchmarks: z.array(EquityBenchmark).default([]),
   })
   .passthrough();
 export type EquitiesDataset = z.infer<typeof EquitiesDataset>;

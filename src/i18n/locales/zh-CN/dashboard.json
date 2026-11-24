@@ -1,35 +1,50 @@
 {
   "title": "总览",
   "subtitle": "市场状况、数据覆盖与主要信号",
-  "heatmap": {
-    "title": "跨资产热力图",
-    "empty": "暂无跨资产数据",
-    "unlicensedCount": "{{count}} 项行情当前不可用，已隐藏。可在“状态”查看数据源和许可详情。",
-    "legend": "日内方向",
-    "assetsCount": "{{count}} 项资产",
-    "unknownCategory": "其他资产",
-    "state": {
-      "up": "上涨",
-      "down": "下跌",
-      "flat": "持平",
-      "unavailable": "不可用"
+  "marketSnapshot": {
+    "title": "跨资产市场概览",
+    "empty": "当前快照没有可展示的市场观测值。",
+    "unknown": "市场指标",
+    "restrictedCount": "{{count}} 项股指和板块行情因缺少公开再分发授权，暂未展示。",
+    "daily": "日度观测",
+    "monthly": "月度均值",
+    "units": {
+      "index, 2015=100": "指数点（2015=100）",
+      "$/troy oz": "美元/金衡盎司",
+      "$/mt": "美元/公吨",
+      "$/bbl": "美元/桶",
+      "$/mmbtu": "美元/百万英热单位",
+      "$/kg": "美元/千克",
+      "$/dmtu": "美元/干吨度",
+      "bps": "基点",
+      "index": "指数点",
+      "usd_per_eur": "美元/欧元",
+      "jpy_per_usd": "日元/美元",
+      "cny_per_usd": "人民币/美元",
+      "usd": "美元",
+      "usd_millions": "百万美元",
+      "usd_billions": "十亿美元",
+      "ratio": "比率",
+      "level": "水平",
+      "thousands": "千"
     },
-    "axis": "涨跌",
-    "asset": "资产",
-    "change": "涨跌",
-    "details": "显示数据表",
-    "catEquities": "美股",
-    "catCrypto": "加密",
-    "catSectors": "板块",
-    "catIndices": "指数",
-    "catSectorEtfs": "板块交易型基金",
-    "unavailableReason": {
-      "public_source_unlicensed": "尚无获准公开再分发的数据源。",
-      "provider_unavailable": "本次快照没有数据提供方返回报价。"
+    "categories": {
+      "equity_index": "股票指数",
+      "crypto": "加密资产",
+      "commodity": "大宗商品",
+      "rate": "利率",
+      "fx": "外汇"
     },
-    "source": "来源 / 提供方",
-    "retrievedAt": "拉取时间：{{time}}",
-    "proxyDisclosure": "{{symbol}} 的代理指标"
+    "periods": {
+      "24h": "24 小时",
+      "1m": "1 个月"
+    },
+    "sources": {
+      "oecd": "经合组织（OECD）",
+      "worldBankPinkSheet": "世界银行商品价格表（Pink Sheet）",
+      "coinMetrics": "Coin Metrics",
+      "publicSource": "公开数据源"
+    }
   },
   "trend": {
     "legacyEvidenceUnknown": "部分历史分数未记录证据覆盖情况。",

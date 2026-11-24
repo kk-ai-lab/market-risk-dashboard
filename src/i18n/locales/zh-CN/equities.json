@@ -3,6 +3,10 @@
   "subtitle": "关键美股（NVDA / AVGO / MU / AMD / TSLA）+ 存储板块 + 中国股票存储",
   "section": {
     "crossAsset": "跨资产卡片",
+    "indices": "可公开使用的综合股指",
+    "indicesNote": "国家级月度指数，不代表个股报价。",
+    "monthChange": "较上月变化",
+    "oecdSource": "经合组织",
     "us": "关键美股",
     "memory": "存储板块",
     "aShare": "中国股票存储个股",
@@ -45,6 +49,7 @@
   "empty": {
     "publicPricesUnavailable": "目前没有确认可公开再分发的免费美股或中国内地股票行情源。已获批的行业统计见“板块”。",
     "pricesUnavailable": "股票行情暂时无法获取。",
+    "individualQuotesUnavailable": "目前没有确认可公开再分发的美股或 A 股个股行情源，因此不展示个股报价。",
     "viewStatus": "查看数据状态"
   },
   "sort": {

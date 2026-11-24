@@ -7,7 +7,7 @@ import { isOfficialAnnouncement } from "@/lib/officialAnnouncements";
 import { SnapshotTimestamp } from "@/components/dashboard/SnapshotTimestamp";
 import { RiskTrendSlice } from "@/schemas/history";
 import type { DashboardEnvelope, MacroEnvelope, NewsEnvelope } from "@/schemas";
-import { AssetHeatmap } from "@/charts/AssetHeatmap";
+import { MarketSnapshot } from "@/charts/MarketSnapshot";
 import { RiskTrendChart } from "@/charts/RiskTrendChart";
 import { NewsCard } from "@/components/news/NewsCard";
 import { EventCard } from "@/components/calendar/EventCard";
@@ -22,7 +22,6 @@ import { dirTone, dirClasses, regimeTone, riskLevelTone, riskTrendTone, toneClas
 import { RISK_DIMENSION_KEYS, RISK_EVIDENCE_KEYS, RISK_INDICATOR_KEYS, RISK_LEVEL_KEYS, regimeKey } from "@/lib/riskLabels";
 import { formatChange, formatNumber, formatPctPoints, formatRatio } from "@/lib/format";
 import type { RiskDimensionKey } from "@/schemas";
-import type { HeatmapCell } from "@/charts/AssetHeatmap";
 
 /**
  * OverviewPage: dark-first terminal layout (spec #23 ticket #28 — reference implementation).
@@ -45,51 +44,11 @@ export default function OverviewPage() {
   // The dashboard artifact is the homepage read model: its producer already selects
   // the first-view assets, catalysts, drivers, and sector rows. Keep labels localized
   // while avoiding browser-side reconstruction from the source datasets.
-  const categoryLabels: Record<string, string> = {
-    equity: t("heatmap.catEquities"),
-    crypto: t("heatmap.catCrypto"),
-    sector: t("heatmap.catSectors"),
-    index: t("heatmap.catIndices"),
-    sector_etf: t("heatmap.catSectorEtfs"),
-  };
-  const heatmapCells: HeatmapCell[] =
-    dashboard
-      ? [
-          ...dashboard.cross_asset.map((asset) => ({
-            asset: asset.asset,
-            category: categoryLabels[asset.category] ?? asset.category,
-            change1d: asset.change_1d,
-            source: asset.source,
-            provider: null,
-            retrievedAt: null,
-            isProxy: false,
-            proxyOf: null,
-            availabilityReason: null,
-          })),
-          ...dashboard.index_performance.map((asset) => ({
-            asset: asset.symbol,
-            category: categoryLabels.index,
-            change1d: asset.change_1d,
-            source: asset.source,
-            provider: asset.provider,
-            retrievedAt: asset.retrieved_at,
-            isProxy: asset.is_proxy,
-            proxyOf: asset.proxy_of,
-            availabilityReason: asset.availability_reason,
-          })),
-          ...dashboard.sector_etfs.map((asset) => ({
-            asset: asset.symbol,
-            category: categoryLabels.sector_etf,
-            change1d: asset.change_1d,
-            source: asset.source,
-            provider: asset.provider,
-            retrievedAt: asset.retrieved_at,
-            isProxy: asset.is_proxy,
-            proxyOf: asset.proxy_of,
-            availabilityReason: asset.availability_reason,
-          })),
-        ]
-      : [];
+  const marketSnapshotItems = dashboard?.market_snapshot ?? [];
+  const unavailableMarketItems = [
+    ...(dashboard?.index_performance ?? []),
+    ...(dashboard?.sector_etfs ?? []),
+  ].filter((item) => item.availability_reason === "public_source_unlicensed").length;
   const catalysts = dashboard?.catalysts ?? [];
   const sectorBaskets = dashboard?.sector_performance ?? [];
 
@@ -108,7 +67,6 @@ export default function OverviewPage() {
         : TrendingDown;
   const topDrivers = dashboard?.top_drivers ?? [];
   const localeSegment = locale.startsWith("zh") ? "zh" : "en";
-  const visibleHeatmapCells = heatmapCells.filter((cell) => cell.change1d !== null);
 
   const creditIndicators = macroQ.data?.payload.credit ?? [];
   const baaSpread = creditIndicators.find((indicator) => indicator.key === "baa10y") ?? null;
@@ -285,25 +243,25 @@ export default function OverviewPage() {
         ) : null}
       </section> : null}
 
-      {/* Open chart region: cross-asset heatmap (no card chrome) */}
-      <section className="border-t border-hairline pt-4" data-testid="cross-asset-section">
+      {/* Open data region: dated and unit-bearing observations across asset classes */}
+      <section className="border-t border-hairline pt-4" data-testid="market-snapshot-section">
         <div className="mb-2 flex items-baseline gap-2">
-          <h2 className="text-sm font-medium text-foreground">{t("heatmap.title")}</h2>
+          <h2 className="text-sm font-medium text-foreground">{t("marketSnapshot.title")}</h2>
         </div>
         {dashboardQ.isLoading ? (
           <Skeleton className="h-64 w-full" />
         ) : dashboardQ.isError ? (
           <ErrorState onRetry={dashboardQ.refetch} />
-        ) : visibleHeatmapCells.length > 0 ? (
-          <AssetHeatmap cells={visibleHeatmapCells} />
+        ) : marketSnapshotItems.length > 0 ? (
+          <MarketSnapshot items={marketSnapshotItems} />
         ) : (
-          <EmptyState title={t("heatmap.empty")} />
+          <EmptyState title={t("marketSnapshot.empty")} />
         )}
-        {heatmapCells.length > visibleHeatmapCells.length ? <p className="mt-2 text-xs text-muted-foreground" data-testid="heatmap-missing-data-note">
-          {t("heatmap.unlicensedCount", { count: heatmapCells.length - visibleHeatmapCells.length })} <Link className="underline underline-offset-2 hover:text-foreground" to={`/${localeSegment}/status`}>{t("kpi.viewStatus")}</Link>
+        {unavailableMarketItems > 0 ? <p className="mt-2 text-xs text-muted-foreground" data-testid="market-snapshot-missing-data-note">
+          {t("marketSnapshot.restrictedCount", { count: unavailableMarketItems })} <Link className="underline underline-offset-2 hover:text-foreground" to={`/${localeSegment}/status`}>{t("kpi.viewStatus")}</Link>
         </p> : null}
         <div className="mt-3">
-          <CoinMetricsAttribution show={dashboard?.cross_asset.some((asset) => asset.category === "crypto" && asset.source === "coinmetrics") ?? false} />
+          <CoinMetricsAttribution show={marketSnapshotItems.some((asset) => asset.category === "crypto" && asset.source === "coinmetrics")} />
         </div>
       </section>
 
