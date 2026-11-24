@@ -1,9 +1,10 @@
 {
   "title": "Overview",
-  "subtitle": "Cross-asset market data, risk scores and key drivers",
+  "subtitle": "Market conditions, evidence coverage and key signals",
   "heatmap": {
     "title": "Cross-Asset Heatmap",
     "empty": "No cross-asset data",
+    "unlicensedCount": "{{count}} market rows are unavailable and hidden. See Status for source and permission details.",
     "legend": "Daily direction",
     "assetsCount": "{{count}} assets",
     "unknownCategory": "Other assets",
@@ -67,6 +68,9 @@
     "iceNote": "ICE Data Indices, LLC, via FRED",
     "displayOnlyNote": "Shown for context; not a risk-score input",
     "notConfigured": "Not configured",
+    "creditSourcesUnavailable": "Credit spread cards are hidden because their sources do not allow public redistribution.",
+    "creditDataUnavailable": "Credit spread data is temporarily unavailable.",
+    "viewStatus": "View data status",
     "observed": "As of",
     "fullCitation": "Full data citation",
     "hyCitation": "Ice Data Indices, LLC, ICE BofA US High Yield Index Option-Adjusted Spread [BAMLH0A0HYM2], retrieved from FRED, Federal Reserve Bank of St. Louis.",

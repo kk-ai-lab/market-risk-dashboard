@@ -1,6 +1,6 @@
 {
   "title": "宏观",
-  "subtitle": "利率 / 信用 / 通胀 / 就业 / 流动性 / 外汇 + 利率预期",
+  "subtitle": "利率 / 信用 / 通胀 / 就业 / 流动性 / 外汇 / 工业产出",
   "chart": {
     "title": "宏观指标概览",
     "empty": "暂无宏观指标",
@@ -14,7 +14,10 @@
     "liquidity": "流动性",
     "fx": "外汇",
     "empty": "该分类暂无数据",
-    "volatility": "波动率"
+    "volatility": "波动率",
+    "industry": "工业产出",
+    "publicSourceRestricted": "部分指标未展示，因为来源未授权公开再分发。",
+    "viewStatus": "查看来源状态"
   },
   "indicator": {
     "observationPeriod": "观测月份",
@@ -83,13 +86,18 @@
     "dexuseu": "每欧元美元汇率",
     "dexjpus": "每美元日元汇率",
     "dexchus": "每美元人民币汇率",
+    "ipgmf": "制造业工业产出",
+    "ipg334": "计算机与电子产品产出",
+    "ipg3344": "半导体及其他电子元件产出",
     "unknown": "未命名指标"
   },
   "history": {
-    "title": "历史走势（30 日）",
+    "title": "历史走势（{{slice}}）",
     "series": "序列",
     "latest": "最新值",
     "date": "日期",
-    "empty": "该组暂无历史数据"
+    "empty": "该组暂无历史数据",
+    "independentScale": "每条迷你图都按自身范围缩放，请比较同一指标的变化，不要比较不同指标的斜率。",
+    "trendRange": "趋势从 {{startDate}} 的 {{startValue}} 变化至 {{endDate}} 的 {{endValue}}。"
   }
 }

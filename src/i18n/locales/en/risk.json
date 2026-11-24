@@ -26,6 +26,7 @@
     "unknown": "Evidence status unknown",
     "coverage": "Effective coverage",
     "scoreRange": "Evidence score range",
+    "hiddenScoreExplanation": "The score stays hidden until enough public data is available.",
     "missingIndicators": "Missing or excluded indicators",
     "explanation": "The score is a point estimate. The range only shows the effect of extreme values for missing indicators; it excludes model error, proxy error and statistical uncertainty."
   },

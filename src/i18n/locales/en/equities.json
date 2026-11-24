@@ -42,6 +42,11 @@
     "degraded": "A-share memory source degraded (11 expected, 0 currently available)",
     "note": "AKShare anti-scraping fallback: retains last good data on failure"
   },
+  "empty": {
+    "publicPricesUnavailable": "No free source with confirmed public redistribution rights is configured for U.S. or A-share quotes. Other approved industry data is available on Sectors.",
+    "pricesUnavailable": "Equity quotes are temporarily unavailable.",
+    "viewStatus": "View data status"
+  },
   "sort": {
     "activate": "Sort by"
   }

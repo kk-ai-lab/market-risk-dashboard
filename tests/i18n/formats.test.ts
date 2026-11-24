@@ -51,6 +51,9 @@ describe("number format (PRD §8.9)", () => {
   it("en thousands: 1,234,567.89", () => {
     expect(formatNumber(1234567.89, "en")).toBe("1,234,567.89");
   });
+  it("preserves small USD billion changes when using higher precision", () => {
+    expect(formatNumber(-0.001, "en", 6)).toBe("-0.001");
+  });
   it("signed: +2.35 / -1.20", () => {
     expect(formatSignedNumber(2.35, "zh-CN")).toBe("+2.35");
     expect(formatSignedNumber(-1.2, "en")).toBe("-1.2");
@@ -102,6 +105,10 @@ describe("currency format (PRD §8.9)", () => {
   it("unit suffix: pct→%、usd→USD、bps→bp/bps", () => {
     expect(formatUnitSuffix("pct", "zh-CN")).toBe("%");
     expect(formatUnitSuffix("usd", "zh-CN")).toBe("USD");
+    expect(formatUnitSuffix("usd_millions", "zh-CN")).toBe("百万美元");
+    expect(formatUnitSuffix("usd_billions", "en")).toBe("USD bn");
+    expect(formatUnitSuffix("usd_per_eur", "en")).toBe("USD/EUR");
+    expect(formatUnitSuffix("jpy_per_usd", "zh-CN")).toBe("日元/美元");
     expect(formatUnitSuffix("bps", "zh-CN")).toBe("bp");
     expect(formatUnitSuffix("bps", "en")).toBe("bps");
   });

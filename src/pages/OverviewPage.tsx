@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { ArrowUpRight, CalendarClock, Info, Layers, Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { useDataset } from "@/hooks/useDataset";
 import { hasRiskEvidence } from "@/lib/riskEvidence";
@@ -106,11 +107,14 @@ export default function OverviewPage() {
         ? TrendingUp
         : TrendingDown;
   const topDrivers = dashboard?.top_drivers ?? [];
+  const localeSegment = locale.startsWith("zh") ? "zh" : "en";
+  const visibleHeatmapCells = heatmapCells.filter((cell) => cell.change1d !== null);
 
   const creditIndicators = macroQ.data?.payload.credit ?? [];
   const baaSpread = creditIndicators.find((indicator) => indicator.key === "baa10y") ?? null;
   const hyOas = creditIndicators.find((indicator) => indicator.key === "bamlh0a0hym2") ?? null;
   const igOas = creditIndicators.find((indicator) => indicator.key === "bamlc0a0cm") ?? null;
+  const hasCreditData = [baaSpread, hyOas, igOas].some((indicator) => indicator?.value !== null && indicator?.value !== undefined);
 
   return (
     <div className="flex flex-col gap-5">
@@ -130,7 +134,7 @@ export default function OverviewPage() {
       <SnapshotTimestamp generatedAt={dashboardQ.data?.generated_at} />
 
       {/* KPI strip: the only cards on this page (card policy) */}
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-3" data-testid="risk-conclusion">
+      <section className={`grid grid-cols-1 gap-3 ${riskAvailable ? "md:grid-cols-3" : "md:grid-cols-2"}`} data-testid="risk-conclusion">
         {dashboardQ.isLoading ? (
           <>
             <Skeleton className="h-24 w-full" />
@@ -143,14 +147,14 @@ export default function OverviewPage() {
           <>
             <KpiCard
               label={t("risk:score.title")}
-              footer={
+              footer={riskAvailable ? (
                 <span className={`inline-flex items-center gap-1 ${toneClasses(trendTone).text}`}>
                   <TrendIcon className="h-3 w-3" aria-hidden />
                   {!riskAvailable || risk.trend_1d === null
                     ? t("common:data.na")
                     : `${t("common:direction.dayChange")} ${formatPctPoints(risk.trend_1d, locale)}`}
                 </span>
-              }
+              ) : undefined}
             >
               <span className={`text-2xl font-semibold tabular-nums ${toneClasses(riskTone).text}`} data-testid="risk-score">
                 {riskAvailable && risk.total_score !== null ? formatNumber(risk.total_score, locale) : t("common:data.na")}
@@ -172,7 +176,7 @@ export default function OverviewPage() {
               </span>
             </KpiCard>
 
-            <KpiCard
+            {riskAvailable ? <KpiCard
               label={t("kpi.trend1d")}
               footer={
                 !riskAvailable || risk.trend_1w === null
@@ -183,7 +187,7 @@ export default function OverviewPage() {
               <span className={`text-2xl font-semibold tabular-nums ${toneClasses(trendTone).text}`}>
                 {!riskAvailable || risk.trend_1d === null ? t("common:data.na") : formatPctPoints(risk.trend_1d, locale)}
               </span>
-            </KpiCard>
+            </KpiCard> : null}
 
           </>
         ) : (
@@ -191,7 +195,7 @@ export default function OverviewPage() {
         )}
       </section>
 
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-3" data-testid="credit-indicators">
+      {hasCreditData ? <section className="grid grid-cols-1 gap-3 md:grid-cols-3" data-testid="credit-indicators">
         <KpiCard
           label={t("kpi.baaSpread")}
           footer={
@@ -248,21 +252,22 @@ export default function OverviewPage() {
             </span>
           ) : <span className="text-base text-muted-foreground">{t("kpi.notConfigured")}</span>}
         </KpiCard>
-      </section>
+      </section> : macroQ.isLoading ? <Skeleton className="h-7 w-full" /> : macroQ.data ? <p className="text-xs text-muted-foreground" data-testid="credit-indicators-unavailable">
+        {t(macroQ.data.payload.credit.some((indicator) => indicator.availability_reason === "public_source_unlicensed") ? "kpi.creditSourcesUnavailable" : "kpi.creditDataUnavailable")} <Link className="underline underline-offset-2 hover:text-foreground" to={`/${localeSegment}/status`}>{t("kpi.viewStatus")}</Link>
+      </p> : null}
 
       {risk && dashboardQ.data ? (
         <section className="rounded-md border border-hairline p-3 text-xs text-muted-foreground" data-testid="overview-risk-evidence">
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             <span>{t("risk:evidence.title")}: <strong className="font-medium text-foreground">{risk.evidence_state === null ? t("risk:evidence.unknown") : t(`risk:${RISK_EVIDENCE_KEYS[risk.evidence_state]}`)}</strong></span>
             <span>{t("risk:evidence.coverage")}: <strong className="font-medium tabular-nums text-foreground">{risk.evidence_coverage === null ? t("common:data.na") : formatRatio(risk.evidence_coverage, locale)}</strong></span>
-            <span>{t("risk:evidence.scoreRange")}: <strong className="font-medium tabular-nums text-foreground">{risk.score_lower_bound === null || risk.score_upper_bound === null ? t("common:data.na") : `${formatNumber(risk.score_lower_bound, locale)}–${formatNumber(risk.score_upper_bound, locale)}`}</strong></span>
           </div>
-          <p className="mt-2 leading-relaxed">{t("risk:evidence.explanation")}</p>
+          {!riskAvailable ? <p className="mt-2 leading-relaxed">{t("risk:evidence.hiddenScoreExplanation")}</p> : null}
         </section>
       ) : null}
 
       {/* Open chart region: risk trend (no card chrome) */}
-      <section className="border-t border-hairline pt-4" data-testid="risk-trend-section">
+      {trendQ.isLoading || trendQ.isError || trendQ.data?.some((point) => point.evidence_state !== "insufficient_evidence") ? <section className="border-t border-hairline pt-4" data-testid="risk-trend-section">
         <div className="mb-2 flex items-baseline gap-2">
           <h2 className="text-sm font-medium text-foreground">{t("trend.title")}</h2>
         </div>
@@ -277,10 +282,8 @@ export default function OverviewPage() {
             total_score: point.evidence_state === "insufficient_evidence" ? null : point.total_score,
             risk_level: point.risk_level ?? undefined,
           }))} />
-        ) : (
-          <EmptyState title={t("trend.empty")} />
-        )}
-      </section>
+        ) : null}
+      </section> : null}
 
       {/* Open chart region: cross-asset heatmap (no card chrome) */}
       <section className="border-t border-hairline pt-4" data-testid="cross-asset-section">
@@ -291,19 +294,22 @@ export default function OverviewPage() {
           <Skeleton className="h-64 w-full" />
         ) : dashboardQ.isError ? (
           <ErrorState onRetry={dashboardQ.refetch} />
-        ) : heatmapCells.length > 0 ? (
-          <AssetHeatmap cells={heatmapCells} />
+        ) : visibleHeatmapCells.length > 0 ? (
+          <AssetHeatmap cells={visibleHeatmapCells} />
         ) : (
           <EmptyState title={t("heatmap.empty")} />
         )}
+        {heatmapCells.length > visibleHeatmapCells.length ? <p className="mt-2 text-xs text-muted-foreground" data-testid="heatmap-missing-data-note">
+          {t("heatmap.unlicensedCount", { count: heatmapCells.length - visibleHeatmapCells.length })} <Link className="underline underline-offset-2 hover:text-foreground" to={`/${localeSegment}/status`}>{t("kpi.viewStatus")}</Link>
+        </p> : null}
         <div className="mt-3">
           <CoinMetricsAttribution show={dashboard?.cross_asset.some((asset) => asset.category === "crypto" && asset.source === "coinmetrics") ?? false} />
         </div>
       </section>
 
       {/* Top drivers (hairline table) + upcoming catalysts */}
-      <section className="grid grid-cols-1 gap-6 border-t border-hairline pt-4 lg:grid-cols-2" data-testid="drivers-catalysts-section">
-        <div>
+      <section className={`grid grid-cols-1 gap-6 border-t border-hairline pt-4 ${topDrivers.length > 0 ? "lg:grid-cols-2" : ""}`} data-testid="drivers-catalysts-section">
+        {dashboardQ.isLoading || dashboardQ.isError || topDrivers.length > 0 ? <div>
           <h2 className="mb-2 text-sm font-medium text-foreground">{t("risk:drivers.title")}</h2>
           {dashboardQ.isLoading ? (
             <Skeleton className="h-40 w-full" />
@@ -345,10 +351,8 @@ export default function OverviewPage() {
                 );
               })}
             </div>
-          ) : (
-            <EmptyState title={t("risk:drivers.none")} />
-          )}
-        </div>
+          ) : null}
+        </div> : null}
 
         <div>
           <h2 className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
@@ -372,8 +376,8 @@ export default function OverviewPage() {
       </section>
 
       {/* Sectors (hairline rows) + important news */}
-      <section className="grid grid-cols-1 gap-6 border-t border-hairline pt-4 lg:grid-cols-2" data-testid="sectors-news-section">
-        <div>
+      <section className={`grid grid-cols-1 gap-6 border-t border-hairline pt-4 ${sectorBaskets.length > 0 ? "lg:grid-cols-2" : ""}`} data-testid="sectors-news-section">
+        {dashboardQ.isLoading || dashboardQ.isError || sectorBaskets.length > 0 ? <div>
           <h2 className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
             <Layers className="h-4 w-4 text-muted-foreground" aria-hidden />
             {t("sectors.title")}
@@ -401,10 +405,8 @@ export default function OverviewPage() {
                 );
               })}
             </div>
-          ) : (
-            <EmptyState title={t("sectors.none")} />
-          )}
-        </div>
+          ) : null}
+        </div> : null}
 
         <div>
           <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -437,7 +439,6 @@ export default function OverviewPage() {
             <span>
               {t("common:data.quality")}: <span className="tabular-nums">{formatRatio(dashboardQ.data.data_quality, locale)}</span>
             </span>
-            <span className="ml-auto">{risk?.model_version}</span>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">{t("common:footer.disclaimer")}</p>
         </footer>

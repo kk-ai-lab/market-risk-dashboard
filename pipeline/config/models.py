@@ -35,6 +35,7 @@ FRED_MACRO_SERIES = frozenset({
 FRED_ICE_SERIES = frozenset({"BAMLH0A0HYM2", "BAMLC0A0CM"})
 FEDERAL_RESERVE_BOARD_SERIES = frozenset({
     "WALCL", "WRESBAL", "WTREGEN", "DTWEXBGS", "DTWEXAFEGS", "DEXUSEU", "DEXJPUS", "DEXCHUS",
+    "IPGMF", "IPG334", "IPG3344",
 })
 SUPPORTED_TARGETS: dict[str, dict[str, frozenset[str]]] = {
     "bls": {"macro_series": frozenset({"CPIAUCSL", "CPILFESL", "PAYEMS", "UNRATE", "CIVPART"})},

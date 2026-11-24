@@ -28,13 +28,6 @@ DEFAULT_SERIES_META: dict[str, str] = {
 }
 
 
-# FRED series catalog (#96, uses #84): every entry is the 27-series roster (plus EFFR for
-# the FedWatch anchor) with the metadata the collector and the history manifest need —
-# `frequency` (frequency-aware change/status lookbacks), `units` (server-side transform,
-# #84 §1: CPI/PCE are indexes at ~330, published as YoY percent; PAYEMS is a level,
-# published as the monthly change), `scale` (WALCL is Mil-$ vs RRPONTSYD Bil-$ — the
-# same `usd` unit at different magnitudes). Dead IDs (NAPM/MOVE/GOLDPMGBD228NLBM) that
-# FRED rejects with HTTP 400 are gone.
 SERIES_CATALOG: dict[str, dict[str, str]] = {
     # rates
     "DGS10": {"label": "10-Year Treasury Yield", "unit": "pct", "frequency": "daily", "scale": "pct"},
@@ -56,23 +49,25 @@ SERIES_CATALOG: dict[str, dict[str, str]] = {
     "T5YIFR": {"label": "5Y5Y Forward Inflation Expectation", "unit": "pct", "frequency": "daily", "scale": "pct"},
     "T10YIE": {"label": "10Y Breakeven Inflation", "unit": "pct", "frequency": "daily", "scale": "pct"},
     # labor (#84 §1: PAYEMS is total employed — published as the monthly change via units=chg)
-    "PAYEMS": {"label": "Nonfarm Payrolls (MoM change)", "unit": "level", "frequency": "monthly", "scale": "k", "units": "chg"},
+    "PAYEMS": {"label": "Nonfarm Payrolls (MoM change)", "unit": "thousands", "frequency": "monthly", "scale": "k", "units": "chg"},
     "UNRATE": {"label": "Unemployment Rate", "unit": "pct", "frequency": "monthly", "scale": "pct"},
-    "ICSA": {"label": "Initial Jobless Claims", "unit": "level", "frequency": "weekly", "scale": "k"},
-    "CCSA": {"label": "Continued Claims", "unit": "level", "frequency": "weekly", "scale": "k"},
+    "ICSA": {"label": "Initial Jobless Claims", "unit": "thousands", "frequency": "weekly", "scale": "k"},
+    "CCSA": {"label": "Continued Claims", "unit": "thousands", "frequency": "weekly", "scale": "k"},
     "CIVPART": {"label": "Labor Force Participation Rate", "unit": "pct", "frequency": "monthly", "scale": "pct"},
-    # liquidity (#84 §1: WALCL/WRESBAL/WTREGEN are Mil-$, RRPONTSYD is Bil-$)
-    "WALCL": {"label": "Fed Total Assets (Mil $)", "unit": "usd", "frequency": "weekly", "scale": "mil_usd"},
-    "WRESBAL": {"label": "Bank Reserves", "unit": "usd", "frequency": "weekly", "scale": "mil_usd"},
-    "WTREGEN": {"label": "Treasury General Account", "unit": "usd", "frequency": "weekly", "scale": "mil_usd"},
-    "RRPONTSYD": {"label": "Overnight Reverse Repo (Bil $)", "unit": "usd", "frequency": "daily", "scale": "bil_usd"},
+    "WALCL": {"label": "Fed Total Assets (USD millions)", "unit": "usd_millions", "frequency": "weekly", "scale": "mil_usd"},
+    "WRESBAL": {"label": "Bank Reserves (USD millions)", "unit": "usd_millions", "frequency": "weekly", "scale": "mil_usd"},
+    "WTREGEN": {"label": "Treasury General Account (USD millions)", "unit": "usd_millions", "frequency": "weekly", "scale": "mil_usd"},
+    "RRPONTSYD": {"label": "Overnight Reverse Repo (USD billions)", "unit": "usd_billions", "frequency": "daily", "scale": "bil_usd"},
     "SOFR": {"label": "Secured Overnight Financing Rate", "unit": "pct", "frequency": "daily", "scale": "pct"},
     # fx (#84 §1: DTWEX* lag 3-7 calendar days routinely — see freshness note)
     "DTWEXBGS": {"label": "Nominal Broad Dollar Index", "unit": "index", "frequency": "daily", "scale": "index"},
     "DTWEXAFEGS": {"label": "Dollar Index (Advanced FE)", "unit": "index", "frequency": "daily", "scale": "index"},
-    "DEXUSEU": {"label": "USD per EUR", "unit": "level", "frequency": "daily", "scale": "level"},
-    "DEXJPUS": {"label": "JPY per USD", "unit": "level", "frequency": "daily", "scale": "level"},
-    "DEXCHUS": {"label": "CNY per USD", "unit": "level", "frequency": "daily", "scale": "level"},
+    "DEXUSEU": {"label": "USD per EUR", "unit": "usd_per_eur", "frequency": "daily", "scale": "level"},
+    "DEXJPUS": {"label": "JPY per USD", "unit": "jpy_per_usd", "frequency": "daily", "scale": "level"},
+    "DEXCHUS": {"label": "CNY per USD", "unit": "cny_per_usd", "frequency": "daily", "scale": "level"},
+    "IPGMF": {"label": "Manufacturing Industrial Production", "unit": "index", "frequency": "monthly", "scale": "index"},
+    "IPG334": {"label": "Computer and Electronic Product Production", "unit": "index", "frequency": "monthly", "scale": "index"},
+    "IPG3344": {"label": "Semiconductor and Electronic Component Production", "unit": "index", "frequency": "monthly", "scale": "index"},
     # FedWatch anchor (not a published card)
     "EFFR": {"label": "Effective Federal Funds Rate", "unit": "pct", "frequency": "daily", "scale": "pct"},
 }

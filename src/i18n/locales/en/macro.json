@@ -1,6 +1,6 @@
 {
   "title": "Macro",
-  "subtitle": "Rates / Credit / Inflation / Labor / Liquidity / FX + FedWatch expectations",
+  "subtitle": "Rates / Credit / Inflation / Labor / Liquidity / FX / Industry",
   "chart": {
     "title": "Macro Indicator Overview",
     "empty": "No macro indicators",
@@ -14,7 +14,10 @@
     "liquidity": "Liquidity",
     "fx": "FX",
     "empty": "No data in this category",
-    "volatility": "Volatility"
+    "volatility": "Volatility",
+    "industry": "Industry output",
+    "publicSourceRestricted": "Some indicators are hidden because their sources do not grant public redistribution rights.",
+    "viewStatus": "View source status"
   },
   "indicator": {
     "observationPeriod": "Observation month",
@@ -83,13 +86,18 @@
     "dexuseu": "USD per EUR",
     "dexjpus": "JPY per USD",
     "dexchus": "CNY per USD",
+    "ipgmf": "Manufacturing industrial production",
+    "ipg334": "Computer and electronic product production",
+    "ipg3344": "Semiconductor and electronic component production",
     "unknown": "Unlabelled indicator"
   },
   "history": {
-    "title": "History (30d)",
+    "title": "History ({{slice}})",
     "series": "Series",
     "latest": "Latest",
     "date": "Date",
-    "empty": "No history for this group"
+    "empty": "No history for this group",
+    "independentScale": "Each mini chart uses its own scale. Compare values within a series, not between series.",
+    "trendRange": "Trend from {{startDate}} ({{startValue}}) to {{endDate}} ({{endValue}})."
   }
 }

@@ -137,12 +137,24 @@ const UNIT_SUFFIX_WORDS: Record<string, string> = {
   bps: "bps",
   index: "",
   usd: "USD",
+  usd_millions: "USD mn",
+  usd_billions: "USD bn",
+  usd_per_eur: "USD/EUR",
+  jpy_per_usd: "JPY/USD",
+  cny_per_usd: "CNY/USD",
   ratio: "",
   level: "",
+  thousands: "thousand",
 };
 
 /** Macro unit → display suffix (pct appends %, usd uses the USD abbreviation, etc.; the vocabulary belongs to the formatter). */
 export function formatUnitSuffix(unit: string, locale: string = "zh-CN"): string {
+  if (unit === "thousands" && isZh(locale)) return "千";
+  if (unit === "usd_millions" && isZh(locale)) return "百万美元";
+  if (unit === "usd_billions" && isZh(locale)) return "十亿美元";
+  if (unit === "usd_per_eur" && isZh(locale)) return "美元/欧元";
+  if (unit === "jpy_per_usd" && isZh(locale)) return "日元/美元";
+  if (unit === "cny_per_usd" && isZh(locale)) return "人民币/美元";
   const base = UNIT_SUFFIX_WORDS[unit] ?? "";
   if (unit === "usd") return base;
   if (unit === "bps") return isZh(locale) ? "bp" : base;

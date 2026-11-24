@@ -200,7 +200,12 @@ class DolClaimsProvider(BaseProvider):
             raise ProviderError("DOL UI claims: invalid date range") from exc
         if start_day > end_day or (end_day - start_day).days > 6 * 366:
             raise ProviderError("DOL UI claims: date range is invalid or exceeds six years")
-        rows, _ = self._fetch(start_day.isoformat(), end_day.isoformat())
+        try:
+            rows, _ = self._fetch(start_day.isoformat(), end_day.isoformat())
+        except ProviderError as exc:
+            if "report is not yet publicly released" not in str(exc):
+                raise
+            rows = {series: [] for series in SERIES_PATHS}
         combined = {row["date"]: row for row in rows[series_id]}
         for row in self._fetch_advance_release()[series_id]:
             if start_day <= date.fromisoformat(row["date"]) <= end_day:

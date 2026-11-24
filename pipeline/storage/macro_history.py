@@ -22,6 +22,7 @@ from typing import Any
 
 from pipeline.collectors.macro import FREQ_SPEC
 from pipeline.macro_history import treasury_window_rows
+from pipeline.providers.federal_reserve_data import FEDERAL_RESERVE_MONTHLY_SERIES
 from pipeline.providers.fred import DEFAULT_SERIES_META, SERIES_CATALOG
 
 SLICES = ("30d", "90d")
@@ -54,7 +55,7 @@ def build_manifest(
         frequency = (
             "monthly"
             if source == "Federal Reserve Board"
-            and series in {"DTWEXBGS", "DTWEXAFEGS", "DEXUSEU", "DEXJPUS", "DEXCHUS"}
+            and series in FEDERAL_RESERVE_MONTHLY_SERIES
             else "weekly" if source == "U.S. Department of Labor" else meta.get("frequency", "daily")
         )
         last_date = rows[-1]["date"] if rows else None
@@ -139,11 +140,20 @@ def write_macro_history(writer: Any, series_history: dict[str, list[dict[str, An
             by_group[group_of[series]].append(series)
 
     bundle_count = 0
+    window_end = as_of_date or date.today()
     for group, series_list in by_group.items():
         rows = {s: rows_by_series[s] for s in series_list if s in rows_by_series}
         for slice_name in SLICES:
             window = 30 if slice_name == "30d" else 90
-            sliced = {s: r[-window:] for s, r in rows.items()}
+            start_date = window_end - timedelta(days=window - 1)
+            sliced = {
+                series: [
+                    row for row in series_rows
+                    if start_date.isoformat() <= row["date"] <= window_end.isoformat()
+                ]
+                for series, series_rows in rows.items()
+            }
+            sliced = {series: series_rows for series, series_rows in sliced.items() if series_rows}
             writer.write_json(macro_dir / f"{group}.{slice_name}.json", build_bundle(sliced))
             bundle_count += 1
     writer.write_json(macro_dir / "index.json", build_manifest(rows_by_series, groups, series_sources=series_sources))

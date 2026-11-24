@@ -19,7 +19,8 @@
     "label": "Filter by importance",
     "all": "All",
     "high": "High",
-    "mediumPlus": "Medium+"
+    "mediumPlus": "Medium+",
+    "resultCount": "{{count}} announcements shown"
   },
   "translationUnavailable": "Translation unavailable"
 }

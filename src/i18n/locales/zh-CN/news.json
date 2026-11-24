@@ -19,7 +19,8 @@
     "label": "按重要性筛选",
     "all": "全部",
     "high": "高",
-    "mediumPlus": "中及以上"
+    "mediumPlus": "中及以上",
+    "resultCount": "显示 {{count}} 条公告"
   },
   "translationUnavailable": "暂无本语言翻译"
 }

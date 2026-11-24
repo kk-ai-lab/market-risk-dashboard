@@ -45,7 +45,8 @@
   },
   "filter": {
     "label": "按类型筛选",
-    "all": "全部"
+    "all": "全部",
+    "resultCount": "显示 {{count}} 项日程"
   },
   "display": {
     "earningsSuffix": "财报",

@@ -177,9 +177,8 @@ def test_macro_lookback_boundary() -> None:
     rows = [{"value": float(i)} for i in range(25)]
     assert _change(rows, 21) == 24.0 - 3.0  # v[24] - v[3]
 
-    # A series shorter than the lookback spans the whole series (clamp at the oldest).
     short = [{"value": float(i)} for i in range(10)]
-    assert _change(short, 21) == 9.0 - 0.0
+    assert _change(short, 21) is None
 
     # The lookback must NOT include the extra (closer) period.
     assert _change(rows, 21) != 24.0 - 4.0

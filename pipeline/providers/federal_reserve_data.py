@@ -22,6 +22,15 @@ from pipeline.providers.base import (
 from pipeline.utils import now_utc
 
 DDP_ROOT = "https://www.federalreserve.gov/datadownload/"
+G17_DATA_URL = "https://www.federalreserve.gov/releases/g17/Current/ipdisk/ip_sa.txt"
+G17_SERIES = {
+    "IPGMF": "GMF",
+    "IPG334": "G334",
+    "IPG3344": "G3344",
+}
+FEDERAL_RESERVE_MONTHLY_SERIES = frozenset({
+    "DTWEXBGS", "DTWEXAFEGS", "DEXUSEU", "DEXJPUS", "DEXCHUS", *G17_SERIES,
+})
 DDP_CHOICES = {
     "H41": ("Choose.aspx?rel=H41", {"table1": "Table 1", "table5": "Table 5"}),
     "H10": ("Choose.aspx?rel=H10", {"monthly_index": "Monthly Indexes", "monthly_rates": "Monthly rates"}),
@@ -38,7 +47,7 @@ H10_COLUMNS = {
     "DEXCHUS": ("monthly_rates", "CHINA -- SPOT EXCHANGE RATE, YUAN/US$"),
     "DEXJPUS": ("monthly_rates", "JAPAN -- SPOT EXCHANGE RATE, YEA/US$"),
 }
-SUPPORTED_SERIES = frozenset(H41_COLUMNS) | frozenset(H10_COLUMNS)
+SUPPORTED_SERIES = frozenset(H41_COLUMNS) | frozenset(H10_COLUMNS) | frozenset(G17_SERIES)
 
 
 class _PackageParser(HTMLParser):
@@ -46,6 +55,8 @@ class _PackageParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.packages: dict[str, dict[str, str]] = {}
         self.download_href: str | None = None
+        self.package_select = False
+        self.active_option: dict[str, str] | None = None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attributes = {key: value or "" for key, value in attrs}
@@ -54,15 +65,31 @@ class _PackageParser(HTMLParser):
                 "value": attributes.get("value", ""),
                 "for": attributes["id"],
             }
+        if tag == "select":
+            self.package_select = attributes.get("id") == "FreqRequestList"
+        if tag == "option" and self.package_select:
+            self.active_option = {"value": attributes.get("value", ""), "label": ""}
         if tag == "a" and attributes.get("id") == "DataURL":
             self.download_href = attributes.get("href")
 
     def handle_data(self, data: str) -> None:
-        # DDP's labels are the sibling <label for="FreqRequest_n"> element.
-        if self.packages:
+        if self.active_option is not None:
+            self.active_option["label"] += data
+        if self.packages and getattr(self, "active_label", None) is not None:
             for package in self.packages.values():
                 if package.get("for") == getattr(self, "active_label", None):
                     package["label"] = (package.get("label", "") + data).strip()
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "option" and self.active_option is not None:
+            package = self.active_option
+            self.packages[f"option_{len(self.packages)}"] = {
+                "value": package["value"],
+                "label": " ".join(package["label"].split()),
+            }
+            self.active_option = None
+        elif tag == "select":
+            self.package_select = False
 
 
 class _PackageLabelParser(_PackageParser):
@@ -71,6 +98,8 @@ class _PackageLabelParser(_PackageParser):
         attributes = dict(attrs)
         if tag == "label":
             self.active_label = attributes.get("for")
+        elif tag in {"select", "option"}:
+            self.active_label = None
         elif tag not in {"label"}:
             self.active_label = None
 
@@ -107,7 +136,7 @@ class FederalReserveDataProvider(BaseProvider):
                 checked_at=now_utc(),
             )
 
-    def _get_text(self, url: str, *, params: dict[str, str] | None = None) -> str:
+    def _get_text(self, url: str, *, params: dict[str, str] | None = None, max_bytes: int = MAX_RESPONSE_BYTES) -> str:
         try:
             with self._client.stream("GET", url, params=params, follow_redirects=False) as response:
                 if response.status_code != 200:
@@ -115,13 +144,13 @@ class FederalReserveDataProvider(BaseProvider):
                     raise ProviderError("Federal Reserve DDP: expected HTTP 200")
                 body = bytearray()
                 for chunk in response.iter_bytes(chunk_size=64 * 1024):
-                    if len(body) + len(chunk) > MAX_RESPONSE_BYTES:
+                    if len(body) + len(chunk) > max_bytes:
                         raise ProviderError("Federal Reserve DDP: response exceeds size limit")
                     body.extend(chunk)
                 content_type = response.headers.get("content-type", "").lower()
         except httpx.HTTPError as exc:
             raise ProviderError.from_exception(exc, detail="Federal Reserve DDP request failed") from exc
-        if not content_type.startswith(("text/csv", "text/html")):
+        if not content_type.startswith(("text/csv", "text/html", "text/plain")):
             raise ProviderError("Federal Reserve DDP: unexpected content type")
         try:
             return body.decode("utf-8-sig")
@@ -188,6 +217,8 @@ class FederalReserveDataProvider(BaseProvider):
             raise ProviderError("Federal Reserve Board: invalid date range") from exc
         if start_day > end_day or (end_day - start_day).days > 5 * 366:
             raise ProviderError("Federal Reserve Board: date range is invalid or exceeds five years")
+        if series_id in G17_SERIES:
+            return self._g17_series(series_id, start_day=start_day, end_day=end_day)
         package_key, column = (H41_COLUMNS if series_id in H41_COLUMNS else H10_COLUMNS)[series_id]
         release = "H41" if series_id in H41_COLUMNS else "H10"
         fetched_at = now_utc()
@@ -210,4 +241,34 @@ class FederalReserveDataProvider(BaseProvider):
         output.sort(key=lambda item: item["date"])
         if not output:
             raise ProviderError(f"Federal Reserve Board: no approved observation for {series_id}")
+        return output
+
+    def _g17_series(self, series_id: str, *, start_day: date, end_day: date) -> list[dict[str, Any]]:
+        text = self._get_text(G17_DATA_URL, max_bytes=4 * 1024 * 1024)
+        fetched_at = now_utc()
+        output: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for line in text.splitlines():
+            fields = line.split()
+            if len(fields) < 3 or fields[0].strip('"') != G17_SERIES[series_id]:
+                continue
+            try:
+                year = int(fields[1])
+                values = fields[2:14]
+                for month, raw in enumerate(values, start=1):
+                    if raw == "-":
+                        continue
+                    observed = date(year, month, 1)
+                    key = observed.isoformat()
+                    value = float(raw)
+                    if not math.isfinite(value) or key in seen:
+                        raise ValueError
+                    seen.add(key)
+                    if start_day.replace(day=1) <= observed <= end_day.replace(day=1):
+                        output.append({"date": key, "value": value, "fetched_at": fetched_at})
+            except (OverflowError, TypeError, ValueError):
+                raise ProviderError("Federal Reserve G.17: invalid or duplicate observation")
+        output.sort(key=lambda item: item["date"])
+        if not output:
+            raise ProviderError(f"Federal Reserve G.17: no approved observation for {series_id}")
         return output

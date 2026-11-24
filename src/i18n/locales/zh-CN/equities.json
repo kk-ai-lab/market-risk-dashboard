@@ -42,6 +42,11 @@
     "degraded": "中国股票存储数据源降级（预期 11 只，当前可用 0 只）",
     "note": "数据源反爬容错：失败时保留最近一次有效数据"
   },
+  "empty": {
+    "publicPricesUnavailable": "目前没有确认可公开再分发的免费美股或 A 股行情源。已获批的行业统计见“板块”。",
+    "pricesUnavailable": "股票行情暂时无法获取。",
+    "viewStatus": "查看数据状态"
+  },
   "sort": {
     "activate": "按"
   }

@@ -65,6 +65,13 @@ const config: Config = {
         md: "calc(var(--radius) - 1px)",
         sm: "calc(var(--radius) - 2px)",
       },
+      transitionDuration: {
+        "motion-quick": "120ms",
+        "motion-standard": "180ms",
+      },
+      transitionTimingFunction: {
+        "motion-standard": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+      },
     },
   },
   plugins: [],

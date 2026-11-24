@@ -10,7 +10,12 @@
     "commodities": "商品",
     "crypto": "加密",
     "themes": "板块",
-    "empty": "暂无数据"
+    "empty": "暂无数据",
+    "industryOutput": "行业产出",
+    "industryOutputUnavailable": "目前暂无官方行业产出数据。",
+    "publicQuotesUnavailable": "目前没有获准公开再分发的板块或主题行情。",
+    "quotesUnavailable": "板块和主题行情暂时无法获取。",
+    "viewStatus": "查看数据状态"
   },
   "commodities": {
     "na": "暂无商品数据",

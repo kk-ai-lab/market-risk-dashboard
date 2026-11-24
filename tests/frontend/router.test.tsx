@@ -47,7 +47,7 @@ afterEach(() => {
 });
 
 describe("route rendering (fixtures data)", () => {
-  it.each(["zh", "en"])("discloses evidence and proxy drivers on the overview in %s", async (locale) => {
+  it.each(["zh", "en"])("discloses evidence without a confidence interval on the overview in %s", async (locale) => {
     const dashboard = DashboardEnvelope.parse(FIXTURE_MAP["/latest/dashboard.json"]);
     dashboard.payload.risk.evidence_coverage = 0.65;
     dashboard.payload.risk.score_lower_bound = 40;
@@ -59,7 +59,7 @@ describe("route rendering (fixtures data)", () => {
     const evidence = await screen.findByTestId("overview-risk-evidence");
     expect(evidence).toHaveTextContent(locale === "zh" ? "证据不完整" : "Partial evidence");
     expect(evidence).toHaveTextContent("65%");
-    expect(evidence).toHaveTextContent("40–70");
+    expect(evidence).not.toHaveTextContent("40–70");
     expect(within(screen.getByTestId("top-drivers")).getByText(locale === "zh" ? "代理" : "Proxy")).toBeInTheDocument();
   });
 
@@ -75,7 +75,7 @@ describe("route rendering (fixtures data)", () => {
     renderApp();
     const evidence = await screen.findByTestId("overview-risk-evidence");
     expect(evidence).toHaveTextContent(locale === "zh" ? "证据状态未知" : "Evidence status unknown");
-    expect(within(evidence).getAllByText("—")).toHaveLength(2);
+    expect(within(evidence).getAllByText("—")).toHaveLength(1);
     expect(evidence).not.toHaveTextContent("52.3–52.3");
   });
 

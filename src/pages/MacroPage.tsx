@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { useDataset } from "@/hooks/useDataset";
@@ -14,7 +15,7 @@ import { StatusBadge } from "@/components/layout/StatusBadge";
 
 // #96 (uses #84): seven groups incl. the new `volatility` (VIX is an implied-volatility
 // index, not a rate) — mirrors risk_model.yaml's dimensions.
-const SECTIONS = ["rates", "credit", "volatility", "inflation", "labor", "liquidity", "fx"] as const;
+const SECTIONS = ["rates", "credit", "volatility", "inflation", "labor", "liquidity", "fx", "industry"] as const;
 type MacroGroup = (typeof SECTIONS)[number];
 
 /** history/macro/{group}.{slice}.json — sparse column-oriented per-series history (#84 §3). */
@@ -25,10 +26,10 @@ const MacroBundleSchema = z.record(z.string(), z.object({ d: z.array(z.string())
  * + FedWatch + cross-sectional chart + per-group 30d history chart).
  */
 export default function MacroPage() {
-  const { t } = useTranslation("macro");
+  const { t, i18n } = useTranslation("macro");
   const macroQ = useDataset<MacroEnvelope>("macro");
   const [historyGroup, setHistoryGroup] = useState<MacroGroup>("fx");
-  const [historySlice, setHistorySlice] = useState<"30d" | "90d">("30d");
+  const [historySlice, setHistorySlice] = useState<"30d" | "90d">("90d");
 
   const chartItems = useMemo(
     () => macroQ.data?.payload.rates.concat(macroQ.data.payload.credit)
@@ -45,6 +46,22 @@ export default function MacroPage() {
     { slice: `${historyGroup}.${historySlice}` },
     MacroBundleSchema,
   );
+  const historyUnits = new Map((macroQ.data?.payload[historyGroup] ?? []).map((indicator) => [indicator.key.toUpperCase(), indicator.unit]));
+  const historyBundle: MacroBundle = Object.fromEntries(
+    Object.entries(historyQ.data ?? {}).map(([series, columns]) => [series, { ...columns, unit: historyUnits.get(series) ?? "level" }]),
+  );
+  const historyGroups = SECTIONS.filter((group) =>
+    (macroQ.data?.payload[group] ?? []).some((indicator) => indicator.value !== null),
+  );
+  const isMonthlyGroup = (group: MacroGroup) => {
+    const available = macroQ.data?.payload[group].filter((indicator) => indicator.value !== null) ?? [];
+    return available.length > 0 && available.every((indicator) => indicator.observation_period !== null);
+  };
+  const monthlyHistory = isMonthlyGroup(historyGroup);
+  const selectHistoryGroup = (group: MacroGroup) => {
+    setHistoryGroup(group);
+    setHistorySlice(isMonthlyGroup(group) ? "90d" : "30d");
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -62,52 +79,48 @@ export default function MacroPage() {
         <ErrorState onRetry={macroQ.refetch} />
       ) : macroQ.data ? (
         <>
-          {/* Cross-sectional chart (market pricing: rates + credit + volatility) — open region */}
           <section className="border-t border-hairline pt-4">
             <h2 className="mb-2 text-sm font-medium text-foreground">{t("chart.title")}</h2>
             <MacroChart
-                // Cross-sectional market pricing stays rates + credit: VIX (~17) on the
-                // same linear axis would flatten the % bars (review, #96) — volatility
-                // renders in its own section and history instead.
               items={chartItems}
-              />
+            />
           </section>
 
-          {/* Sectioned indicator cards */}
           <div className="flex flex-col gap-4 border-t border-hairline pt-4">
             {SECTIONS.map((section) => {
               const indicators = macroQ.data?.payload[section] ?? [];
               if (indicators.length === 0) {
-                return (
-                  <section key={section} data-testid={`section-${section}`}>
-                    <h2 className="mb-2 text-sm font-medium text-foreground">{t(`section.${section}`)}</h2>
-                    <EmptyState title={t("section.empty")} />
-                  </section>
-                );
+                return null;
               }
+              const publicIndicators = indicators.filter((indicator) => indicator.availability_reason !== "public_source_unlicensed");
+              const hasRestrictedRows = publicIndicators.length < indicators.length;
+              const statusPath = i18n.language.startsWith("zh") ? "/zh/status" : "/en/status";
               return (
                 <section key={section} data-testid={`section-${section}`}>
                   <h2 className="mb-2 text-sm font-medium text-foreground">{t(`section.${section}`)}</h2>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {indicators.map((ind) => (
+                  {publicIndicators.length > 0 ? <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {publicIndicators.map((ind) => (
                       <MacroIndicatorCard key={ind.key} indicator={ind} />
                     ))}
-                  </div>
+                  </div> : null}
+                  {hasRestrictedRows ? <p className="text-xs text-muted-foreground" data-testid={`section-${section}-restricted`}>
+                    {t("section.publicSourceRestricted")} <Link className="underline underline-offset-2 hover:text-foreground" to={statusPath}>{t("section.viewStatus")}</Link>
+                  </p> : null}
                 </section>
               );
             })}
           </div>
 
-          {/* Per-group 30d history (#96: history stored in the #84 shape, charted here) */}
           <section className="border-t border-hairline pt-4" data-testid="section-history">
-            <h2 className="mb-2 text-sm font-medium text-foreground">{t("history.title")}</h2>
+            <h2 className="mb-2 text-sm font-medium text-foreground">{t("history.title", { slice: historySlice })}</h2>
             <div className="mb-2 flex flex-wrap items-center gap-1.5">
-              {SECTIONS.map((group) => (
+              {historyGroups.map((group) => (
                 <button
                   key={group}
                   type="button"
-                  onClick={() => setHistoryGroup(group)}
-                  className={`rounded-full border px-2.5 py-0.5 text-xs min-h-[28px] transition-colors ${
+                  onClick={() => selectHistoryGroup(group)}
+                  aria-pressed={historyGroup === group}
+                  className={`rounded-full border px-2.5 py-0.5 text-xs min-h-[28px] transition-[color,background-color,border-color,opacity,transform] duration-motion-quick ease-motion-standard ${
                     historyGroup === group
                       ? "border-fresh-ok/40 bg-fresh-ok/10 text-fresh-ok"
                       : "border-hairline text-muted-foreground hover:text-foreground"
@@ -117,12 +130,13 @@ export default function MacroPage() {
                 </button>
               ))}
               <span className="ml-auto flex gap-1.5">
-                {(["30d", "90d"] as const).map((slice) => (
+                {(monthlyHistory ? ["90d"] as const : ["30d", "90d"] as const).map((slice) => (
                   <button
                     key={slice}
                     type="button"
                     onClick={() => setHistorySlice(slice)}
-                    className={`rounded-full border px-2.5 py-0.5 text-xs min-h-[28px] transition-colors ${
+                    aria-pressed={historySlice === slice}
+                    className={`rounded-full border px-2.5 py-0.5 text-xs min-h-[28px] transition-[color,background-color,border-color,opacity,transform] duration-motion-quick ease-motion-standard ${
                       historySlice === slice
                         ? "border-fresh-ok/40 bg-fresh-ok/10 text-fresh-ok"
                         : "border-hairline text-muted-foreground hover:text-foreground"
@@ -138,17 +152,18 @@ export default function MacroPage() {
             ) : historyQ.isError ? (
               <ErrorState onRetry={historyQ.refetch} />
             ) : historyQ.data ? (
-              <MacroHistoryChart bundle={historyQ.data} />
+              <MacroHistoryChart bundle={historyBundle} />
             ) : (
               <EmptyState title={t("history.empty")} />
             )}
           </section>
 
-          {/* FedWatch */}
-          <section className="border-t border-hairline pt-4" data-testid="section-fedwatch">
-            <h2 className="mb-2 text-sm font-medium text-foreground">{t("fedwatch.title")}</h2>
-            <RateExpectationCard fedwatch={macroQ.data.payload.fedwatch} />
-          </section>
+          {macroQ.data.payload.fedwatch ? (
+            <section className="border-t border-hairline pt-4" data-testid="section-fedwatch">
+              <h2 className="mb-2 text-sm font-medium text-foreground">{t("fedwatch.title")}</h2>
+              <RateExpectationCard fedwatch={macroQ.data.payload.fedwatch} />
+            </section>
+          ) : null}
         </>
       ) : (
         <EmptyState title={t("common:empty.title")} />

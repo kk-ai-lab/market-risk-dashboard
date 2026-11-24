@@ -57,7 +57,24 @@ run_with_timeout() {
 #: .git/ by default: never committed, never pushed. SCHEDULED_LOCK_MODE forces a
 #: mechanism ("flock"|"mkdir") - tests need determinism on hosts that have one but not
 #: the other.
-LOCK_DIR="${SCHEDULED_LOCK_DIR:-$ROOT/.git/scheduled.lock}"
+if [[ -d "$ROOT/.git" ]]; then
+  GIT_METADATA_DIR="$ROOT/.git"
+elif [[ -f "$ROOT/.git" ]]; then
+  GIT_METADATA_POINTER="$(sed -n 's/^gitdir: //p' "$ROOT/.git")"
+  if [[ "$GIT_METADATA_POINTER" = /* ]]; then
+    GIT_METADATA_DIR="$GIT_METADATA_POINTER"
+  else
+    GIT_METADATA_DIR="$ROOT/$GIT_METADATA_POINTER"
+  fi
+else
+  echo "[scheduled] error: Git metadata directory is unavailable" >&2
+  exit 10
+fi
+if [[ ! -d "$GIT_METADATA_DIR" ]]; then
+  echo "[scheduled] error: Git metadata directory is unavailable: $GIT_METADATA_DIR" >&2
+  exit 10
+fi
+LOCK_DIR="${SCHEDULED_LOCK_DIR:-$GIT_METADATA_DIR/scheduled.lock}"
 LOCK_STALE_SECS="${SCHEDULED_LOCK_STALE:-7200}"
 FLOCK_BIN=""
 if command -v flock >/dev/null 2>&1; then

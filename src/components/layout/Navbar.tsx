@@ -81,7 +81,7 @@ export function Navbar() {
               aria-label={t(`nav.${page}`)}
               className={({ isActive }) =>
                 cn(
-                  "flex min-h-11 flex-1 shrink-0 flex-col justify-center gap-0.5 rounded-md px-1 py-2 text-xs font-medium transition-colors sm:min-h-0 sm:flex-none sm:flex-row sm:items-center sm:gap-1.5 sm:px-2.5 sm:py-1.5",
+                  "flex min-h-11 flex-1 shrink-0 flex-col justify-center gap-0.5 rounded-md px-1 py-2 text-xs font-medium transition-[color,background-color,border-color,opacity,transform] duration-motion-quick ease-motion-standard sm:min-h-0 sm:flex-none sm:flex-row sm:items-center sm:gap-1.5 sm:px-2.5 sm:py-1.5",
                   !directPages.has(page) && "hidden sm:flex",
                   isActive
                     ? "bg-primary/10 text-primary"
@@ -112,7 +112,7 @@ export function Navbar() {
               <MoreHorizontal className="h-4 w-4" aria-hidden />
               <span>{t("nav.more")}</span>
             </button>
-            {moreOpen ? <div className="absolute right-0 top-full z-50 mt-1 min-w-40 rounded-md border border-border bg-surface-2 p-1 shadow-lg" role="menu">
+            {moreOpen ? <div className="content-transition absolute right-0 top-full z-50 mt-1 min-w-40 rounded-md border border-border bg-surface-2 p-1 shadow-lg" role="menu">
               {morePages.map((page) => {
                 const Icon = PAGE_ICONS[page];
                 return (
@@ -121,7 +121,7 @@ export function Navbar() {
                     to={`/${segment}/${page}`}
                     className={({ isActive }) =>
                       cn(
-                        "flex min-h-11 items-center gap-2 rounded px-2 py-2 text-xs font-medium",
+                        "flex min-h-11 items-center gap-2 rounded px-2 py-2 text-xs font-medium transition-[color,background-color,border-color,opacity,transform] duration-motion-quick ease-motion-standard",
                         isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground",
                       )
                     }

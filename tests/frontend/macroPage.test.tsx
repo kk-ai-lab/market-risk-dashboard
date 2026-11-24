@@ -5,12 +5,6 @@ import "@/i18n";
 import { installFixtureFetch } from "./helpers/fetchMock";
 import MacroPage from "@/pages/MacroPage";
 
-/**
- * MacroPage coverage (#96 — the page previously had no tests): the eight sections all
- * render (incl. the new `volatility` group for VIX), and the per-group 30d history
- * section charts the sparse bundles (HTML fallback in jsdom).
- */
-
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -29,34 +23,38 @@ afterEach(() => {
 });
 
 describe("MacroPage", () => {
-  it("renders all eight sections including the volatility group", async () => {
+  it("renders populated sections and hides empty groups", async () => {
     renderPage();
-    // All seven indicator sections render (every one is populated in the fixture).
     for (const section of ["rates", "credit", "volatility", "inflation", "labor", "liquidity", "fx"]) {
       expect(await screen.findByTestId(`section-${section}`)).toBeInTheDocument();
     }
-    // The volatility section carries the VIX indicator (moved out of rates, #84 §5) —
-    // it also appears in the cross-sectional chart, so match both.
+    expect(screen.queryByTestId("section-industry")).not.toBeInTheDocument();
     expect(screen.getAllByText("波动率指数").length).toBeGreaterThanOrEqual(1);
-    // Rates still render the 10Y (card + chart).
     expect(screen.getAllByText("十年期国债收益率").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByTestId("section-fedwatch")).not.toBeInTheDocument();
   });
 
-  it("charts the selected group's 30d history from the sparse bundle", async () => {
+  it("shows the actual history window beside the selected group", async () => {
     renderPage();
-    // History section renders; default group is fx → the bundle fallback table shows the
-    // series names (jsdom has no canvas → HTML fallback is the testable surface).
     const historySection = await screen.findByTestId("section-history");
     expect(historySection).toBeInTheDocument();
+    expect(historySection).toHaveTextContent("历史走势（90d）");
     expect(await screen.findByTestId("macro-history-fallback")).toBeInTheDocument();
     expect(screen.getByText("DTWEXBGS")).toBeInTheDocument();
     expect(screen.getByText("DEXUSEU")).toBeInTheDocument();
   });
 
-  it("switches the history window to 90d (consuming the 90d bundles, #84 §3)", async () => {
+  it("updates the history window label when the group changes", async () => {
+    renderPage();
+    const historySection = await screen.findByTestId("section-history");
+    expect(historySection).toHaveTextContent("历史走势（90d）");
+    fireEvent.click(screen.getByRole("button", { name: "利率" }));
+    expect(historySection).toHaveTextContent("历史走势（30d）");
+  });
+
+  it("switches the history window to 90d", async () => {
     renderPage();
     await screen.findByTestId("macro-history-fallback");
-    // The 30d/90d toggle is the consumer that keeps the 90d bundles live data.
     fireEvent.click(screen.getByRole("button", { name: "90d" }));
     expect(await screen.findByTestId("macro-history-fallback")).toBeInTheDocument();
     expect(screen.getByText("DTWEXBGS")).toBeInTheDocument();

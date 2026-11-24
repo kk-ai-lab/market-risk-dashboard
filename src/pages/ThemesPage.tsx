@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { useDataset } from "@/hooks/useDataset";
-import { CONTRACT_CONSTANTS, type CommoditiesEnvelope, type CryptoEnvelope, type EnergyEnvelope, type EquitiesEnvelope, type SectorsEnvelope } from "@/schemas";
+import { CONTRACT_CONSTANTS, type CommoditiesEnvelope, type CryptoEnvelope, type EnergyEnvelope, type EquitiesEnvelope, type MacroEnvelope, type SectorsEnvelope } from "@/schemas";
+import { FreshnessDocument } from "@/schemas";
 import { MemorySectorTable } from "@/components/equities/MemorySectorTable";
 import { AssetCard } from "@/components/cross-asset/AssetCard";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -16,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { dirTone, dirClasses } from "@/lib/riskColors";
 import { displayCryptoName, displayLocalizedValue } from "@/lib/displayLanguage";
 import { EnergyContextCard } from "@/components/energy/EnergyContextCard";
+import { MacroIndicatorCard } from "@/components/macro/MacroIndicatorCard";
 
 /**
  * ThemesPage: themes page (semis / memory (incl. 11 A-shares) / commodities / crypto).
@@ -83,7 +86,7 @@ function ThemeCard({ theme }: { theme: { key: string; change_1d: number | null; 
                 className="inline-flex min-h-[28px] items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
               >
                 <span>{constituentsOpen ? t("constituents.showFewer") : t("constituents.showAll", { count: theme.constituents.length })}</span>
-                <ChevronRight className={`h-3.5 w-3.5 transition-transform ${constituentsOpen ? "rotate-90" : ""}`} aria-hidden />
+                <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-motion-standard ease-motion-standard ${constituentsOpen ? "rotate-90" : ""}`} aria-hidden />
               </button>
             ) : null}
           </div>
@@ -101,9 +104,14 @@ export default function ThemesPage() {
   const cryptoQ = useDataset<CryptoEnvelope>("crypto");
   const commoditiesQ = useDataset<CommoditiesEnvelope>("commodities");
   const energyQ = useDataset<EnergyEnvelope>("energy");
+  const macroQ = useDataset<MacroEnvelope>("macro");
+  const freshnessQ = useDataset<FreshnessDocument>("freshness", {}, FreshnessDocument);
+  const industryIndicators = macroQ.data?.payload.industry ?? [];
 
   const themes = sectorsQ.data?.payload.themes ?? [];
   const sectors = sectorsQ.data?.payload.sectors ?? [];
+  const pricedThemes = themes.filter((theme) => theme.change_1d !== null || theme.change_1m !== null || theme.percentile_1y !== null);
+  const hasSectorQuoteData = sectors.length > 0 || pricedThemes.length > 0;
   const cnAssets = equitiesQ.data?.payload.assets.filter((a) => a.market === "CN") ?? [];
   const memory = sectorsQ.data?.payload.memory ?? null;
   const cryptoAssets = cryptoQ.data?.payload.assets ?? [];
@@ -116,11 +124,29 @@ export default function ThemesPage() {
           {t("title")}
         </h1>
         <p className="text-xs text-muted-foreground">{t("subtitle")}</p>
-        {sectorsQ.data ? <span className="ml-auto"><StatusBadge dataset="sectors" generatedAt={sectorsQ.data.generated_at} status={sectorsQ.data.freshness_status} fromCache={sectorsQ.data.provenance?.from_cache} withDescription /></span> : null}
+        {sectorsQ.data && hasSectorQuoteData ? <span className="ml-auto"><StatusBadge dataset="sectors" generatedAt={sectorsQ.data.generated_at} status={sectorsQ.data.freshness_status} fromCache={sectorsQ.data.provenance?.from_cache} withDescription /></span> : null}
       </header>
+      {!hasSectorQuoteData && !sectorsQ.isLoading && !sectorsQ.isError && !freshnessQ.isLoading ? <p className="text-xs text-muted-foreground">
+        {t(freshnessQ.data?.datasets.sectors?.reason.code === "source_policy_excluded" ? "section.publicQuotesUnavailable" : "section.quotesUnavailable")} <Link className="underline underline-offset-2 hover:text-foreground" to={locale.startsWith("zh") ? "/zh/status" : "/en/status"}>{t("section.viewStatus")}</Link>
+      </p> : null}
+
+      <section className="border-t border-hairline pt-4" data-testid="section-industry-output">
+        <h2 className="mb-2 text-sm font-medium text-foreground">{t("section.industryOutput")}</h2>
+        {macroQ.isLoading ? (
+          <Skeleton className="h-32 w-full" />
+        ) : macroQ.isError ? (
+          <ErrorState onRetry={macroQ.refetch} />
+        ) : industryIndicators.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {industryIndicators.map((indicator) => <MacroIndicatorCard key={indicator.key} indicator={indicator} />)}
+          </div>
+        ) : (
+          <EmptyState title={t("section.industryOutputUnavailable")} />
+        )}
+      </section>
 
       {/* Semiconductors */}
-      <section className="border-t border-hairline pt-4" data-testid="section-semis">
+      {sectors.length > 0 || sectorsQ.isLoading || sectorsQ.isError ? <section className="border-t border-hairline pt-4" data-testid="section-semis">
         <h2 className="mb-2 text-sm font-medium text-foreground">{t("section.semis")}</h2>
         {sectorsQ.isLoading ? (
           <Skeleton className="h-32 w-full" />
@@ -140,12 +166,12 @@ export default function ThemesPage() {
         ) : (
           <EmptyState title={t("section.empty")} />
         )}
-      </section>
+      </section> : null}
 
       {/* Memory (incl. 11 A-shares) */}
-      <section className="border-t border-hairline pt-4" data-testid="section-memory">
+      {cnAssets.length > 0 || memory ? <section className="border-t border-hairline pt-4" data-testid="section-memory">
         <MemorySectorTable assets={cnAssets} memory={memory} />
-      </section>
+      </section> : null}
 
       {/* Commodities (gold/silver/copper/oil, #118) */}
       <section className="border-t border-hairline pt-4" data-testid="section-commodities">
@@ -252,18 +278,18 @@ export default function ThemesPage() {
       </section>
 
       {/* Theme list (20 themes, #93) */}
-      <section className="border-t border-hairline pt-4" data-testid="section-themes">
+      {pricedThemes.length > 0 ? <section className="border-t border-hairline pt-4" data-testid="section-themes">
         <h2 className="mb-2 text-sm font-medium text-foreground">{t("section.themes")}</h2>
         {themes.length > 0 ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {themes.map((th) => (
+            {pricedThemes.map((th) => (
               <ThemeCard key={th.key} theme={th} />
             ))}
           </div>
         ) : (
           <EmptyState title={t("section.empty")} />
         )}
-      </section>
+      </section> : null}
     </div>
   );
 }
