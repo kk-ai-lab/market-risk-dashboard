@@ -1,5 +1,6 @@
 from pipeline.providers.base import ProviderError
 from pipeline.providers.dol_claims import DolClaimsProvider
+from pypdf.errors import PdfReadError
 
 
 def test_fetch_uses_current_claims_form_contract(monkeypatch) -> None:
@@ -57,6 +58,32 @@ def test_eta539_rows_survive_when_optional_advance_pdf_is_unavailable(monkeypatc
     rows = provider.get_series("ICSA", start="2026-11-01", end="2026-11-24")
 
     assert rows == published["ICSA"]
+
+
+def test_eta539_rows_survive_pdf_reader_errors(monkeypatch) -> None:
+    provider = DolClaimsProvider()
+    published = {
+        "ICSA": [{"date": "2026-11-14", "value": 203.0, "released_on": "2026-11-19"}],
+        "CCSA": [{"date": "2026-11-07", "value": 1763.0, "released_on": "2026-11-19"}],
+    }
+    monkeypatch.setattr(provider, "_fetch", lambda *_args: (published, "2026-11-19"))
+
+    class Response:
+        status_code = 200
+        content = b"not a readable PDF"
+
+    class Client:
+        def get(self, *_args, **_kwargs):
+            return Response()
+
+    provider._client = Client()
+
+    def fail_to_read_pdf(*_args, **_kwargs):
+        raise PdfReadError("malformed PDF")
+
+    monkeypatch.setattr("pipeline.providers.dol_claims.PdfReader", fail_to_read_pdf)
+
+    assert provider.get_series("ICSA", start="2026-11-01", end="2026-11-24") == published["ICSA"]
 
 
 def test_uses_published_release_when_current_eta539_report_is_embargoed(monkeypatch) -> None:

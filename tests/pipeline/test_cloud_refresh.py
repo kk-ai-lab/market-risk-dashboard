@@ -447,6 +447,7 @@ def test_code_only_preserves_data_timestamps_and_calls_no_provider(
 ):
     root, generation = deployed(tmp_path, files)
     paths, settings = setup
+    monkeypatch.setattr(cloud, "now_utc", lambda: STAMP)
     monkeypatch.setattr(cloud, "_collect_approved", lambda *_: pytest.fail("provider called"))
     import scripts.stage_publication as stage
 
@@ -471,6 +472,46 @@ def test_code_only_preserves_data_timestamps_and_calls_no_provider(
         ).read_bytes()
     assert result.collection_logs_dir is None
     assert state.writes == 0
+
+
+def test_code_only_recollects_when_approved_public_data_is_stale(
+    tmp_path, files, setup, monkeypatch
+):
+    root, generation = deployed(tmp_path, files)
+    paths, settings = setup
+    now = "2026-11-15T13:00:00Z"
+    monkeypatch.setattr(cloud, "now_utc", lambda: now)
+    calls = []
+
+    def collect(isolated):
+        calls.append(True)
+        for relative, value in files.items():
+            target = isolated.data_dir / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if relative == "latest/macro.json":
+                value = macro_with_claims(ccsa_fetched_at=now)
+                value["generated_at"] = now
+                for row in value["payload"]["labor"]:
+                    row["fetched_at"] = now
+            target.write_bytes(canonical_json(value))
+        return collected_receipt()
+
+    monkeypatch.setattr(cloud, "_collect_approved", collect)
+    import scripts.stage_publication as stage
+
+    monkeypatch.setattr(stage, "validate_candidate", lambda _: True)
+    state = Store(PublicationState(deployed=generation, last_attempt=1))
+    result = cloud.refresh_cloud(
+        mode="code-only",
+        app_revision=EVENT_REVISION,
+        checkpoint=state,
+        paths=paths,
+        settings=settings,
+        restorer=restorer(root),
+    )
+
+    assert calls == [True]
+    assert result.collection_logs_dir is not None
 
 
 @pytest.mark.parametrize("fingerprint", [None, "0" * 64])

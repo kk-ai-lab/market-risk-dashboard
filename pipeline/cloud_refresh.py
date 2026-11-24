@@ -64,7 +64,13 @@ class ReusePlan:
 
 @dataclass(frozen=True)
 class CollectPlan:
-    reason: Literal["initial_bootstrap", "scheduled", "missing_outputs", "collection_config_changed"]
+    reason: Literal[
+        "initial_bootstrap",
+        "scheduled",
+        "missing_outputs",
+        "collection_config_changed",
+        "approved_public_data_stale",
+    ]
     missing_paths: tuple[str, ...] = ()
 
 
@@ -194,7 +200,12 @@ def _utc_timestamp(value: object) -> datetime:
     return parsed.astimezone(UTC)
 
 
-def _missing_fresh_dol_series(data_dir: Path, settings: Settings) -> tuple[str, ...]:
+def _missing_fresh_dol_series(
+    data_dir: Path,
+    settings: Settings,
+    *,
+    as_of: str | None = None,
+) -> tuple[str, ...]:
     plan = settings.load_public_source_policy().collection_plan(public_output=True)
     required = tuple(
         series_id
@@ -209,6 +220,7 @@ def _missing_fresh_dol_series(data_dir: Path, settings: Settings) -> tuple[str, 
         if not isinstance(envelope, dict) or not isinstance(envelope.get("payload"), dict):
             return required
         generated_at = _utc_timestamp(envelope.get("generated_at"))
+        reference_time = _utc_timestamp(as_of) if as_of is not None else generated_at
         labor = envelope["payload"].get("labor")
         if not isinstance(labor, list):
             return required
@@ -232,7 +244,7 @@ def _missing_fresh_dol_series(data_dir: Path, settings: Settings) -> tuple[str, 
         except (TypeError, ValueError):
             missing.append(series_id)
             continue
-        age = generated_at - fetched_at
+        age = reference_time - fetched_at
         if (
             isinstance(value, bool)
             or not isinstance(value, (int, float))
@@ -795,6 +807,12 @@ def refresh_cloud(
         available_paths=set(manifest["files"]) if manifest is not None else None,
         collection_config_matches=stored_digest == config_digest,
     )
+    if restored is not None and isinstance(plan, ReusePlan):
+        missing_dol_series = _missing_fresh_dol_series(
+            restored, settings, as_of=now_utc()
+        )
+        if missing_dol_series:
+            plan = CollectPlan("approved_public_data_stale")
     if diagnostics is not None:
         diagnostics.record_plan(mode, plan)
     if restored is not None and isinstance(plan, ReusePlan):

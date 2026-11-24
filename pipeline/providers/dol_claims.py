@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 
 from pipeline.providers.base import (
     MAX_RESPONSE_BYTES,
@@ -277,5 +278,5 @@ class DolClaimsProvider(BaseProvider):
             return parsed
         except ProviderError:
             raise
-        except (httpx.HTTPError, OSError, ValueError, TypeError) as exc:
+        except (httpx.HTTPError, OSError, ValueError, TypeError, PdfReadError) as exc:
             raise ProviderError("DOL advance weekly claims: official release could not be parsed") from exc
