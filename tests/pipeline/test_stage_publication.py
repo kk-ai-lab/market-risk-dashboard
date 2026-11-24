@@ -264,13 +264,13 @@ def test_retained_macro_history_is_valid_when_latest_value_is_missing(make_data_
     manifest = json.loads(manifest_path.read_text())
     manifest["series"]["DGS10"].update(
         count=1,
-        last_observation="2026-11-14",
-        next_expected_release="2026-11-16",
+        last_observation="2026-08-03",
+        next_expected_release="2026-08-05",
     )
     manifest_path.write_text(json.dumps(manifest))
     for slice_name in ("30d", "90d"):
         bundle_path = source / "history" / "macro" / f"rates.{slice_name}.json"
-        bundle_path.write_text(json.dumps({"DGS10": {"d": ["2026-11-14"], "v": [4.25]}}))
+        bundle_path.write_text(json.dumps({"DGS10": {"d": ["2026-08-03"], "v": [4.25]}}))
 
     pointer = stage(source, tmp_path / "store")
 

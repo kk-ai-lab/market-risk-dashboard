@@ -26,6 +26,7 @@
     "unknown": "证据状态未知",
     "coverage": "有效覆盖度",
     "scoreRange": "证据分数区间",
+    "hiddenScoreExplanation": "公开数据覆盖不足时，风险分数会暂不显示。",
     "missingIndicators": "缺失或未计分指标",
     "explanation": "分数是点估计。区间仅反映缺失指标取极端值时的变化，不包含模型误差、代理误差或统计不确定性。"
   },

@@ -4,6 +4,8 @@ import type * as echarts from "echarts/core";
 import { chartTheme } from "./theme";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatNumber, formatUnitSuffix } from "@/lib/format";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { useDocumentTheme } from "@/hooks/useDocumentTheme";
 
 /** jsdom / no-canvas environment → fall back to HTML (avoid zrender animation loop crashes). */
 function canvasSupported(): boolean {
@@ -34,6 +36,8 @@ export interface MacroChartProps {
 export function MacroChart({ items, height = 260 }: MacroChartProps) {
   const { t, i18n } = useTranslation("macro");
   const locale = i18n.language;
+  const reducedMotion = useReducedMotion();
+  const theme = useDocumentTheme();
   const ref = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<"echarts" | "fallback">("echarts");
 
@@ -53,6 +57,9 @@ export function MacroChart({ items, height = 260 }: MacroChartProps) {
         chart = charting.init(ref.current);
         const th = chartTheme();
         chart.setOption({
+          animation: !reducedMotion,
+          animationDuration: reducedMotion ? 0 : 180,
+          animationDurationUpdate: reducedMotion ? 0 : 120,
           grid: { left: 8, right: 16, top: 24, bottom: 8, containLabel: true },
           tooltip: {
             trigger: "axis",
@@ -98,7 +105,7 @@ export function MacroChart({ items, height = 260 }: MacroChartProps) {
       window.removeEventListener("resize", onResize);
       chart?.dispose();
     };
-  }, [items, locale, t]);
+  }, [items, locale, reducedMotion, t, theme]);
 
   if (items.length === 0) {
     return <EmptyState title={t("chart.empty")} data-testid="chart-empty" />;

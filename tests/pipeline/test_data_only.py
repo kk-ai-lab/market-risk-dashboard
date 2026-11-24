@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from datetime import timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -264,8 +264,9 @@ def test_full_collection_keeps_source_news_without_ai(tmp_path: Path, monkeypatc
     payloads["macro"] = registry.require("macro").model.model_fields["payload"].annotation.model_validate(
         make_macro_roster_payload(include_live_rate=True)
     )
+    next(item for item in payloads["macro"].rates if item.key == "dgs10").observation_date = date.today().isoformat()
     series_history = {
-        series_id.lower(): ([{"date": TODAY_ISO_DATE, "value": 4.25}] if series_id == "DGS10" else [])
+        series_id.lower(): ([{"date": date.today().isoformat(), "value": 4.25}] if series_id == "DGS10" else [])
         for series_id in DEFAULT_SERIES
     }
     market = {

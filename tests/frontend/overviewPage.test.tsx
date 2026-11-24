@@ -1,5 +1,6 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
 import OverviewPage from "@/pages/OverviewPage";
@@ -10,7 +11,9 @@ function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <OverviewPage />
+      <MemoryRouter initialEntries={["/en/overview"]}>
+        <OverviewPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -53,7 +56,7 @@ describe("OverviewPage credit indicators", () => {
     );
   });
 
-  it("shows a not-configured state when no approved credit observations exist", async () => {
+  it("hides empty credit cards and links to the source status", async () => {
     const macro = structuredClone(macroFixture);
     macro.payload.credit = [];
     installCustomFetch((url) => {
@@ -63,8 +66,10 @@ describe("OverviewPage credit indicators", () => {
 
     renderPage();
 
-    const credits = await screen.findByTestId("credit-indicators");
-    expect(within(credits).getAllByText("Not configured")).toHaveLength(3);
+    expect(await screen.findByTestId("credit-indicators-unavailable")).toBeInTheDocument();
+    expect(screen.getByTestId("credit-indicators-unavailable")).toHaveTextContent("Credit spread data is temporarily unavailable.");
+    expect(screen.queryByTestId("credit-indicators")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View data status" })).toHaveAttribute("href", "/en/status");
   });
 
   it("shows only announcements from the approved Fed and SEC feeds", async () => {

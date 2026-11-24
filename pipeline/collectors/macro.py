@@ -34,6 +34,7 @@ from pipeline.providers.base import ProviderError, ProviderRegistry
 from pipeline.providers.bls import SERIES as BLS_SERIES
 from pipeline.providers.fred import DEFAULT_SERIES_META, SERIES_CATALOG
 from pipeline.providers.treasury import SERIES as TREASURY_SERIES
+from pipeline.providers.federal_reserve_data import FEDERAL_RESERVE_MONTHLY_SERIES
 from pipeline.schemas import FedWatchSnapshot, MacroDataset, MacroIndicator
 from pipeline.schemas.envelope import SOURCE_POLICY_EXCLUDED_REASON_CODE
 from pipeline.settings import Settings
@@ -52,6 +53,7 @@ SERIES_GROUPS: dict[str, list[str]] = {
     "labor": ["PAYEMS", "UNRATE", "ICSA", "CCSA", "CIVPART"],
     "liquidity": ["WALCL", "WRESBAL", "WTREGEN", "RRPONTSYD", "SOFR"],
     "fx": ["DTWEXBGS", "DTWEXAFEGS", "DEXUSEU", "DEXJPUS", "DEXCHUS"],
+    "industry": ["IPGMF", "IPG334", "IPG3344"],
 }
 
 # #84 §0: the four empty categories were a wiring gap between SERIES_GROUPS (15 ids) and
@@ -87,6 +89,12 @@ class MacroCollector:
         self.collection_plan = collection_plan or (
             self.settings.load_public_source_policy().collection_plan(public_output=True)
             if self.settings.approved_sources_only else None
+        )
+        self._personal_use_macro_series = frozenset(
+            series_id
+            for grant in self.settings.load_public_source_policy().collection_plan().grants
+            if grant.permitted_use == "personal-use"
+            for series_id in grant.macro_series
         )
         self.bls_snapshot = bls_snapshot
         self.treasury_snapshot = treasury_snapshot
@@ -231,6 +239,10 @@ class MacroCollector:
                         key=series_id.lower(), label=catalog["label"], source=source_label, status="missing",
                         attribution=_series_attribution(grant, series_id),
                         unit=_unit(catalog.get("unit", "level")),
+                        availability_reason=(
+                            "public_source_unlicensed"
+                            if grant is None and series_id in self._personal_use_macro_series else None
+                        ),
                     ))
                 elif bls is not None or treasury is not None:
                     catalog = SERIES_CATALOG[series_id]
@@ -243,7 +255,7 @@ class MacroCollector:
             frequency = (
                 "monthly"
                 if grant is not None and grant.provider == "federal_reserve_data"
-                and series_id in {"DTWEXBGS", "DTWEXAFEGS", "DEXUSEU", "DEXJPUS", "DEXCHUS"}
+                and series_id in FEDERAL_RESERVE_MONTHLY_SERIES
                 else catalog.get("frequency", "daily")
             )
             latest_yoy_period_gap = _latest_yoy_period_gap(series_id, rows, bls)
@@ -302,6 +314,7 @@ class MacroCollector:
             labor=groups["labor"],
             liquidity=groups["liquidity"],
             fx=groups["fx"],
+            industry=groups["industry"],
             fedwatch=self._collect_fedwatch() if self.collection_plan is None else None,
         )
 
@@ -531,10 +544,9 @@ def _change(rows: list[dict], lookback: int) -> float | None:
     The base is `lookback` periods before the latest (`rows[-1 - lookback]`); the previous
     off-by-one used `rows[-lookback]`, which is one period closer and understated the span.
     """
-    if len(rows) < 2:
+    if len(rows) <= lookback:
         return None
-    periods = min(lookback, len(rows) - 1)
-    return round(rows[-1]["value"] - rows[-1 - periods]["value"], 6)
+    return round(rows[-1]["value"] - rows[-1 - lookback]["value"], 6)
 
 
 def _unit(unit: str) -> str:
@@ -542,8 +554,14 @@ def _unit(unit: str) -> str:
         return "pct"
     if unit == "usd":
         return "usd"
+    if unit in {"usd_millions", "usd_billions"}:
+        return unit
+    if unit in {"usd_per_eur", "jpy_per_usd", "cny_per_usd"}:
+        return unit
     if unit == "index":
         return "index"
+    if unit == "thousands":
+        return "thousands"
     return "level"
 
 

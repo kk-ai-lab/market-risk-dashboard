@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Outlet } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { LocaleSync } from "@/hooks/useLocale";
@@ -11,6 +12,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
  * - Suspense: route lazy-loading fallback (on-demand ECharts + code splitting).
  */
 export function AppLayout() {
+  const location = useLocation();
+  const pageRoute = location.pathname.replace(/^\/(?:en|zh)(?=\/)/, "");
   return (
     <div className="flex min-h-screen flex-col">
       <LocaleSync />
@@ -25,7 +28,9 @@ export function AppLayout() {
             </div>
           }
         >
-          <Outlet />
+          <div key={pageRoute} className="route-transition">
+            <Outlet />
+          </div>
         </Suspense>
       </main>
       <Footer />

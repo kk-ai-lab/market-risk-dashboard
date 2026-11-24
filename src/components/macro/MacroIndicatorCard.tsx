@@ -19,6 +19,8 @@ export function MacroIndicatorCard({ indicator }: MacroIndicatorCardProps) {
     ? "departmentOfLabor"
     : indicator.source;
   const sourceLabel = t(`sources.${sourceTranslationKey}`, { defaultValue: indicator.source });
+  const pairQuoted = ["usd_per_eur", "jpy_per_usd", "cny_per_usd"].includes(indicator.unit);
+  const valueSuffix = pairQuoted ? "" : formatUnitSuffix(indicator.unit, locale);
   const sourceTermsUrl: Record<string, string> = {
     "New York Fed": "https://www.newyorkfed.org/privacy/termsofuse",
     "Federal Reserve Board": "https://www.federalreserve.gov/disclaimer.htm",
@@ -46,17 +48,21 @@ export function MacroIndicatorCard({ indicator }: MacroIndicatorCardProps) {
       <CardContent className="flex flex-col gap-1">
         <p className="text-2xl font-bold tabular-nums">
           {indicator.value === null ? t("common:data.na") : formatNumber(indicator.value, locale)}
-          {indicator.value !== null ? <span className="ml-1 text-xs font-normal text-muted-foreground">{formatUnitSuffix(indicator.unit, locale)}</span> : null}
+          {indicator.value !== null && valueSuffix ? <span className="text-xs font-normal text-muted-foreground">{indicator.unit === "pct" ? "" : " "}{valueSuffix}</span> : null}
         </p>
         <p className="text-xs text-muted-foreground">
           {indicator.change_1m === null || indicator.change_1m === undefined
             ? t("common:data.na")
-            : `${t("indicator.change1m")} ${indicator.change_1m > 0 ? "+" : ""}${formatNumber(indicator.change_1m, locale)}${formatUnitSuffix(indicator.unit, locale)}`}
+            : `${t("indicator.change1m")} ${indicator.change_1m > 0 ? "+" : ""}${formatNumber(indicator.change_1m, locale, indicator.unit === "usd_billions" ? 6 : 2)}${indicator.unit === "pct" ? "" : " "}${formatUnitSuffix(indicator.unit, locale)}`}
         </p>
-        {indicator.updated_at ? (
+        {indicator.updated_at && !indicator.observation_period && !indicator.observation_date ? (
           <p className="text-xs tabular-nums text-muted-foreground">{formatDateTime(indicator.updated_at, locale)}</p>
         ) : null}
-        {indicator.observation_period ? <p className="text-xs tabular-nums text-muted-foreground">{t("indicator.observationPeriod")}: {indicator.observation_period} · {sourceLabel}</p> : null}
+        {indicator.observation_period ? (
+          <p className="text-xs tabular-nums text-muted-foreground">{t("indicator.observationPeriod")}: {indicator.observation_period} · {sourceLabel}</p>
+        ) : indicator.observation_date ? (
+          <p className="text-xs tabular-nums text-muted-foreground">{t("indicator.observationDate")}: {indicator.observation_date} · {sourceLabel}</p>
+        ) : null}
         {indicator.availability_reason === "latest_yoy_period_unavailable" && indicator.availability_period ? (
           <p className="text-xs text-amber-700 dark:text-amber-300" data-testid="macro-availability-reason">
             {t("indicator.latestYoyPeriodUnavailable", {
@@ -65,7 +71,6 @@ export function MacroIndicatorCard({ indicator }: MacroIndicatorCardProps) {
             })}
           </p>
         ) : null}
-        {indicator.observation_date ? <p className="text-xs tabular-nums text-muted-foreground">{t("indicator.observationDate")}: {indicator.observation_date} · {sourceLabel}</p> : null}
         {indicator.fetched_at ? <p className="text-xs tabular-nums text-muted-foreground">{t("indicator.fetchedAt")}: {formatDateTime(indicator.fetched_at, locale)}</p> : null}
         {indicator.attribution ? (
           <p className="text-xs text-muted-foreground">

@@ -126,7 +126,7 @@ def test_sparse_treasury_history_uses_calendar_window_and_keeps_archive(tmp_path
     archive = json.loads((writer.history_dir / "macro/treasury/DGS10/daily.json").read_text())
     bundle = json.loads((writer.history_dir / "macro/rates.90d.json").read_text())
     assert len(archive) == 4
-    assert bundle["DGS10"] == {"d": ["2025-11-14"], "v": [4.0]}
+    assert "DGS10" not in bundle
 
 
 def test_treasury_calendar_window_clamps_leap_anniversary():

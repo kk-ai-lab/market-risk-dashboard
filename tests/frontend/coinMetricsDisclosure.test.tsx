@@ -1,5 +1,6 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import i18n from "@/i18n";
 import { Footer } from "@/components/layout/Footer";
 import { CryptoEnvelope } from "@/schemas";
@@ -56,7 +57,7 @@ it.each([
       volume_24h: null,
     }));
     state.datasets = { crypto };
-    render(<><ThemesPage /><Footer /></>);
+    render(<MemoryRouter><ThemesPage /><Footer /></MemoryRouter>);
     const section = within(screen.getByTestId("section-crypto"));
     const disclosure = screen.getByTestId("coinmetrics-disclosure");
     expect(disclosure).toHaveTextContent(rateDescription);
@@ -78,7 +79,7 @@ it.each([
 it("does not attribute non-Coin-Metrics crypto data to Coin Metrics", async () => {
   await i18n.changeLanguage("en");
   state.datasets = { crypto: CryptoEnvelope.parse(FIXTURE_MAP["/latest/crypto.json"]) };
-  render(<><ThemesPage /><Footer /></>);
+  render(<MemoryRouter><ThemesPage /><Footer /></MemoryRouter>);
   expect(screen.queryByTestId("coinmetrics-attribution")).not.toBeInTheDocument();
   expect(screen.queryByTestId("coinmetrics-disclosure")).not.toBeInTheDocument();
 });

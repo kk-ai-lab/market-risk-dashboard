@@ -14,6 +14,7 @@ from pipeline.collectors.macro import (
     SERIES_GROUPS,
     MacroCollector,
     _group_of,
+    _change,
     _series_status,
 )
 from pipeline.providers.base import ProviderError
@@ -89,8 +90,8 @@ class TestRoster:
         """#84 §0 root cause: two lists drifted apart. One list now — the fetch loop
         iterates the grouping table, so the mismatch is structurally impossible."""
         assert [s for group in SERIES_GROUPS.values() for s in group] == DEFAULT_SERIES
-        assert len(DEFAULT_SERIES) == 28
-        assert len(set(DEFAULT_SERIES)) == 28  # no duplicates
+        assert len(DEFAULT_SERIES) == 31
+        assert len(set(DEFAULT_SERIES)) == 31
 
     def test_roster_is_complete_against_the_catalog(self) -> None:
         """Every catalog series except the EFFR anchor is in the roster, and the roster
@@ -108,6 +109,7 @@ class TestRoster:
         assert len(SERIES_GROUPS["labor"]) == 5
         assert len(SERIES_GROUPS["liquidity"]) == 5
         assert len(SERIES_GROUPS["fx"]) == 5
+        assert SERIES_GROUPS["industry"] == ["IPGMF", "IPG334", "IPG3344"]
 
 
 class TestCollector:
@@ -147,7 +149,63 @@ class TestCollector:
         assert len(dataset.labor) == 5
         assert len(dataset.liquidity) == 5
         assert len(dataset.fx) == 5
+        assert len(dataset.industry) == 3
         assert "t10yie" in [i.key for i in dataset.inflation]
+
+    def test_approved_g17_series_are_published_as_monthly_industry_data(self, tmp_path: Path, monkeypatch) -> None:
+        settings = Settings(
+            _env_file=None,
+            config_dir=Path(__file__).resolve().parents[2] / "config",
+            artifacts_dir=tmp_path,
+            data_dir=tmp_path / "data",
+        )
+        series = {
+            "IPGMF": [{"date": "2026-09-01", "value": 100.0}, {"date": "2026-10-01", "value": 101.0}],
+            "IPG334": [{"date": "2026-09-01", "value": 150.0}, {"date": "2026-10-01", "value": 151.0}],
+            "IPG3344": [{"date": "2026-09-01", "value": 200.0}, {"date": "2026-10-01", "value": 201.0}],
+        }
+        registry = _FakeRegistry({})
+        monkeypatch.setattr(registry, "resolved_provider", lambda _domain: {"provider": "federal_reserve_data"}, raising=False)
+        collector = MacroCollector(
+            registry,
+            settings,
+            collection_plan=settings.load_public_source_policy().collection_plan(public_output=True),
+            source_series=series,
+        )
+        monkeypatch.setattr("pipeline.collectors.macro.MacroCollector._collect_fedwatch", lambda self: None)
+
+        dataset = collector.collect()[0]
+
+        assert [item.key for item in dataset.industry] == ["ipgmf", "ipg334", "ipg3344"]
+        assert all(item.source == "Federal Reserve Board" for item in dataset.industry)
+        assert all(item.observation_period == "2026-10" for item in dataset.industry)
+        assert all(item.unit == "index" for item in dataset.industry)
+
+    def test_restricted_series_are_marked_as_not_publicly_redistributable(self, tmp_path: Path, monkeypatch) -> None:
+        settings = Settings(
+            _env_file=None,
+            config_dir=Path(__file__).resolve().parents[2] / "config",
+            artifacts_dir=tmp_path,
+            data_dir=tmp_path / "data",
+        )
+        registry = _FakeRegistry({})
+        monkeypatch.setattr(registry, "resolved_provider", lambda _domain: {"provider": "federal_reserve_data"}, raising=False)
+        collector = MacroCollector(
+            registry,
+            settings,
+            collection_plan=settings.load_public_source_policy().collection_plan(public_output=True),
+        )
+        monkeypatch.setattr("pipeline.collectors.macro.MacroCollector._collect_fedwatch", lambda self: None)
+
+        dataset = collector.collect()[0]
+
+        restricted = [*dataset.credit, *dataset.volatility]
+        assert {indicator.key for indicator in restricted} == {
+            "baa10y", "bamlh0a0hym2", "bamlc0a0cm", "vixcls",
+        }
+        assert all(indicator.availability_reason == "public_source_unlicensed" for indicator in restricted)
+        treasury = next(indicator for indicator in dataset.rates if indicator.key == "dgs10")
+        assert treasury.availability_reason is None
 
     def test_units_transform_and_5y_window_are_passed(self, tmp_path: Path, monkeypatch) -> None:
         registry = _FakeRegistry(_all_series_rows())
@@ -232,6 +290,11 @@ class TestCollector:
         cpi = next(i for i in dataset.inflation if i.key == "cpiaucsl")
         assert cpi.change_1m == pytest.approx(monthly[-1]["value"] - monthly[-2]["value"], abs=1e-6)  # 1 row back
 
+    def test_month_change_waits_for_a_full_frequency_lookback(self) -> None:
+        weekly = _rows(5)
+        assert _change(weekly[:2], 4) is None
+        assert _change(weekly, 4) == pytest.approx(4.0)
+
     def test_status_is_frequency_aware(self) -> None:
         """#84 §6b: a row count is not freshness. A monthly series unchanged for 30 days
         is fresh; a daily series 10 days behind is stale."""
@@ -256,13 +319,13 @@ class TestHistory:
         counts = write_macro_history(writer, rows_by_series, SERIES_GROUPS)
 
         # Layer 1: per-series append-only archive.
-        assert counts["archive"] == 28
+        assert counts["archive"] == 31
         archive = tmp_path / "history" / "macro" / "DGS10" / "daily.json"
         assert archive.exists()
         assert len(writer.read_history("macro/DGS10", "daily")) == 100
 
         # Layer 2: per-group 30d/90d bundles (sparse column-oriented) + manifest.
-        assert counts["bundles"] == 14
+        assert counts["bundles"] == 16
         import json
 
         bundle = json.loads((tmp_path / "history" / "macro" / "fx.30d.json").read_text(encoding="utf-8"))
@@ -279,6 +342,31 @@ class TestHistory:
         assert manifest["series"]["WALCL"]["scale"] == "mil_usd"
         assert manifest["series"]["RRPONTSYD"]["scale"] == "bil_usd"
 
+    def test_macro_history_slices_are_calendar_windows_for_monthly_series(self, tmp_path: Path) -> None:
+        import json
+
+        from pipeline.storage.macro_history import write_macro_history
+
+        writer = StorageWriter(tmp_path)
+        monthly_dates = [
+            date(year, month, 1).isoformat()
+            for year in (2024, 2025, 2026)
+            for month in range(1, 13)
+            if (year, month) <= (2026, 10)
+        ]
+        rows = [{"date": day, "value": float(index)} for index, day in enumerate(monthly_dates)]
+        write_macro_history(
+            writer,
+            {"dtwexbgs": rows},
+            SERIES_GROUPS,
+            as_of_date=date(2026, 11, 24),
+        )
+
+        recent = json.loads((tmp_path / "history" / "macro" / "fx.30d.json").read_text())
+        quarter = json.loads((tmp_path / "history" / "macro" / "fx.90d.json").read_text())
+        assert recent == {}
+        assert quarter["DTWEXBGS"]["d"] == ["2026-09-01", "2026-10-01"]
+
     def test_internal_anchor_does_not_leak_into_history(self, tmp_path: Path) -> None:
         """#96 review: when DFF fails and the EFFR anchor succeeds, series_history gains
         `effr` — an internal anchor, not a published series. It must not write a
@@ -292,7 +380,7 @@ class TestHistory:
         rows_by_series["effr"] = _rows(30)  # FedWatch fallback anchor
         counts = write_macro_history(writer, rows_by_series, SERIES_GROUPS)
 
-        assert counts["archive"] == 28  # EFFR excluded
+        assert counts["archive"] == 31
         assert not (tmp_path / "history" / "macro" / "None.30d.json").exists()
         assert not (tmp_path / "history" / "macro" / "EFFR" / "daily.json").exists()
         manifest = json.loads((tmp_path / "history" / "macro" / "index.json").read_text(encoding="utf-8"))
@@ -310,7 +398,7 @@ class TestHistory:
 
         counts = write_macro_history(writer, rows_by_series, SERIES_GROUPS)
 
-        assert counts == {"archive": 1, "bundles": 14}
+        assert counts == {"archive": 1, "bundles": 16}
         manifest = json.loads((tmp_path / "history" / "macro" / "index.json").read_text(encoding="utf-8"))
         assert set(manifest["series"]) == set(DEFAULT_SERIES)
         assert manifest["series"]["DGS10"]["count"] == 2
@@ -332,7 +420,7 @@ class TestHistory:
         writer = StorageWriter(tmp_path)
         counts = write_macro_history(writer, {sid.lower(): [] for sid in DEFAULT_SERIES}, SERIES_GROUPS)
 
-        assert counts == {"archive": 0, "bundles": 14}
+        assert counts == {"archive": 0, "bundles": 16}
         manifest = json.loads((tmp_path / "history" / "macro" / "index.json").read_text(encoding="utf-8"))
         assert set(manifest["series"]) == set(DEFAULT_SERIES)
         assert all(entry["count"] == 0 for entry in manifest["series"].values())

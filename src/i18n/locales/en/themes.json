@@ -10,7 +10,12 @@
     "commodities": "Commodities",
     "crypto": "Crypto",
     "themes": "Sectors",
-    "empty": "No data"
+    "empty": "No data",
+    "industryOutput": "Industry output",
+    "industryOutputUnavailable": "No official industry output observations are available yet.",
+    "publicQuotesUnavailable": "No sector or theme price data has an approved public redistribution source.",
+    "quotesUnavailable": "Sector and theme quotes are temporarily unavailable.",
+    "viewStatus": "View data status"
   },
   "commodities": {
     "na": "No commodity data",

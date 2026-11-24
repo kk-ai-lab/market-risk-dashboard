@@ -21,26 +21,31 @@ const NEWS_FILTERS: NewsFilter[] = ["all", "high", "mediumPlus"];
 /** Thresholds mirror ImportanceBadge (high ≥ 70, medium ≥ 40). */
 const SESSION_KEY = "mrd:news-filter";
 
+function readSavedFilter(): NewsFilter {
+  try {
+    const stored = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(SESSION_KEY) : null;
+    return stored === "high" || stored === "mediumPlus" ? stored : "all";
+  } catch {
+    return "all";
+  }
+}
+
+function storeFilter(filter: NewsFilter): void {
+  try {
+    sessionStorage.setItem(SESSION_KEY, filter);
+  } catch {
+    return;
+  }
+}
+
 export default function NewsPage() {
   const { t, i18n } = useTranslation("news");
   const locale = i18n.language;
   const newsQ = useDataset<NewsEnvelope>("news");
 
-  const [filter, setFilter] = useState<NewsFilter>(() => {
-    let stored: string | null = null;
-    try {
-      stored = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(SESSION_KEY) : null;
-    } catch {
-      // Session storage can be unavailable in private or restricted browsing contexts.
-    }
-    return stored === "high" || stored === "mediumPlus" ? stored : "all";
-  });
+  const [filter, setFilter] = useState<NewsFilter>(readSavedFilter);
   useEffect(() => {
-    try {
-      sessionStorage.setItem(SESSION_KEY, filter);
-    } catch {
-      // Filtering remains in-memory when session storage is unavailable.
-    }
+    storeFilter(filter);
   }, [filter]);
 
   const allItems = (newsQ.data?.payload.items ?? []).filter(isOfficialAnnouncement);
@@ -49,6 +54,13 @@ export default function NewsPage() {
     if (filter === "high") return item.importance >= 70;
     return item.importance >= 40;
   });
+  const visibleFilters = NEWS_FILTERS.filter((key) =>
+    key === "all" || allItems.some((item) => key === "high" ? item.importance >= 70 : item.importance >= 40),
+  );
+
+  useEffect(() => {
+    if (newsQ.data && filter !== "all" && filtered.length === 0) setFilter("all");
+  }, [filter, filtered.length, newsQ.data]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -80,16 +92,16 @@ export default function NewsPage() {
             aria-label={t("filter.label")}
             data-testid="news-filter"
           >
-            {NEWS_FILTERS.map((key) => {
+            {visibleFilters.map((key) => {
               const active = filter === key;
               return (
                 <button
                   key={key}
                   type="button"
-                  onClick={() => setFilter(key)}
+                  onClick={() => setFilter((current) => current === key && key !== "all" ? "all" : key)}
                   aria-pressed={active}
                   className={cn(
-                    "rounded-full border px-2.5 py-1 text-xs min-h-[28px] transition-colors",
+                    "rounded-full border px-2.5 py-1 text-xs min-h-[28px] transition-[color,background-color,border-color,opacity,transform] duration-motion-quick ease-motion-standard",
                     active
                       ? "border-fresh-ok/40 bg-fresh-ok/10 text-fresh-ok"
                       : "border-hairline text-muted-foreground hover:text-foreground",
@@ -100,7 +112,10 @@ export default function NewsPage() {
               );
             })}
           </div>
-          <NewsList items={filtered} />
+          {filter !== "all" ? <span className="sr-only" aria-live="polite" aria-atomic="true">{t("filter.resultCount", { count: filtered.length })}</span> : null}
+          <div key={filter} className="content-transition">
+            <NewsList items={filtered} />
+          </div>
         </div>
       ) : (
         <EmptyState title={t("none")} />

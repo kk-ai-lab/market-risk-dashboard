@@ -27,3 +27,11 @@ it("does not invent an evidence range and names missing inputs", async () => {
   expect(within(dimension).getByText(/Missing or excluded indicators:/)).toHaveTextContent("10Y Real Rate");
   expect(dimension).toHaveTextContent("Trust-adjusted coverage: —");
 });
+
+it("keeps implementation version numbers out of the risk summary", async () => {
+  await i18n.changeLanguage("en");
+  const risk = RiskEnvelope.parse(FIXTURE_MAP["/latest/risk.json"]).payload;
+  render(<RiskDimensionBreakdown result={risk} />);
+  expect(screen.queryByText(risk.model_version)).not.toBeInTheDocument();
+  expect(screen.queryByText(risk.calibration_policy_version ?? "1.0.0")).not.toBeInTheDocument();
+});

@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  scrollbar-gutter: stable;
+}
+
 /* ============================================================
    Design tokens — Dark-first Market Intelligence Terminal (spec #23)
    Dark is the default theme; light overrides via the .light class.
@@ -34,6 +38,9 @@
   --primary-foreground: 14 19 28;
   --destructive: 204 82 82; /* #cc5252 */
   --radius: 0.25rem; /* 4px — terminal, not consumer app */
+  --motion-quick: 120ms;
+  --motion-standard: 180ms;
+  --motion-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* Risk semantic ramp (muted; the only saturated colors at rest) */
   --risk-low: 63 157 120; /* #3f9d78 — quiet teal-green */
@@ -60,6 +67,36 @@
   --input: var(--hairline);
   --accent: var(--surface-2);
   --accent-foreground: var(--foreground);
+}
+
+button,
+[role="button"] {
+  transition-property: color, background-color, border-color, opacity, transform;
+  transition-duration: var(--motion-quick);
+  transition-timing-function: var(--motion-ease-standard);
+}
+
+button:active:not(:disabled),
+[role="button"]:active {
+  transform: scale(0.985);
+}
+
+.route-transition {
+  animation: route-enter var(--motion-standard) var(--motion-ease-standard) both;
+}
+
+.content-transition {
+  animation: content-enter var(--motion-standard) var(--motion-ease-standard) both;
+}
+
+@keyframes route-enter {
+  from { opacity: 0.82; }
+  to { opacity: 1; }
+}
+
+@keyframes content-enter {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Light theme: quiet paper, independently tuned (NOT an inverted dark) */
@@ -115,7 +152,6 @@
     outline: 2px solid rgb(var(--primary));
     outline-offset: 1px;
   }
-  /* Motion law: 150ms ease on hover/focus only; honor reduced motion */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -123,6 +159,11 @@
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+    }
+
+    button:active:not(:disabled),
+    [role="button"]:active {
+      transform: none;
     }
   }
 }

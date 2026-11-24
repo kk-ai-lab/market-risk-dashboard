@@ -1,8 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, beforeEach } from "vitest";
-import { installFixtureFetch } from "./helpers/fetchMock";
-import "@/i18n"; // side-effect: initialize i18n so t(themes.<key>) resolves labels
+import { fixtureForUrl, FIXTURE_MAP, installCustomFetch, installFixtureFetch } from "./helpers/fetchMock";
+import i18n from "@/i18n";
 import ThemesPage from "@/pages/ThemesPage";
 
 /**
@@ -15,7 +16,7 @@ function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ThemesPage />
+      <MemoryRouter><ThemesPage /></MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -57,5 +58,32 @@ describe("ThemesPage", () => {
     renderPage();
     expect(await screen.findByText("尚未配置")).toBeInTheDocument();
     expect(screen.getByText("美国原油周度库存")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["source_policy_excluded", "No sector or theme price data has an approved public redistribution source."],
+    ["provider_http_error", "Sector and theme quotes are temporarily unavailable."],
+  ])("explains empty sector quotes accurately for %s", async (reasonCode, message) => {
+    await i18n.changeLanguage("en");
+    const sectors = structuredClone(FIXTURE_MAP["/latest/sectors.json"]) as {
+      payload: { sectors: unknown[]; themes: unknown[]; memory: unknown };
+    };
+    sectors.payload.sectors = [];
+    sectors.payload.themes = [];
+    sectors.payload.memory = null;
+    const freshness = structuredClone(FIXTURE_MAP["/metadata/freshness.json"]) as {
+      datasets: { sectors: { reason: { code: string; detail: string } } };
+    };
+    freshness.datasets.sectors.reason.code = reasonCode;
+    freshness.datasets.sectors.reason.detail = "";
+    installCustomFetch((url) => {
+      if (url.endsWith("/latest/sectors.json")) return { ok: true, body: sectors };
+      if (url.endsWith("/metadata/freshness.json")) return { ok: true, body: freshness };
+      return fixtureForUrl(url);
+    });
+
+    renderPage();
+
+    expect(await screen.findByText(new RegExp(message))).toBeInTheDocument();
   });
 });

@@ -97,7 +97,7 @@ sources:
     provider: federal_reserve_data
     registry_domain: macro
     datasets: [macro]
-    macro_series: [WALCL, WRESBAL, WTREGEN, DTWEXBGS, DTWEXAFEGS, DEXUSEU, DEXJPUS, DEXCHUS]
+    macro_series: [WALCL, WRESBAL, WTREGEN, DTWEXBGS, DTWEXAFEGS, DEXUSEU, DEXJPUS, DEXCHUS, IPGMF, IPG334, IPG3344]
     market_symbols: []
     license_id: Federal-Reserve-Board-public-domain
     license_url: https://www.federalreserve.gov/disclaimer.htm
@@ -111,6 +111,9 @@ sources:
       DEXUSEU: "Board of Governors of the Federal Reserve System, H.10/G.5 euro-area spot rate, monthly U.S. dollars per euro."
       DEXJPUS: "Board of Governors of the Federal Reserve System, H.10/G.5 Japan spot rate, monthly yen per U.S. dollar."
       DEXCHUS: "Board of Governors of the Federal Reserve System, H.10/G.5 China spot rate, monthly yuan per U.S. dollar."
+      IPGMF: "Board of Governors of the Federal Reserve System, G.17, manufacturing industrial production index, seasonally adjusted."
+      IPG334: "Board of Governors of the Federal Reserve System, G.17, computer and electronic product industrial production index, seasonally adjusted."
+      IPG3344: "Board of Governors of the Federal Reserve System, G.17, semiconductor and other electronic component industrial production index, seasonally adjusted."
     permitted_use: public-domain
     cadence_minutes: 10080
   fred:

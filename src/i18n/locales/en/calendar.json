@@ -45,7 +45,8 @@
   },
   "filter": {
     "label": "Filter by type",
-    "all": "All"
+    "all": "All",
+    "resultCount": "{{count}} events shown"
   },
   "display": {
     "earningsSuffix": "Earnings",

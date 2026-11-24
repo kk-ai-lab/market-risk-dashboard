@@ -58,6 +58,14 @@ function loadJson(rel) {
   return JSON.parse(readFileSync(p, "utf-8"));
 }
 
+function dateInWindow(value, asOf, days) {
+  if (!isValidDate(value) || !isValidDate(asOf)) return false;
+  const observed = Date.parse(`${value}T00:00:00Z`);
+  const end = Date.parse(`${asOf}T00:00:00Z`);
+  const start = end - (days - 1) * 24 * 60 * 60 * 1000;
+  return observed >= start && observed <= end;
+}
+
 function checkLatest() {
   const latestDir = join(DATA_DIR, "latest");
   if (!existsSync(latestDir)) {
@@ -184,7 +192,7 @@ function checkHistory() {
 }
 
 /** Macro history (#96/#84 §3): per-group sparse bundles + manifest (two layers of #96). */
-const MACRO_GROUPS = ["rates", "credit", "volatility", "inflation", "labor", "liquidity", "fx"];
+const MACRO_GROUPS = ["rates", "credit", "volatility", "inflation", "labor", "liquidity", "fx", "industry"];
 
 function isValidDate(value) {
   if (typeof value !== "string" || !DATE_RE.test(value)) return false;
@@ -234,6 +242,7 @@ function checkMacroHistory() {
   }
 
   const latestMacro = loadJson("latest/macro.json");
+  const asOfDate = typeof latestMacro?.generated_at === "string" ? latestMacro.generated_at.slice(0, 10) : null;
   const payload = latestMacro?.payload;
   const expected = new Map();
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
@@ -319,12 +328,22 @@ function checkMacroHistory() {
     if (!isValidDate(lastObservation) || !isValidDate(nextRelease) || nextRelease <= lastObservation) {
       errors.push(`${macroDir}/index.json: ${series} has inconsistent observation dates`);
     }
+    if (isValidDate(asOfDate) && lastObservation > asOfDate) {
+      errors.push(`${macroDir}/index.json: ${series} observation is after the snapshot date`);
+    }
     const sliceColumns = {};
     for (const slice of ["30d", "90d"]) {
       const columns = bundles.get(`${group}.${slice}`)?.[series];
+      const windowDays = slice === "30d" ? 30 : 90;
+      const expectedInWindow = dateInWindow(lastObservation, asOfDate, windowDays);
       if (!columns || columns.d.length === 0) {
-        errors.push(`${macroDir}/${group}.${slice}.json: ${series} missing positive-count history`);
+        if (expectedInWindow) {
+          errors.push(`${macroDir}/${group}.${slice}.json: ${series} missing positive-count history`);
+        }
         continue;
+      }
+      if (!columns.d.every((observationDate) => dateInWindow(observationDate, asOfDate, windowDays))) {
+        errors.push(`${macroDir}/${group}.${slice}.json: ${series} contains an observation outside its calendar window`);
       }
       if (columns.d.at(-1) !== lastObservation) {
         errors.push(`${macroDir}/${group}.${slice}.json: ${series} last date disagrees with manifest`);

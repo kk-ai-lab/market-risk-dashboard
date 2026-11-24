@@ -4,6 +4,8 @@ import type * as echarts from "echarts/core";
 import { chartTheme } from "./theme";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDate, formatNumber } from "@/lib/format";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { useDocumentTheme } from "@/hooks/useDocumentTheme";
 import { CONTRACT_CONSTANTS } from "@/schemas/generated";
 
 /** jsdom / no-canvas environment → fall back to HTML (avoid zrender animation loop crashes). */
@@ -66,6 +68,8 @@ function insertDateGaps(points: RiskTrendPointInput[]): RiskTrendDisplayPoint[] 
 export function RiskTrendChart({ points, height = 260 }: RiskTrendChartProps) {
   const { t, i18n } = useTranslation("dashboard");
   const locale = i18n.language;
+  const reducedMotion = useReducedMotion();
+  const theme = useDocumentTheme();
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const [mode, setMode] = useState<"echarts" | "fallback">("echarts");
@@ -149,7 +153,7 @@ export function RiskTrendChart({ points, height = 260 }: RiskTrendChartProps) {
       chartRef.current?.dispose();
       chartRef.current = null;
     };
-  }, [chartData.series.length]);
+  }, [chartData.series.length, reducedMotion]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -157,6 +161,9 @@ export function RiskTrendChart({ points, height = 260 }: RiskTrendChartProps) {
     const th = chartTheme();
     chart.setOption(
       {
+        animation: !reducedMotion,
+        animationDuration: reducedMotion ? 0 : 180,
+        animationDurationUpdate: reducedMotion ? 0 : 120,
         grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
         legend: {
           top: 0,
@@ -216,7 +223,7 @@ export function RiskTrendChart({ points, height = 260 }: RiskTrendChartProps) {
       },
       { notMerge: true },
     );
-  }, [chartData, locale, t, chartReady]);
+  }, [chartData, locale, reducedMotion, t, chartReady, theme]);
 
   if (points.length === 0) {
     return (

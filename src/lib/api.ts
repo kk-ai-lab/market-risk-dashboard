@@ -19,7 +19,7 @@ import { PublicationSession } from "@/lib/publication";
  */
 
 /** Macro group names (must mirror pipeline/collectors/macro.py SERIES_GROUPS keys, #96). */
-export type MacroGroupName = "rates" | "credit" | "volatility" | "inflation" | "labor" | "liquidity" | "fx";
+export type MacroGroupName = "rates" | "credit" | "volatility" | "inflation" | "labor" | "liquidity" | "fx" | "industry";
 
 export type DatasetOptions = {
   lang?: "zh-CN" | "en";
@@ -30,7 +30,6 @@ export type DatasetOptions = {
 
 export type MetadataKey = "sources" | "freshness" | "schema-version" | "translations";
 
-/** Bound every static-data request so a broken Pages edge cannot hold a query forever. */
 export const DATA_REQUEST_TIMEOUT_MS = 10_000;
 
 /** History series key (architecture §1.7: history/risk/*, history/market/*).

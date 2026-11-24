@@ -48,7 +48,7 @@ export function RiskDimensionBreakdown({ result }: RiskDimensionBreakdownProps) 
         <CardHeader>
           <CardTitle>{t("score.breakdown")}</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <div className="rounded-md bg-muted/50 p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("score.title")}</p>
             <p className={`text-3xl font-bold tabular-nums ${totalClasses.text}`}>{hasEvidence && result.total_score !== null ? formatNumber(result.total_score, locale) : t("common:data.na")}</p>
@@ -58,18 +58,11 @@ export function RiskDimensionBreakdown({ result }: RiskDimensionBreakdownProps) 
             <p className="text-2xl font-semibold tabular-nums">{formatRatio(result.confidence, locale)}</p>
             <Progress value={result.confidence * 100} barClassName={totalClasses.bg} className="mt-1" />
           </div>
-          <div className="rounded-md bg-muted/50 p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("score.modelVersion")}</p>
-            <p className="text-lg font-semibold tabular-nums">{result.model_version}</p>
-          </div>
           <div className="rounded-md bg-muted/50 p-3" data-testid="risk-calibration-policy">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("calibration.title")}</p>
             <Badge variant={result.calibration_status === "calibrated" ? "low" : "caution"}>
               {t(`calibration.${result.calibration_status ?? "provisional"}`)}
             </Badge>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {t("calibration.version")}: <span className="tabular-nums text-foreground">{result.calibration_policy_version ?? "1.0.0"}</span>
-            </p>
           </div>
           <div className="rounded-md bg-muted/50 p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("confidenceFactors.title")}</p>

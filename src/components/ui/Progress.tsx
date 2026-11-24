@@ -23,7 +23,7 @@ export function Progress({ value, className, barClassName, barHeightClass = "h-2
       {...props}
     >
       <div
-        className={cn("h-full rounded-full transition-all", barClassName)}
+        className={cn("h-full rounded-full transition-[width] duration-motion-standard ease-motion-standard", barClassName)}
         style={{ width: `${clamped}%` }}
       />
     </div>

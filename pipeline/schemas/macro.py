@@ -12,7 +12,10 @@ from pydantic import Field
 
 from .envelope import BaseEnvelope, ContractModel, FreshnessStatus, UTCDateTime
 
-MacroUnit = Literal["pct", "bps", "index", "usd", "ratio", "level"]
+MacroUnit = Literal[
+    "pct", "bps", "index", "usd", "usd_millions", "usd_billions",
+    "usd_per_eur", "jpy_per_usd", "cny_per_usd", "ratio", "level", "thousands",
+]
 
 
 class MacroFreshnessPolicy(ContractModel):
@@ -37,7 +40,7 @@ class MacroIndicator(ContractModel):
     fetched_at: UTCDateTime | None = None
     status: FreshnessStatus = "fresh"
     freshness_policy: MacroFreshnessPolicy | None = None
-    availability_reason: Literal["latest_yoy_period_unavailable"] | None = None
+    availability_reason: Literal["latest_yoy_period_unavailable", "public_source_unlicensed"] | None = None
     availability_period: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
 
 
@@ -74,6 +77,7 @@ class MacroDataset(ContractModel):
     labor: list[MacroIndicator] = Field(default_factory=list)
     liquidity: list[MacroIndicator] = Field(default_factory=list)
     fx: list[MacroIndicator] = Field(default_factory=list)
+    industry: list[MacroIndicator] = Field(default_factory=list)
     fedwatch: FedWatchSnapshot | None = None
 
 

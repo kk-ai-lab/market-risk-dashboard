@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { useDataset } from "@/hooks/useDataset";
 import { KEY_US_STOCKS } from "@/config/universe";
 import type { EquitiesEnvelope, SectorsEnvelope } from "@/schemas";
@@ -11,6 +12,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/layout/StatusBadge";
 import { displayLocalizedValue } from "@/lib/displayLanguage";
+import { FreshnessDocument } from "@/schemas";
 
 /**
  * EquitiesPage: equities page (Equity Monitor).
@@ -21,6 +23,7 @@ export default function EquitiesPage() {
   const locale = i18n.language;
   const equitiesQ = useDataset<EquitiesEnvelope>("equities");
   const sectorsQ = useDataset<SectorsEnvelope>("sectors");
+  const freshnessQ = useDataset<FreshnessDocument>("freshness", {}, FreshnessDocument);
 
   const usAssets =
     equitiesQ.data?.payload.assets.filter((a) => a.market === "US" && KEY_US_STOCKS.includes(a.symbol)) ?? [];
@@ -29,6 +32,8 @@ export default function EquitiesPage() {
 
   // Cross-Asset cards: key stocks + crypto + sector proxies
   const crossAssets = equitiesQ.data?.payload.assets.filter((a) => KEY_US_STOCKS.includes(a.symbol)) ?? [];
+  const hasPrices = crossAssets.length > 0 || usAssets.length > 0 || cnAssets.length > 0;
+  const localeSegment = locale.startsWith("zh") ? "zh" : "en";
 
   return (
     <div className="flex flex-col gap-4">
@@ -37,17 +42,19 @@ export default function EquitiesPage() {
           {t("title")}
         </h1>
         <p className="text-xs text-muted-foreground">{t("subtitle")}</p>
-        {equitiesQ.data ? <span className="ml-auto"><StatusBadge dataset="equities" generatedAt={equitiesQ.data.generated_at} status={equitiesQ.data.freshness_status} fromCache={equitiesQ.data.provenance?.from_cache} withDescription /></span> : null}
+        {equitiesQ.data && hasPrices ? <span className="ml-auto"><StatusBadge dataset="equities" generatedAt={equitiesQ.data.generated_at} status={equitiesQ.data.freshness_status} fromCache={equitiesQ.data.provenance?.from_cache} withDescription /></span> : null}
       </header>
 
-      {/* Cross-Asset cards (open section; AssetCards are the KPI cards) */}
-      <section className="border-t border-hairline pt-4">
+      {equitiesQ.isLoading || freshnessQ.isLoading ? <Skeleton className="h-32 w-full" /> : equitiesQ.isError ? <ErrorState onRetry={equitiesQ.refetch} /> : !hasPrices ? (
+        <div>
+          <EmptyState title={t("section.empty")} message={t(freshnessQ.data?.datasets.equities?.reason.code === "source_policy_excluded" ? "empty.publicPricesUnavailable" : "empty.pricesUnavailable")} className="min-h-28" data-testid="equities-public-source-empty" />
+          <Link className="mt-2 inline-flex text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground" to={`/${localeSegment}/status`}>{t("empty.viewStatus")}</Link>
+        </div>
+      ) : (
+      <>
+      {crossAssets.length > 0 ? <section className="border-t border-hairline pt-4">
         <h2 className="mb-2 text-sm font-medium text-foreground">{t("section.crossAsset")}</h2>
-        {equitiesQ.isLoading ? (
-            <Skeleton className="h-24 w-full" />
-          ) : equitiesQ.isError ? (
-            <ErrorState onRetry={equitiesQ.refetch} />
-          ) : crossAssets.length > 0 ? (
+        {crossAssets.length > 0 ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5" data-testid="cross-asset-cards">
               {crossAssets.map((a) => (
                 <AssetCard
@@ -60,33 +67,25 @@ export default function EquitiesPage() {
                 />
               ))}
             </div>
-          ) : (
-            <EmptyState title={t("section.empty")} />
-          )}
-      </section>
+          ) : null}
+      </section> : null}
 
       {/* Key US equities */}
-      <section className="border-t border-hairline pt-4" data-testid="section-us">
+      {usAssets.length > 0 ? <section className="border-t border-hairline pt-4" data-testid="section-us">
         <h2 className="mb-2 text-sm font-medium text-foreground">{t("section.us")}</h2>
-        {equitiesQ.isLoading ? (
-          <Skeleton className="h-40 w-full" />
-        ) : equitiesQ.isError ? (
-          <ErrorState onRetry={equitiesQ.refetch} />
-        ) : usAssets.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="us-equity-cards">
-            {usAssets.map((a) => (
-              <EquityCard key={a.symbol} asset={a} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState title={t("section.empty")} />
-        )}
-      </section>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="us-equity-cards">
+          {usAssets.map((a) => (
+            <EquityCard key={a.symbol} asset={a} />
+          ))}
+        </div>
+      </section> : null}
 
-      {/* Memory sector + A-shares */}
-      <section className="border-t border-hairline pt-4" data-testid="section-memory">
+      </>
+      )}
+
+      {memory || cnAssets.length > 0 ? <section className="border-t border-hairline pt-4" data-testid="section-memory">
         <MemorySectorTable assets={cnAssets} memory={memory} />
-      </section>
+      </section> : sectorsQ.isLoading ? <Skeleton className="h-32 w-full" /> : sectorsQ.isError ? <ErrorState onRetry={sectorsQ.refetch} /> : null}
 
       {/* A-share cards (mobile; the long table is above in the desktop view, this adds card views) */}
       {cnAssets.length > 0 ? (
@@ -100,11 +99,6 @@ export default function EquitiesPage() {
         </section>
       ) : null}
 
-      {cnAssets.length === 0 ? (
-        <p className="text-xs text-muted-foreground" data-testid="ashare-missing-note">
-          {t("aShare.degraded")}
-        </p>
-      ) : null}
     </div>
   );
 }

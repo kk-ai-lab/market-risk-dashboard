@@ -1,9 +1,10 @@
 {
   "title": "总览",
-  "subtitle": "跨资产市场数据、风险评分与主要驱动因素",
+  "subtitle": "市场状况、数据覆盖与主要信号",
   "heatmap": {
     "title": "跨资产热力图",
     "empty": "暂无跨资产数据",
+    "unlicensedCount": "{{count}} 项行情当前不可用，已隐藏。可在“状态”查看数据源和许可详情。",
     "legend": "日内方向",
     "assetsCount": "{{count}} 项资产",
     "unknownCategory": "其他资产",
@@ -67,6 +68,9 @@
     "iceNote": "ICE 数据指数有限责任公司，经由 FRED",
     "displayOnlyNote": "仅供参考，不计入风险评分",
     "notConfigured": "尚未配置",
+    "creditSourcesUnavailable": "信用利差数据源不允许公开再分发，因此暂不显示。",
+    "creditDataUnavailable": "信用利差数据暂时无法获取。",
+    "viewStatus": "查看数据状态",
     "observed": "观测日期",
     "fullCitation": "完整数据引用",
     "hyCitation": "ICE BofA 美国高收益债券指数期权调整利差 [BAMLH0A0HYM2]，数据来自圣路易斯联邦储备银行 FRED 数据库。",

@@ -61,7 +61,7 @@ export default function CalendarPage() {
               onClick={() => setFilter("all")}
               aria-pressed={filter === "all"}
               className={cn(
-                "rounded-full border px-2.5 py-1 text-xs min-h-[28px] transition-colors",
+                "rounded-full border px-2.5 py-1 text-xs min-h-[28px] transition-[color,background-color,border-color,opacity,transform] duration-motion-quick ease-motion-standard",
                 filter === "all"
                   ? "border-fresh-ok/40 bg-fresh-ok/10 text-fresh-ok"
                   : "border-hairline text-muted-foreground hover:text-foreground",
@@ -73,10 +73,10 @@ export default function CalendarPage() {
               <button
                 key={type}
                 type="button"
-                onClick={() => setFilter(type)}
+                onClick={() => setFilter((current) => current === type ? "all" : type)}
                 aria-pressed={filter === type}
                 className={cn(
-                  "rounded-full border px-2.5 py-1 text-xs min-h-[28px] transition-colors",
+                  "rounded-full border px-2.5 py-1 text-xs min-h-[28px] transition-[color,background-color,border-color,opacity,transform] duration-motion-quick ease-motion-standard",
                   filter === type
                     ? "border-fresh-ok/40 bg-fresh-ok/10 text-fresh-ok"
                     : "border-hairline text-muted-foreground hover:text-foreground",
@@ -86,7 +86,10 @@ export default function CalendarPage() {
               </button>
             ))}
           </div>
-          <CalendarList events={filtered} />
+          {filter !== "all" ? <span className="sr-only" aria-live="polite" aria-atomic="true">{t("filter.resultCount", { count: filtered.length })}</span> : null}
+          <div key={filter} className="content-transition">
+            <CalendarList events={filtered} />
+          </div>
         </div>
       ) : (
         <EmptyState title={t("none")} />

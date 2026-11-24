@@ -39,7 +39,7 @@ export type EventType = z.infer<typeof EventType>;
 export const FreshnessStatus = z.enum(["fresh", "delayed", "stale", "empty", "missing", "degraded"]);
 export type FreshnessStatus = z.infer<typeof FreshnessStatus>;
 
-export const MacroUnit = z.enum(["pct", "bps", "index", "usd", "ratio", "level"]);
+export const MacroUnit = z.enum(["pct", "bps", "index", "usd", "usd_millions", "usd_billions", "usd_per_eur", "jpy_per_usd", "cny_per_usd", "ratio", "level", "thousands"]);
 export type MacroUnit = z.infer<typeof MacroUnit>;
 
 export const Market = z.enum(["US", "CN", "KR", "HK"]);
@@ -703,7 +703,7 @@ export const MacroIndicator = z
     fetched_at: utcDateTime.nullable().default(null),
     status: FreshnessStatus.default("fresh"),
     freshness_policy: MacroFreshnessPolicy.nullable().default(null),
-    availability_reason: z.string().nullable().default(null),
+    availability_reason: z.enum(["latest_yoy_period_unavailable", "public_source_unlicensed"]).nullable().default(null),
     availability_period: z.string().regex(new RegExp("^\\d{4}-(0[1-9]|1[0-2])$")).nullable().default(null),
   })
   .passthrough();
@@ -719,6 +719,7 @@ export const MacroDataset = z
     labor: z.array(MacroIndicator).default([]),
     liquidity: z.array(MacroIndicator).default([]),
     fx: z.array(MacroIndicator).default([]),
+    industry: z.array(MacroIndicator).default([]),
     fedwatch: FedWatchSnapshot.nullable().default(null),
   })
   .passthrough();

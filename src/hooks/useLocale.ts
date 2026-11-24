@@ -9,6 +9,14 @@ import {
 } from "@/i18n";
 import { localeSegment, pageFromHash, pagePath } from "@/config/routes";
 
+function storeLocale(locale: SupportedLocale): void {
+  try {
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+  } catch {
+    return;
+  }
+}
+
 /**
  * useLocale: language detection + switching (architecture §1.9).
  * - Language priority: URL language segment → localStorage → default en.
@@ -39,11 +47,7 @@ export function useLocale(): UseLocaleResult {
 
   const setLocale = (next: SupportedLocale): void => {
     if (next === currentLocale()) return;
-    try {
-      window.localStorage.setItem(LOCALE_STORAGE_KEY, next);
-    } catch {
-      // Some private-browser environments expose localStorage without storage access.
-    }
+    storeLocale(next);
     // Language switching does not navigate home: read the current page from the hash (layout components like Navbar cannot access child route params.page)
     const page = params.page ?? pageFromHash(window.location.hash) ?? "overview";
     void i18n.changeLanguage(next);
