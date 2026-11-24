@@ -3,7 +3,7 @@ import { ExternalLink, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { ImportanceBadge } from "./ImportanceBadge";
 import { formatRelativeTime } from "@/lib/format";
-import { displayNewsSource, safeDisplayText } from "@/lib/displayLanguage";
+import { displayNewsSource, isDisplayTextSafe } from "@/lib/displayLanguage";
 import type { NewsItem } from "@/schemas";
 
 /**
@@ -13,6 +13,14 @@ import type { NewsItem } from "@/schemas";
 export interface NewsCardProps {
   item: NewsItem;
 }
+
+type NewsText = {
+  text: string;
+  lang: "en" | "zh-CN";
+  sourceFallback: boolean;
+};
+
+const CJK_PATTERN = /[\u3400-\u9fff]/u;
 
 function SentimentIcon({ sentiment }: { sentiment: NewsItem["sentiment"] }) {
   if (sentiment === "positive") return <TrendingUp className="h-3.5 w-3.5 text-risk-low" aria-hidden />;
@@ -25,17 +33,37 @@ export function NewsCard({ item }: NewsCardProps) {
   const locale = i18n.language;
   const zh = locale.toLowerCase().startsWith("zh");
   const unavailable = t("translationUnavailable");
-  function newsText(field: "title" | "summary"): string {
-    const original = item[field];
-    const chinese = field === "title" ? item.title_zh : item.summary_zh;
-    if (item.lang === "zh" && !chinese?.trim()) {
-      return zh ? original.trim() || unavailable : unavailable;
+  function newsText(field: "title" | "summary"): NewsText | null {
+    const original = item[field]?.trim() ?? "";
+    const translated = (field === "title" ? item.title_zh : item.summary_zh)?.trim() ?? "";
+    const hasChineseTranslation = Boolean(translated && CJK_PATTERN.test(translated));
+    if (zh) {
+      if (hasChineseTranslation) {
+        return { text: translated, lang: "zh-CN", sourceFallback: false };
+      }
+      if (item.lang === "zh" && CJK_PATTERN.test(original)) {
+        return { text: original, lang: "zh-CN", sourceFallback: false };
+      }
+      if (item.lang === "en" && original && isDisplayTextSafe(original, "en")) {
+        return { text: original, lang: "en", sourceFallback: true };
+      }
+      return field === "title" || translated || original
+        ? { text: unavailable, lang: "zh-CN", sourceFallback: false }
+        : null;
     }
-    return safeDisplayText(zh ? chinese : original, locale, unavailable);
+    if (item.lang === "en" && original && isDisplayTextSafe(original, locale)) {
+      return { text: original, lang: "en", sourceFallback: false };
+    }
+    if (item.lang === "zh" && original && isDisplayTextSafe(original, "en")) {
+      return { text: original, lang: "en", sourceFallback: false };
+    }
+    return field === "title" || translated || original
+      ? { text: unavailable, lang: "en", sourceFallback: false }
+      : null;
   }
   const title = newsText("title");
-  const rawSummary = zh ? item.summary_zh || (item.lang === "zh" ? item.summary : null) : item.summary;
-  const summary = rawSummary && newsText("summary");
+  const summary = newsText("summary");
+  const hasEnglishFallback = Boolean(title?.sourceFallback || summary?.sourceFallback);
 
   return (
     <Card data-testid="news-card">
@@ -57,10 +85,11 @@ export function NewsCard({ item }: NewsCardProps) {
             <ExternalLink className="h-3 w-3" aria-hidden />
           </a>
         </div>
-        <p className="break-words text-base font-medium leading-snug text-foreground">{title}</p>
-        {summary ? <p className="break-words text-base leading-relaxed text-muted-foreground">{summary}</p> : null}
+        {title ? <p lang={title.lang} className="break-words text-base font-medium leading-snug text-foreground">{title.text}</p> : null}
+        {summary ? <p lang={summary.lang} className="break-words text-base leading-relaxed text-muted-foreground">{summary.text}</p> : null}
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <span className="rounded bg-muted px-1.5 py-0.5">{displayNewsSource(item.source, locale)}</span>
+          {hasEnglishFallback ? <span className="rounded bg-muted px-1.5 py-0.5" data-testid="news-source-language">{t("sourceLanguageFallback")}</span> : null}
           {item.assets.length > 0 ? (
             <span className="flex items-center gap-1">
               {item.assets.slice(0, 4).map((a) => (

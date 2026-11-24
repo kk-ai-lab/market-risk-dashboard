@@ -28,12 +28,14 @@ function renderWithI18n(ui: React.ReactNode, lang: "zh-CN" | "en") {
         news: {
           readMore: "阅读更多",
           translationUnavailable: "暂无本语言翻译",
+          sourceLanguageFallback: "英文原文",
         },
       },
       en: {
         news: {
           readMore: "Read more",
           translationUnavailable: "Translation unavailable",
+          sourceLanguageFallback: "English original",
         },
       },
     },
@@ -102,9 +104,10 @@ describe("Chinese wrapping", () => {
     expect(screen.getByText(zhSummary)).toBeDefined();
   });
 
-  it("Chinese UI fails closed when an English title has no translation", () => {
+  it("Chinese UI marks an untranslated English title as original-language text", () => {
     renderWithI18n(<NewsCard item={makeItem({ title: LONG_EN_TITLE, title_zh: null })} />, "zh-CN");
-    expect(screen.getByText("暂无本语言翻译")).toBeDefined();
-    expect(screen.queryByText(LONG_EN_TITLE)).not.toBeInTheDocument();
+    expect(screen.getByText("英文原文")).toBeDefined();
+    expect(screen.getByText(LONG_EN_TITLE)).toHaveAttribute("lang", "en");
+    expect(screen.queryByText("暂无本语言翻译")).not.toBeInTheDocument();
   });
 });

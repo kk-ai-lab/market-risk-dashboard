@@ -22,5 +22,6 @@
     "mediumPlus": "中及以上",
     "resultCount": "显示 {{count}} 条公告"
   },
-  "translationUnavailable": "暂无本语言翻译"
+  "translationUnavailable": "暂无本语言翻译",
+  "sourceLanguageFallback": "英文原文"
 }

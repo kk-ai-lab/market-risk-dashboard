@@ -22,5 +22,6 @@
     "mediumPlus": "Medium+",
     "resultCount": "{{count}} announcements shown"
   },
-  "translationUnavailable": "Translation unavailable"
+  "translationUnavailable": "Translation unavailable",
+  "sourceLanguageFallback": "English original"
 }
