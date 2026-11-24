@@ -8,8 +8,8 @@ import pytest
 
 from pipeline.collectors.news import NewsCollector, canonical_link
 from pipeline.config.models import NewsSource
-from pipeline.providers._util import declared_user_agent
 from pipeline.providers.base import ProviderError
+from pipeline.providers._util import declared_user_agent
 from pipeline.providers.rss_news import RssNewsProvider
 from pipeline.settings import Settings
 
@@ -99,7 +99,7 @@ def test_missing_date_is_rejected_instead_of_using_now(tmp_path, monkeypatch) ->
         provider.fetch_news()
 
 
-def test_official_source_policy_skips_sec_without_contact_and_keeps_fed(
+def test_official_source_policy_fetches_sec_rss_with_contact(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -108,13 +108,14 @@ def test_official_source_policy_skips_sec_without_contact_and_keeps_fed(
         approved_sources_only=True,
         config_dir=Settings(_env_file=None).config_dir,
         artifacts_dir=tmp_path,
+        sec_contact_email="sec@example.com",
     )
     plan = settings.load_public_source_policy().collection_plan()
     provider = RssNewsProvider(settings, collection_plan=plan)
-    requests: list[str] = []
+    requests: list[tuple[str, str | None]] = []
 
-    def fetch(url: str):
-        requests.append(url)
+    def fetch(url: str, *, user_agent: str | None = None):
+        requests.append((url, user_agent))
         return ([ENTRY], None)
 
     monkeypatch.setattr(provider, "_fetch_feed", fetch)
@@ -122,19 +123,22 @@ def test_official_source_policy_skips_sec_without_contact_and_keeps_fed(
     items = provider.fetch_news()
 
     assert [source.id for source in provider.sources] == ["fed", "sec_press"]
-    assert requests == ["https://www.federalreserve.gov/feeds/press_all.xml"]
-    assert len(items) == 1
+    assert requests == [
+        ("https://www.federalreserve.gov/feeds/press_all.xml", None),
+        (
+            "https://www.sec.gov/news/pressreleases.rss",
+            declared_user_agent("sec@example.com"),
+        ),
+    ]
+    assert len(items) == 2
     assert provider.source_status["fed"]["ok"] is True
-    assert provider.source_status["sec_press"]["state"] == "not_configured"
-    assert "no request was sent" in provider.source_status["sec_press"]["detail"]
+    assert provider.source_status["sec_press"]["ok"] is True
 
 
-def test_sec_feed_uses_declared_contact_user_agent(tmp_path, monkeypatch) -> None:
-    contact = "risk-dashboard@example.com"
+def test_sec_rss_is_not_requested_without_contact(tmp_path, monkeypatch) -> None:
     settings = Settings(
         _env_file=None,
         approved_sources_only=True,
-        sec_contact_email=contact,
         config_dir=Settings(_env_file=None).config_dir,
         artifacts_dir=tmp_path,
     )
@@ -150,13 +154,8 @@ def test_sec_feed_uses_declared_contact_user_agent(tmp_path, monkeypatch) -> Non
 
     provider.fetch_news()
 
-    assert requests == [
-        ("https://www.federalreserve.gov/feeds/press_all.xml", None),
-        (
-            "https://www.sec.gov/news/pressreleases.rss",
-            declared_user_agent(contact),
-        ),
-    ]
+    assert requests == [("https://www.federalreserve.gov/feeds/press_all.xml", None)]
+    assert provider.source_status["sec_press"]["state"] == "not_configured"
 
 
 def test_sec_contact_email_rejects_invalid_values() -> None:

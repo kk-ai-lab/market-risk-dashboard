@@ -5,6 +5,7 @@ import re
 import time
 from datetime import UTC, date, datetime, timedelta
 from datetime import time as day_time
+from html.parser import HTMLParser
 from io import BytesIO
 from typing import Any
 from xml.etree import ElementTree as ET
@@ -12,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 
 from pipeline.providers.base import (
     MAX_RESPONSE_BYTES,
@@ -23,11 +25,44 @@ from pipeline.providers.base import (
 from pipeline.utils import now_utc
 
 DOL_CLAIMS_URL = "https://oui.doleta.gov/unemploy/wkclaims/report.asp"
+DOL_CLAIMS_FORM_URL = "https://oui.doleta.gov/unemploy/claims.asp"
 DOL_ADVANCE_CLAIMS_URL = "https://www.dol.gov/ui/data.pdf"
 SERIES_PATHS = {"ICSA": ("InitialClaims", "SA"), "CCSA": ("ContinuedClaims", "SA")}
 RELEASE_TIME_ET = day_time(8, 30)
 RELEASE_SAFETY_DELAY = timedelta(minutes=1)
 EASTERN = ZoneInfo("America/New_York")
+
+
+class _ClaimsFormParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self._in_claims_form = False
+        self.final_year: str | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        if tag.lower() == "form":
+            self._in_claims_form = attributes.get("name") == "wkclaim"
+        elif (
+            self._in_claims_form
+            and tag.lower() == "input"
+            and attributes.get("type", "").lower() == "hidden"
+            and attributes.get("name") == "final_yr"
+        ):
+            self.final_year = attributes.get("value")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() == "form":
+            self._in_claims_form = False
+
+
+def _claims_form_final_year(document: str) -> str:
+    parser = _ClaimsFormParser()
+    parser.feed(document)
+    final_year = parser.final_year
+    if final_year is None or not final_year.isdigit() or len(final_year) != 4:
+        return str(datetime.now(EASTERN).year + 1)
+    return final_year
 
 
 def _is_report_public(release_date: date, fetched_at: str) -> bool:
@@ -135,14 +170,22 @@ class DolClaimsProvider(BaseProvider):
         if key in self._cache:
             return self._cache[key]
         start_day, end_day = date.fromisoformat(start), date.fromisoformat(end)
+        form = self._client.get(DOL_CLAIMS_FORM_URL)
+        if form.status_code != 200:
+            raise ProviderError.from_http("DOL UI claims form", form)
+        if len(form.content) > MAX_RESPONSE_BYTES:
+            raise ProviderError("DOL UI claims: form exceeds response size limit")
+        final_year = _claims_form_final_year(form.text)
         response = self._client.post(
             DOL_CLAIMS_URL,
+            headers={"Referer": DOL_CLAIMS_FORM_URL},
             data={
                 "level": "us",
                 "strtdate": str(start_day.year),
                 "enddate": str(end_day.year),
                 "filetype": "xml",
                 "submit": "Submit",
+                "final_yr": final_year,
             },
         )
         if response.status_code != 200:
@@ -207,7 +250,11 @@ class DolClaimsProvider(BaseProvider):
                 raise
             rows = {series: [] for series in SERIES_PATHS}
         combined = {row["date"]: row for row in rows[series_id]}
-        for row in self._fetch_advance_release()[series_id]:
+        try:
+            advance_rows = self._fetch_advance_release()
+        except ProviderError:
+            advance_rows = {series: [] for series in SERIES_PATHS}
+        for row in advance_rows[series_id]:
             if start_day <= date.fromisoformat(row["date"]) <= end_day:
                 combined[row["date"]] = row
         return [combined[day] for day in sorted(combined)]
@@ -231,5 +278,5 @@ class DolClaimsProvider(BaseProvider):
             return parsed
         except ProviderError:
             raise
-        except (httpx.HTTPError, OSError, ValueError, TypeError) as exc:
+        except (httpx.HTTPError, OSError, ValueError, TypeError, PdfReadError) as exc:
             raise ProviderError("DOL advance weekly claims: official release could not be parsed") from exc
